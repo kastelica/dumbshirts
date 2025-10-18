@@ -1,58 +1,67 @@
 """
-Standalone test to generate an image with OpenAI (for Heroku dyno testing).
+Standalone test to generate a simple PNG using Pillow (no network).
 
 Usage (Heroku):
-  heroku run --app <your-app> python scripts/test_openai_image.py "Your prompt here"
+  heroku run --app <your-app> python scripts/test_openai_image.py "Your text here"
 
-Requires env var OPENAI_API_KEY. Saves PNG under app/static/uploads and prints the path.
+Saves PNG under app/static/uploads and prints the path and URL (if BASE_URL set).
 """
 import os
 import sys
 import time
-from base64 import b64decode
+from PIL import Image, ImageDraw, ImageFont  # type: ignore
+
+
+def wrap_text(text: str, width: int = 18) -> str:
+    words = text.split()
+    lines = []
+    line = ""
+    for w in words:
+        if len(line) + len(w) + 1 > width:
+            lines.append(line)
+            line = w
+        else:
+            line = (line + " " + w).strip()
+    if line:
+        lines.append(line)
+    return "\n".join(lines[:6])
 
 
 def main() -> int:
-    prompt = sys.argv[1] if len(sys.argv) > 1 else "Bold wordmark: DUMBSHIRTS"
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        print("ERROR: OPENAI_API_KEY not set")
-        return 2
+    text = sys.argv[1] if len(sys.argv) > 1 else "Dumbshirts.store"
+    here = os.path.dirname(os.path.abspath(__file__))
+    uploads = os.path.join(os.path.dirname(here), "app", "static", "uploads")
+    os.makedirs(uploads, exist_ok=True)
 
-    os.environ["OPENAI_API_KEY"] = api_key
+    # Transparent 1024x1024 canvas
+    img = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
     try:
-        from openai import OpenAI  # type: ignore
-    except Exception as e:
-        print(f"ERROR: failed to import openai sdk: {e}")
-        return 2
+        # Try to load a nicer font if available on dyno; otherwise default
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 64)
+    except Exception:
+        font = ImageFont.load_default()
 
+    content = wrap_text(text, width=18)
+    # Compute text size and center
     try:
-        client = OpenAI().with_options(timeout=30.0)
-        print(f"Generating image for prompt: {prompt!r}")
-        t0 = time.time()
-        res = client.images.generate(model="gpt-image-1", prompt=prompt, size="1024x1024")
-        b64 = res.data[0].b64_json
-        img = b64decode(b64)
-        # Save under app/static/uploads
-        here = os.path.dirname(os.path.abspath(__file__))
-        uploads = os.path.join(os.path.dirname(here), "app", "static", "uploads")
-        os.makedirs(uploads, exist_ok=True)
-        fname = f"openai_test_{int(time.time())}.png"
-        path = os.path.join(uploads, fname)
-        with open(path, "wb") as f:
-            f.write(img)
-        dt = time.time() - t0
-        print("OK")
-        print(f"saved: {path}")
-        print(f"elapsed_s: {dt:.2f}")
-        # If BASE_URL is set, show absolute URL
-        base_url = os.getenv("BASE_URL", "").rstrip("/")
-        if base_url:
-            print(f"url: {base_url}/static/uploads/{fname}")
-        return 0
-    except Exception as e:
-        print(f"ERROR: generation failed: {e}")
-        return 1
+        w, h = draw.multiline_textbbox((0, 0), content, font=font, spacing=6)[2:]
+    except Exception:
+        w, h = draw.multiline_textsize(content, font=font, spacing=6)
+    x = (1024 - w) // 2
+    y = (1024 - h) // 2
+    draw.multiline_text((x, y), content, fill=(0, 0, 0, 255), font=font, align="center", spacing=6)
+
+    fname = f"pillow_test_{int(time.time())}.png"
+    path = os.path.join(uploads, fname)
+    img.save(path, format="PNG")
+
+    print("OK")
+    print(f"saved: {path}")
+    base_url = os.getenv("BASE_URL", "").rstrip("/")
+    if base_url:
+        print(f"url: {base_url}/static/uploads/{fname}")
+    return 0
 
 
 if __name__ == "__main__":
