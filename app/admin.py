@@ -180,7 +180,8 @@ def _create_product_for_design(design: Design) -> Product:
 	markup_percent = Decimal(str(current_app.config.get("MARKUP_PERCENT", 35)))
 	price = (base_cost * (Decimal(1) + markup_percent / Decimal(100))).quantize(Decimal("0.01"))
 
-	title = f"Trending '{design.text}' Tee"
+	# Use the raw trend term as the product title (no prefixes/suffixes)
+	title = (design.text or "").strip()
 	base_slug = slugify(title)
 	slug = base_slug or slugify(design.text) or "product"
 	idx = 2
