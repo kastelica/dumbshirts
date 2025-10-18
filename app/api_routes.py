@@ -47,6 +47,7 @@ def gelato_test_order():
 	body = request.get_json(silent=True) or {}
 	shipment_uid = body.get("shipment_method_uid") or current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express")
 	items = []
+	used_previews = []
 	first_title = None
 	base_url = current_app.config.get("BASE_URL", "http://localhost:5000")
 	for it in cart.get("items", []):
@@ -66,6 +67,7 @@ def gelato_test_order():
 			"files": [{"type": "default", "url": preview}],
 			"quantity": int(it.get("quantity", 1)),
 		})
+		used_previews.append(preview)
 	date_str = datetime.utcnow().strftime("%Y-%m-%d")
 	reference_base = first_title or "trendmerch"
 	order_ref = f"tm-{date_str}-{reference_base[:40]}"  # limit length
@@ -92,7 +94,7 @@ def gelato_test_order():
 	}
 	try:
 		resp = client.create_order(payload)
-		return jsonify({"ok": True, "gelato": resp, "orderReferenceId": order_ref})
+		return jsonify({"ok": True, "gelato": resp, "orderReferenceId": order_ref, "files": used_previews, "base_url": base_url})
 	except requests.HTTPError as he:
 		r = he.response
 		return jsonify({"error": r.text if r is not None else str(he)}), 400
