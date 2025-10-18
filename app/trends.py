@@ -1,6 +1,5 @@
 from typing import List, Tuple, Dict
 from datetime import datetime
-from trendspy import Trends
 import requests
 import re
 import os
@@ -16,15 +15,6 @@ _DEF_HL_GL = {
 }
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search"
-
-
-def _extract_from_trendspy(trends, limit: int) -> List[str]:
-	phrases: List[str] = []
-	for t in trends[:limit]:
-		title = getattr(t, 'title', '') or getattr(t, 'query', '') or ''
-		if title:
-			phrases.append(title.strip())
-	return phrases
 
 
 def fetch_serpapi_trending_phrases_debug(geo: str = "US", limit: int = 10) -> Tuple[List[str], Dict[str, str]]:
@@ -101,25 +91,13 @@ def fetch_serpapi_trending_phrases_debug(geo: str = "US", limit: int = 10) -> Tu
 
 
 def fetch_trending_phrases_debug(geo: str = "US", limit: int = 10) -> Tuple[List[str], Dict[str, str]]:
-	# Trendspy as a light attempt (may return empty in some envs)
-	debug: Dict[str, str] = {"geo": geo, "limit": str(limit)}
-	tr = Trends()
-	phrases: List[str] = []
-	try:
-		items_rss = tr.trending_now_by_rss(geo=geo)
-		debug["endpoint"] = "trendspy.trending_now_by_rss"
-		phrases = _extract_from_trendspy(items_rss, limit)
-	except Exception as e:
-		debug["trendspy_rss_error"] = str(e)
-	if not phrases:
-		try:
-			items = tr.trending_now(geo=geo)
-			debug["endpoint"] = "trendspy.trending_now"
-			phrases = _extract_from_trendspy(items, limit)
-		except Exception as e2:
-			debug["trendspy_error"] = str(e2)
-	debug["count"] = str(len(phrases))
-	return phrases, debug
+    # Backward-compat shim: now delegates to SerpAPI primary
+    phrases, dbg = fetch_serpapi_trending_phrases_debug(geo=geo, limit=limit)
+    if phrases:
+        return phrases, {**dbg, "via": "serpapi"}
+    # Fallback to Google News
+    news, news_dbg = fetch_news_trending_phrases_debug(geo=geo, limit=limit)
+    return news, {**news_dbg, "via": "news"}
 
 
 def fetch_news_trending_phrases_debug(geo: str = "US", limit: int = 10) -> Tuple[List[str], Dict[str, str]]:
@@ -156,20 +134,15 @@ def fetch_news_trending_phrases_debug(geo: str = "US", limit: int = 10) -> Tuple
 
 
 def fetch_trending_phrases_any(geo: str = "US", limit: int = 10) -> Tuple[List[str], Dict[str, str]]:
-	# 1) SerpAPI primary
-	phrases, debug = fetch_serpapi_trending_phrases_debug(geo=geo, limit=limit)
-	if phrases:
-		d = {**debug, "source": "serpapi"}
-		return phrases, d
-	# 2) Trendspy attempt
-	phrases2, debug2 = fetch_trending_phrases_debug(geo=geo, limit=limit)
-	if phrases2:
-		d = {**debug2, "source": "trendspy"}
-		return phrases2, d
-	# 3) Google News fallback
-	news_phrases, news_debug = fetch_news_trending_phrases_debug(geo=geo, limit=limit)
-	merged_debug = {**debug, **{f"news_{k}": v for k, v in news_debug.items()}, "source": "news" if news_phrases else "none"}
-	return news_phrases, merged_debug
+    # 1) SerpAPI primary
+    phrases, debug = fetch_serpapi_trending_phrases_debug(geo=geo, limit=limit)
+    if phrases:
+        d = {**debug, "source": "serpapi"}
+        return phrases, d
+    # 2) Google News fallback
+    news_phrases, news_debug = fetch_news_trending_phrases_debug(geo=geo, limit=limit)
+    merged_debug = {**debug, **{f"news_{k}": v for k, v in news_debug.items()}, "source": "news" if news_phrases else "none"}
+    return news_phrases, merged_debug
 
 
 def fetch_trending_phrases(geo: str = "US", limit: int = 10) -> List[str]:
