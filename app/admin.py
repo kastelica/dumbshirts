@@ -192,7 +192,7 @@ def _create_product_for_design(design: Design) -> Product:
 	product = Product(
 		slug=slug,
 		title=title,
-		description=f"Text design: {design.text}",
+		description=f"Get yours now! This t-shirt is inspired by \"{design.text}\"—grab it before it's gone.",
 		status="draft",
 		base_cost=base_cost,
 		price=price,
