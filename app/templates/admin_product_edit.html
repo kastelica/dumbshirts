@@ -36,7 +36,7 @@
 
 <div class="max-w-2xl mt-8 space-y-2">
 	<label class="block text-sm">AI prompt</label>
-	<textarea id="ai-prompt" rows="4" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Describe the text-only graphic for this tee (no gradients, solid colors).">Minimal bold text design: '{{ product.title }}' centered on chest, white shirt, black text.</textarea>
+	<textarea id="ai-prompt" rows="4" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Describe the text-only graphic for this tee (no gradients, solid colors).">make a square design of the: {{ product.title }}. It will be used as a graphic designed for the center front of a t-shirt. Make it simple and bold. image only or text only or hybrid all ok</textarea>
 	<div class="flex items-center gap-2">
 		<button id="ai-generate" class="bg-gray-800 text-white px-4 py-2 rounded">Generate with OpenAI</button>
 		<span id="ai-msg" class="text-sm text-gray-400"></span>
