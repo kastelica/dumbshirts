@@ -1,79 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-semibold mb-4">Trending Phrases</h1>
-<form method="get" class="mb-4 flex items-end gap-3">
-	<div>
-		<label class="block text-sm">Region</label>
-		<input type="text" name="geo" value="{{ geo }}" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-28">
-	</div>
-	<div>
-		<label class="block text-sm">Limit</label>
-		<input type="number" min="1" max="30" name="limit" value="{{ limit }}" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-28">
-	</div>
-	<div class="flex items-center gap-2">
-		<input type="hidden" name="refresh" value="0">
-		<button name="refresh" value="1" class="bg-white text-black px-4 py-2 rounded">Fetch latest</button>
-		<a href="?geo={{ geo }}&limit={{ limit }}" class="underline text-gray-300">Use cache</a>
-	</div>
-</form>
-<div class="space-y-4">
-    {% for item in suggestions %}
-    <div class="border border-gray-800 rounded p-4 bg-gray-900">
-        <div class="text-lg font-semibold text-gray-100">{{ item.title }}</div>
-        <div class="text-xs text-gray-500 mt-1">Normalized: {{ item.normalized }}</div>
-        {% if item.candidates %}
-        <div class="mt-3 flex flex-wrap gap-2">
-            {% for cand in item.candidates %}
-            <form method="post" action="{{ url_for('admin.queue_design') }}">
-                <input type="hidden" name="phrase" value="{{ cand }}" />
-                <button class="bg-white text-black rounded px-3 py-1">Queue: {{ cand }}</button>
-            </form>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="mt-2 text-gray-500 text-sm">No suggestion</div>
-        {% endif %}
-    </div>
-    {% else %}
-    <div class="text-gray-400">No phrases returned.</div>
-    {% endfor %}
+<h1 class="text-2xl font-semibold mb-4">Tracked Trends</h1>
+<div class="border border-gray-800 rounded overflow-hidden">
+	<table class="w-full text-sm">
+		<thead class="bg-gray-900 text-gray-400">
+			<tr>
+				<th class="p-2 text-left">Created</th>
+				<th class="p-2 text-left">Trend</th>
+				<th class="p-2 text-left">Slug</th>
+				<th class="p-2 text-left">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for t in trends %}
+			<tr class="border-t border-gray-800">
+				<td class="p-2 text-gray-400">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+				<td class="p-2">{{ t.term }}</td>
+				<td class="p-2"><a class="underline" href="/trends/{{ t.slug }}">/{{ t.slug }}</a></td>
+				<td class="p-2">
+					<form method="post" action="{{ url_for('admin.create_tshirt_from_trend', trend_id=t.id) }}" class="inline">
+						<button class="bg-white text-black px-3 py-1 rounded">Create T‑shirt</button>
+					</form>
+				</td>
+			</tr>
+			{% else %}
+			<tr><td colspan="4" class="p-3 text-gray-400">No trends yet.</td></tr>
+			{% endfor %}
+		</tbody>
+	</table>
 </div>
-
-{% if trends %}
-<h2 class="text-xl font-semibold mt-8 mb-2">Tracked Trends</h2>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    {% for t in trends %}
-    <div class="border border-gray-800 rounded p-4 bg-gray-900">
-        <div class="flex items-center justify-between">
-            <div>
-                <div class="font-semibold">{{ t.term }}</div>
-                <div class="text-xs text-gray-500">{{ t.normalized }} • {{ t.geo }} • {{ t.source }}</div>
-            </div>
-            <div class="text-xs uppercase px-2 py-1 rounded bg-gray-800 text-gray-300">{{ t.status }}</div>
-        </div>
-        <div class="mt-3 flex items-center gap-2">
-            <form method="post" action="{{ url_for('admin.approve_trend', trend_id=t.id) }}">
-                <button class="bg-white text-black px-3 py-1 rounded">Approve</button>
-            </form>
-            <form method="post" action="{{ url_for('admin.ignore_trend', trend_id=t.id) }}">
-                <button class="bg-gray-800 text-white px-3 py-1 rounded">Ignore</button>
-            </form>
-        </div>
-    </div>
-    {% endfor %}
-    {% if not trends %}
-    <div class="text-gray-400">No tracked trends yet.</div>
-    {% endif %}
-</div>
-{% endif %}
-{% if debug %}
-<div class="mt-6 border border-gray-800 rounded p-4 bg-gray-900 text-sm">
-	<h2 class="font-semibold mb-2">Debug</h2>
-	<ul class="text-gray-300">
-		{% for k, v in debug.items() %}
-		<li><span class="text-gray-500">{{ k }}:</span> {{ v }}</li>
-		{% endfor %}
-	</ul>
-</div>
-{% endif %}
 {% endblock %}

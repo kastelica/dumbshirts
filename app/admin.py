@@ -49,41 +49,9 @@ def dashboard():
 @admin_bp.get("/trends")
 @login_required
 def trends_page():
-	geo = request.args.get("geo", "US").upper()
-	limit = int(request.args.get("limit", "10"))
-	refresh = request.args.get("refresh") == "1"
-
-	cached = None if refresh else load_cache(geo)
-	phrases = []
-	debug = {}
-	if cached:
-		phrases = cached.get("phrases", [])[:limit]
-		debug = {**cached.get("debug", {}), "cache": "hit", "ts": cached.get("ts", "")}
-	else:
-		phrases, debug = fetch_trending_phrases_any(geo=geo, limit=limit)
-		save_cache(geo, phrases, debug)
-		debug = {**debug, "cache": "miss"}
-
-	source = (debug or {}).get("source", "")
-	suggestions = []
-	for title_or_term in phrases:
-		norm = normalize_trend_term(title_or_term)
-		if not norm:
-			continue
-		existing = Trend.query.filter_by(normalized=norm).first()
-		if not existing:
-			t = Trend(term=title_or_term.strip(), normalized=norm, slug=slugify(norm), source=source, geo=geo, status="new")
-			db.session.add(t)
-		if source == "serpapi":
-			cands = memeify_term(title_or_term, max_candidates=3)
-		else:
-			cands = generate_candidates_from_title(title_or_term, max_candidates=2)
-			if not cands:
-				cands = memeify_term(title_or_term, max_candidates=2)
-		suggestions.append({"title": title_or_term, "normalized": norm, "candidates": cands})
-	db.session.commit()
-	trends = Trend.query.order_by(Trend.created_at.desc()).limit(50).all()
-	return render_template("trends_admin.html", phrases=phrases, suggestions=suggestions, trends=trends, debug=debug, geo=geo, limit=limit, refresh=refresh)
+	# Re-imaged: show existing tracked trends only, newest first
+	trends = Trend.query.order_by(Trend.created_at.desc()).all()
+	return render_template("trends_admin.html", trends=trends)
 
 
 @admin_bp.post("/designs/queue")
@@ -96,6 +64,20 @@ def queue_design():
 	db.session.add(design)
 	db.session.commit()
 	flash("Design queued as draft", "success")
+	return redirect(url_for("admin.trends_page"))
+
+
+@admin_bp.post("/trends/<int:trend_id>/create-tshirt")
+@login_required
+def create_tshirt_from_trend(trend_id: int):
+	t = Trend.query.get_or_404(trend_id)
+	text = t.term or t.normalized
+	if not text:
+		return redirect(url_for("admin.trends_page"))
+	d = Design(type="text", text=text, approved=False)
+	db.session.add(d)
+	db.session.commit()
+	flash("Queued design from trend", "success")
 	return redirect(url_for("admin.trends_page"))
 
 
