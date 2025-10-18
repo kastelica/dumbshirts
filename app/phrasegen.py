@@ -1,5 +1,11 @@
 import re
-from typing import List
+import os
+import random
+from typing import List, Tuple, Dict
+from .models import Trend
+from .extensions import db
+from .utils import normalize_trend_term, slugify
+from .trends import fetch_serpapi_trending_phrases_debug
 
 
 _NEGATIVE_VERBS = [
@@ -133,3 +139,54 @@ def memeify_term(term: str, max_candidates: int = 3) -> List[str]:
 			if len(ordered) >= max_candidates:
 				break
 	return ordered
+
+
+# New: SerpAPI-driven trend ingestion (no memeification)
+def refresh_trends_from_serpapi(geo: str = "US", limit: int = 20) -> Dict[str, int | str]:
+	"""Fetch top trends via SerpAPI and upsert into the Trend table.
+
+	- Avoids duplicates using `Trend.normalized`
+	- Stores source and geo
+	- Returns simple stats
+	"""
+	phrases, debug = fetch_serpapi_trending_phrases_debug(geo=geo, limit=limit)
+	inserted = 0
+	skipped = 0
+	for term in phrases:
+		norm = normalize_trend_term(term)
+		if not norm:
+			skipped += 1
+			continue
+		existing = Trend.query.filter_by(normalized=norm).first()
+		if existing:
+			skipped += 1
+			continue
+		t = Trend(term=term.strip(), normalized=norm, slug=slugify(norm), source="serpapi", geo=geo, status="new")
+		db.session.add(t)
+		inserted += 1
+	db.session.commit()
+	return {"inserted": inserted, "skipped": skipped, "total": len(phrases), "source": "serpapi", "geo": geo, "debug": debug}
+
+
+def build_openai_prompt_for_term(term: str) -> str:
+	"""Create a varied prompt for OpenAI image generation.
+
+	Sometimes pure typography, sometimes simple iconography, but always solid colors (no gradients) and transparent background.
+	"""
+	t = term.strip().strip('"\'')
+	styles = [
+		"Bold sans-serif wordmark",
+		"Retro badge with simple geometric icon",
+		"Stencil text with subtle texture",
+		"Minimal outline icon plus text",
+		"College varsity block lettering",
+	]
+	palette = ["black and white", "black and off-white", "dark gray and white"]
+	style = random.choice(styles)
+	colors = random.choice(palette)
+	return (
+		f"Design a high-contrast T-shirt graphic for the phrase '{t}'. "
+		f"Style: {style}. Colors: {colors}. "
+		"No gradients. Solid fills only. Transparent PNG background. Centered composition. "
+		"No copyrighted logos or trademarks. Large readable typography."
+	)
