@@ -122,13 +122,16 @@ def stripe_webhook():
 		items = []
 		for oi in order.items:
 			prod = db.session.get(Product, oi.product_id) if oi.product_id else None
-			preview = _absolute_url(prod.design.preview_url) if (prod and prod.design and prod.design.preview_url) else "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"
+			file_url = "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"
+			if prod and prod.design:
+				if getattr(prod.design, 'image_url', None):
+					file_url = _absolute_url(prod.design.image_url)
+				elif prod.design.preview_url:
+					file_url = _absolute_url(prod.design.preview_url)
 			items.append({
 				"itemReferenceId": f"{order.id}-{oi.id}",
 				"productUid": oi.product_uid,
-				"files": [
-					{"type": "default", "url": preview}
-				],
+				"files": [ {"type": "default", "url": file_url} ],
 				"quantity": int(oi.quantity),
 			})
 		payload = {

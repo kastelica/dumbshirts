@@ -47,30 +47,32 @@ def gelato_test_order():
 	body = request.get_json(silent=True) or {}
 	shipment_uid = body.get("shipment_method_uid") or current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express")
 	items = []
-	used_previews = []
+	used_files = []
 	first_title = None
 	base_url = current_app.config.get("BASE_URL", "http://localhost:5000")
 	for it in cart.get("items", []):
 		prod = Product.query.get(int(it.get("product_id"))) if it.get("product_id") else None
 		if prod and not first_title:
 			first_title = prod.title
-		preview = ""
-		if prod and prod.design and prod.design.preview_url:
-			preview = _absolute_url(prod.design.preview_url)
-		# If running locally and BASE_URL is localhost, Gelato can't fetch it; use sample file
-		if "localhost" in base_url or "127.0.0.1" in base_url or not preview:
-			preview = "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"
+		file_url = ""
+		if prod and prod.design:
+			if getattr(prod.design, 'image_url', None):
+				file_url = _absolute_url(prod.design.image_url)
+			elif prod.design.preview_url:
+				file_url = _absolute_url(prod.design.preview_url)
+		if "localhost" in base_url or "127.0.0.1" in base_url or not file_url:
+			file_url = "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"
 		product_uid = it.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID")
 		items.append({
 			"itemReferenceId": f"test-{it.get('variant_id')}",
 			"productUid": product_uid,
-			"files": [{"type": "default", "url": preview}],
+			"files": [{"type": "default", "url": file_url}],
 			"quantity": int(it.get("quantity", 1)),
 		})
-		used_previews.append(preview)
+		used_files.append(file_url)
 	date_str = datetime.utcnow().strftime("%Y-%m-%d")
 	reference_base = first_title or "trendmerch"
-	order_ref = f"tm-{date_str}-{reference_base[:40]}"  # limit length
+	order_ref = f"tm-{date_str}-{reference_base[:40]}"
 	payload = {
 		"orderType": "draft",
 		"orderReferenceId": order_ref,
@@ -94,7 +96,7 @@ def gelato_test_order():
 	}
 	try:
 		resp = client.create_order(payload)
-		return jsonify({"ok": True, "gelato": resp, "orderReferenceId": order_ref, "files": used_previews, "base_url": base_url})
+		return jsonify({"ok": True, "gelato": resp, "orderReferenceId": order_ref, "files": used_files, "base_url": base_url})
 	except requests.HTTPError as he:
 		r = he.response
 		return jsonify({"error": r.text if r is not None else str(he)}), 400

@@ -66,6 +66,80 @@ def queue_design():
 	flash("Design queued as draft", "success")
 	return redirect(url_for("admin.trends_page"))
 
+def _auto_import_trends(limit: int = 5) -> int:
+	"""Create draft products from the most recent trends. Returns created count."""
+	created = 0
+	trends = Trend.query.order_by(Trend.created_at.desc()).limit(limit * 3).all()
+	for t in trends:
+		# Skip if already linked to a product
+		if t.products:
+			continue
+		text = t.term or t.normalized
+		if not text:
+			continue
+		# Create design
+		d = Design(type="image", text=text, approved=True)
+		db.session.add(d)
+		db.session.flush()
+		# Create product (draft)
+		product = _create_product_for_design(d)
+		product.status = "draft"
+		# Ensure single variant mapped to default tee
+		_ensure_single_variant(product)
+		# Attempt OpenAI image generation
+		try:
+			api_key = current_app.config.get("OPENAI_API_KEY", "")
+			if api_key:
+				from base64 import b64decode
+				import os as _os
+				from openai import OpenAI
+				_os.environ["OPENAI_API_KEY"] = api_key
+				client = OpenAI()
+				prompt = f"Minimal bold text design: '{text}' centered on chest, white shirt, black text."
+				res = client.images.generate(model="gpt-image-1", prompt=prompt, size="1024x1024")
+				b64_data = res.data[0].b64_json
+				img_bytes = b64decode(b64_data)
+				fname = f"auto_{product.id}.png"
+				upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+				os.makedirs(upload_dir, exist_ok=True)
+				path = os.path.join(upload_dir, fname)
+				with open(path, "wb") as f:
+					f.write(img_bytes)
+				# Set both preview (mock on site) and image_url (artwork-only) to the same generated file for now
+				product.design.preview_url = f"/static/uploads/{fname}"
+				product.design.image_url = f"/static/uploads/{fname}"
+			else:
+				# Fallback placeholder
+				placeholder_text = (text or "Design").replace(" ", "+")
+				product.design.preview_url = f"https://placehold.co/1024x1024?text={placeholder_text}"
+		except Exception:
+			# Keep product without image if generation fails
+			pass
+		# Link trend to product
+		product.trends.append(t)
+		created += 1
+		if created >= limit:
+			break
+	# Persist changes
+	db.session.commit()
+	return created
+
+
+@admin_bp.post("/auto-mode/toggle")
+@login_required
+def toggle_auto_mode():
+	current = bool(current_app.config.get("AUTO_MODE", False))
+	new_state = not current
+	current_app.config["AUTO_MODE"] = new_state
+	created = 0
+	if new_state:
+		# On enable, import a small batch immediately
+		created = _auto_import_trends(limit=5)
+	if new_state:
+		flash(f"Auto mode ON. Imported {created} products.", "success")
+	else:
+		flash("Auto mode OFF.", "success")
+	return redirect(url_for("admin.products_list"))
 
 @admin_bp.post("/trends/<int:trend_id>/create-tshirt")
 @login_required
@@ -334,6 +408,7 @@ def edit_product_submit(product_id: int):
 		image_file.save(path)
 		# Public URL
 		p.design.preview_url = f"/static/uploads/{fname}"
+		p.design.image_url = f"/static/uploads/{fname}"
 		uploaded = True
 
 	# Placeholder AI generation (no external call yet)
