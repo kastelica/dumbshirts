@@ -3,6 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="google-site-verification" content="bcAjbHAfykx4RN0Vw2Hl1CTWTKX3s6J_qydFCyawf_k" />
 	<title>{% block title %}Dumbshirts.store{% endblock %}</title>
 	<link rel="stylesheet" href="/static/css/tailwind.css">
 	{% block head %}{% endblock %}
@@ -12,6 +13,12 @@
 		<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
 			<a href="/" class="font-extrabold text-xl tracking-tight">Dumbshirts.store</a>
 			<div class="flex items-center gap-3">
+				<a href="/cart" class="relative inline-flex items-center justify-center bg-gray-900 border border-gray-800 text-gray-200 w-10 h-10 rounded" aria-label="Cart">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M2.25 2.25a.75.75 0 000 1.5H4.5l2.598 10.392a2.25 2.25 0 002.187 1.733h8.715a2.25 2.25 0 002.187-1.733l1.263-5.681A.75.75 0 0021.3 6.75H6.708l-.39-1.56A2.25 2.25 0 004.14 3.75H2.25zM9 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9.75-1.5A1.5 1.5 0 1117.25 21a1.5 1.5 0 011.5-1.5z"/></svg>
+					{% if cart_count %}
+					<span class="absolute -top-1 -right-1 text-[10px] leading-none px-1.5 py-0.5 rounded-full bg-white text-black">{{ cart_count }}</span>
+					{% endif %}
+				</a>
 				<button id="menu-toggle" class="md:hidden bg-gray-900 border border-gray-800 text-gray-200 px-3 py-2 rounded" aria-label="Toggle menu">Menu</button>
 				<nav id="site-nav" class="hidden md:flex space-x-4 text-gray-300">
 					<a href="/" class="hover:underline">Home</a>
