@@ -19,6 +19,12 @@ def render_google_shopping_feed(items):
 		SubElement(it, "g:availability").text = item.get("availability", "in stock")
 		SubElement(it, "g:condition").text = "new"
 		SubElement(it, "g:identifier_exists").text = "FALSE"
+		img = item.get("image")
+		if img:
+			SubElement(it, "g:image_link").text = img
+		brand = item.get("brand")
+		if brand:
+			SubElement(it, "g:brand").text = brand
 
 	xml_bytes = tostring(rss)
 	return Response(xml_bytes, content_type="application/xml")
