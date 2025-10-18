@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Search</h1>
+{% if trend_bubbles %}
+<div class="mb-4 flex flex-wrap gap-2">
+    {% for tb in trend_bubbles %}
+    <a href="{{ url_for('main.search') }}?q={{ tb.normalized }}" class="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-sm hover:bg-gray-800">#{{ tb.normalized }}</a>
+    {% endfor %}
+    {% if not trend_bubbles %}
+    <span class="text-gray-500 text-sm">No recent trends</span>
+    {% endif %}
+    <div class="text-xs text-gray-600 ml-auto">Try a recent trend</div>
+    <div class="w-full border-b border-gray-800 mt-2"></div>
+    
+</div>
+{% endif %}
+{% if q %}
+<p class="text-gray-400 mb-4">Results for "{{ q }}"</p>
+{% endif %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+	{% for p in results %}
+	<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800">
+		<div class="aspect-square bg-gray-950 flex items-center justify-center">
+			{% if p.design and p.design.preview_url %}
+			<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" />
+			{% else %}
+			<span class="text-gray-600 text-sm">No image</span>
+			{% endif %}
+		</div>
+		<div class="p-4">
+			<div class="font-semibold">{{ p.title }}</div>
+			<div class="text-gray-400 text-sm mt-1">${{ '%.2f'|format(p.price) }} {{ p.currency }}</div>
+		</div>
+	</a>
+	{% else %}
+	<div class="text-gray-400">No results.</div>
+	{% endfor %}
+</div>
+{% endblock %}

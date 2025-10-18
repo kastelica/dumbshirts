@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{% block title %}Dumbshirts.store{% endblock %}</title>
+	<link rel="stylesheet" href="/static/css/tailwind.css">
+	{% block head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-gray-950 text-gray-100">
+	<header class="border-b border-gray-800">
+		<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+			<a href="/" class="font-bold text-xl">Dumbshirts.store</a>
+			<nav class="space-x-4 text-gray-300">
+				<a href="/" class="hover:underline">Home</a>
+				<a href="/shop" class="hover:underline">Shop</a>
+				<a href="/search" class="hover:underline">Search</a>
+				<a href="/cart" class="hover:underline">Cart ({{ cart_count }})</a>
+				{% if current_user.is_authenticated %}
+				<span class="text-gray-600">|</span>
+				<a href="/admin" class="hover:underline">Admin</a>
+				<a href="/admin/products" class="hover:underline">Products</a>
+				<a href="/admin/trends" class="hover:underline">Trends</a>
+				<a href="/admin/logout" class="hover:underline">Logout</a>
+				{% endif %}
+			</nav>
+		</div>
+		<div class="max-w-6xl mx-auto px-4 pb-4">
+			<form action="/search" method="get" class="flex items-center gap-2">
+				<input type="text" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search products" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100 placeholder-gray-500">
+				<button class="bg-white text-black px-4 py-2 rounded">Search</button>
+			</form>
+		</div>
+	</header>
+	<main class="max-w-6xl mx-auto px-4 py-6">
+		{% block content %}{% endblock %}
+	</main>
+	<footer class="border-t border-gray-800">
+		<div class="max-w-6xl mx-auto px-4 py-6 text-sm text-gray-400">
+			&copy; {{ 2025 }} TrendMerch
+		</div>
+	</footer>
+</body>
+</html>

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block head %}
+	{# Canonical URL #}
+	{% set canonical = url_for('main.product_detail', slug=product.slug, _external=True) %}
+	{# Pick best image #}
+	{% if images and images[0].src %}
+		{% set raw_image = images[0].src %}
+	{% elif product.design and product.design.preview_url %}
+		{% set raw_image = product.design.preview_url %}
+	{% else %}
+		{% set raw_image = '' %}
+	{% endif %}
+	{% if raw_image and (raw_image.startswith('http://') or raw_image.startswith('https://')) %}
+		{% set image_abs = raw_image %}
+	{% elif raw_image %}
+		{% set image_abs = (request.url_root.rstrip('/') ~ raw_image) %}
+	{% else %}
+		{% set image_abs = '' %}
+	{% endif %}
+	<title>{{ product.title }} | Trendmerch</title>
+	<meta name="description" content="{{ (product.description or product.title)[:160] }}">
+	<link rel="canonical" href="{{ canonical }}">
+	{% if product.status != 'active' %}<meta name="robots" content="noindex, nofollow">{% endif %}
+	{% if prev_slug %}<link rel="prev" href="{{ url_for('main.product_detail', slug=prev_slug, _external=True) }}">{% endif %}
+	{% if next_slug %}<link rel="next" href="{{ url_for('main.product_detail', slug=next_slug, _external=True) }}">{% endif %}
+	<meta property="og:type" content="product">
+	<meta property="og:title" content="{{ product.title }}">
+	<meta property="og:description" content="{{ (product.description or product.title)[:200] }}">
+	<meta property="og:url" content="{{ canonical }}">
+	{% if image_abs %}<meta property="og:image" content="{{ image_abs }}">{% endif %}
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="{{ product.title }}">
+	<meta name="twitter:description" content="{{ (product.description or product.title)[:200] }}">
+	{% if image_abs %}<meta name="twitter:image" content="{{ image_abs }}">{% endif %}
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "Product",
+		"name": {{ product.title|tojson }},
+		{% if image_abs %}"image": [{{ image_abs|tojson }}],{% endif %}
+		"description": {{ (product.description or product.title)|tojson }},
+		"sku": {{ (product.variants[0].gelato_sku if product.variants and product.variants[0].gelato_sku else product.id)|string|tojson }},
+		"brand": { "@type": "Brand", "name": "Trendmerch" },
+		"url": {{ canonical|tojson }},
+		"offers": {
+			"@type": "Offer",
+			"priceCurrency": {{ product.currency|tojson }},
+			"price": {{ ('%.2f'|format(product.price))|tojson }},
+			"availability": "https://schema.org/{{ 'InStock' if product.status == 'active' else 'PreOrder' }}",
+			"itemCondition": "https://schema.org/NewCondition",
+			"url": {{ canonical|tojson }}
+		}
+	}
+	</script>
+{% endblock %}
+{% block title %}{{ product.title }} | TrendMerch{% endblock %}
+{% block content %}
+<div class="relative">
+	{% if prev_slug %}
+	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-14 h-14 text-3xl font-bold text-gray-200 rounded-full bg-gray-900/80 border border-gray-800 hover:bg-gray-800 hover:text-white absolute left-2 top-1/2 -translate-y-1/2 z-10" aria-label="Previous product">‹</a>
+	{% endif %}
+	{% if next_slug %}
+	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-14 h-14 text-3xl font-bold text-gray-200 rounded-full bg-gray-900/80 border border-gray-800 hover:bg-gray-800 hover:text-white absolute right-2 top-1/2 -translate-y-1/2 z-10" aria-label="Next product">›</a>
+	{% endif %}
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+		<div>
+			<div id="main-image" class="aspect-square bg-gray-900 border border-gray-800 rounded flex items-center justify-center overflow-hidden">
+				{% if images and images[0].src %}
+				<img src="{{ images[0].src }}" alt="{{ images[0].alt }}" class="w-full h-full object-cover">
+				{% else %}
+				<div class="text-gray-500">No image</div>
+				{% endif %}
+			</div>
+			<div class="mt-3 grid grid-cols-4 gap-3">
+				{% for img in images %}
+				<div class="aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					{% if img.src %}
+					<img src="{{ img.src }}" alt="{{ img.alt }}" class="w-full h-full object-cover">
+					{% else %}
+					<div class="w-full h-full flex items-center justify-center text-gray-600 text-sm">No image</div>
+					{% endif %}
+				</div>
+				{% endfor %}
+			</div>
+			<div class="mt-2 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more products</div>
+		</div>
+		<div>
+			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
+			<p class="text-gray-300 mt-3">{{ product.description }}</p>
+			<div class="mt-6 text-2xl">${{ '%.2f'|format(product.price) }} {{ product.currency }}</div>
+
+			<form id="add-form" class="mt-6 space-y-4" method="post" action="/cart/add">
+				<input type="hidden" id="buy-now-flag" name="buy_now" value="">
+				<div>
+					<label class="block text-sm mb-1">Variant</label>
+					<select name="variant_id" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
+						{% for v in product.variants %}
+						<option value="{{ v.id }}">{{ v.name }}</option>
+						{% endfor %}
+					</select>
+				</div>
+				<div>
+					<label class="block text-sm mb-1">Quantity</label>
+					<input type="number" min="1" name="quantity" value="1" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-24 text-gray-100" />
+				</div>
+				<div class="flex items-center space-x-3">
+					<button type="submit" class="bg-white text-black px-5 py-2 rounded">Add to cart</button>
+					<button type="submit" id="buy-now-btn" class="bg-gray-800 text-white px-5 py-2 rounded">Buy now</button>
+				</div>
+			</form>
+
+			<div class="mt-8 text-sm text-gray-400">
+				<span>Status: </span><span class="uppercase">{{ product.status }}</span>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+(function(){
+	const prev = document.getElementById('edge-prev');
+	const next = document.getElementById('edge-next');
+	document.addEventListener('keydown', (e)=>{
+		if(e.key === 'ArrowLeft' && prev){ window.location = prev.href; }
+		if(e.key === 'ArrowRight' && next){ window.location = next.href; }
+	});
+	let startX = null;
+	document.addEventListener('touchstart', (e)=>{ startX = e.touches[0].clientX; });
+	document.addEventListener('touchend', (e)=>{
+		if(startX == null) return;
+		const dx = e.changedTouches[0].clientX - startX;
+		if(dx > 50 && prev){ window.location = prev.href; }
+		if(dx < -50 && next){ window.location = next.href; }
+		startX = null;
+	});
+	// Toggle buy_now on Buy Now click
+	const buyBtn = document.getElementById('buy-now-btn');
+	const buyFlag = document.getElementById('buy-now-flag');
+	if(buyBtn && buyFlag){
+		buyBtn.addEventListener('click', ()=>{ buyFlag.value = '1'; });
+	}
+})();
+</script>
+{% endblock %}

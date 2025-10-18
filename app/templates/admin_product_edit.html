@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Edit Product</h1>
+<form method="post" class="max-w-2xl space-y-4" enctype="multipart/form-data">
+	<div>
+		<label class="block text-sm mb-1">Title</label>
+		<input type="text" name="title" value="{{ product.title }}" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100" />
+	</div>
+	<div>
+		<label class="block text-sm mb-1">Description</label>
+		<textarea name="description" rows="6" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100">{{ product.description }}</textarea>
+	</div>
+	<div>
+		<label class="block text-sm mb-1">Design image</label>
+		<div class="flex items-start gap-4">
+			<div class="w-32 h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+				{% if product.design and product.design.preview_url %}
+				<img id="design-preview" src="{{ product.design.preview_url }}" alt="Preview" class="w-full h-full object-cover" />
+				{% else %}
+				<img id="design-preview" src="" alt="Preview" class="w-full h-full object-cover hidden" />
+				<span id="design-empty" class="text-gray-600 text-xs">No image</span>
+				{% endif %}
+			</div>
+			<div class="space-y-2">
+				<input type="file" name="image" accept="image/*" class="block text-sm" />
+				<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
+				<p class="text-xs text-gray-400">Upload an image or check "Generate placeholder" to auto-create a simple preview.</p>
+			</div>
+		</div>
+	</div>
+	<div class="flex items-center gap-2">
+		<button class="bg-white text-black px-4 py-2 rounded">Save</button>
+		<a href="{{ url_for('admin.products_list') }}" class="underline text-gray-300">Cancel</a>
+	</div>
+</form>
+
+<div class="max-w-2xl mt-8 space-y-2">
+	<label class="block text-sm">AI prompt</label>
+	<textarea id="ai-prompt" rows="4" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Describe the text-only graphic for this tee (no gradients, solid colors).">Minimal bold text design: '{{ product.title }}' centered on chest, white shirt, black text.</textarea>
+	<div class="flex items-center gap-2">
+		<button id="ai-generate" class="bg-gray-800 text-white px-4 py-2 rounded">Generate with OpenAI</button>
+		<span id="ai-msg" class="text-sm text-gray-400"></span>
+	</div>
+</div>
+
+<script>
+(function(){
+	const btn = document.getElementById('ai-generate');
+	const msg = document.getElementById('ai-msg');
+	const preview = document.getElementById('design-preview');
+	const empty = document.getElementById('design-empty');
+	if(!btn) return;
+	btn.addEventListener('click', async (e) => {
+		e.preventDefault();
+		const prompt = document.getElementById('ai-prompt').value.trim();
+		if(!prompt){ msg.textContent='Enter a prompt'; return; }
+		btn.disabled = true; msg.textContent = 'Generating…';
+		try {
+			const r = await fetch('{{ url_for('admin.generate_openai_image', product_id=product.id) }}', {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt })
+			});
+			const j = await r.json();
+			if(!r.ok){ throw new Error(j.error || 'Failed'); }
+			preview.src = j.url;
+			preview.classList.remove('hidden');
+			if(empty){ empty.classList.add('hidden'); }
+			msg.textContent = 'Image updated.';
+		} catch(err){
+			msg.textContent = err.message || 'Generation failed';
+		} finally {
+			btn.disabled = false;
+		}
+	});
+})();
+</script>
+{% endblock %}

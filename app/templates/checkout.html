@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Checkout</h1>
+
+{% if cart['items'] %}
+<div class="mb-6 border border-gray-800 rounded p-4 bg-gray-900">
+	<h2 class="font-semibold mb-2">Order summary</h2>
+	<ul class="text-sm space-y-2">
+		{% for it in cart['items'] %}
+		<li class="flex items-center justify-between">
+			<span class="flex items-center gap-3">
+				<div class="w-10 h-10 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+					{% if it.image %}
+					<img src="{{ it.image }}" alt="{{ it.title }}" class="w-full h-full object-cover" />
+					{% else %}
+					<span class="text-gray-600 text-xs">No</span>
+					{% endif %}
+				</div>
+				<span>{{ it.title }} × {{ it.quantity }}</span>
+			</span>
+			<span>${{ '%.2f'|format(it.price * it.quantity) }} {{ it.currency }}</span>
+		</li>
+		{% endfor %}
+	</ul>
+	<div class="mt-3 flex items-center justify-between text-lg">
+		<span>Total</span>
+		<span>${{ '%.2f'|format(total_amount) }} {{ currency }}</span>
+	</div>
+</div>
+{% else %}
+<p class="text-gray-400">Your cart is empty.</p>
+{% endif %}
+
+<div class="max-w-md space-y-4">
+	<div>
+		<label class="block text-sm mb-1">Shipping method</label>
+		<select id="ship-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100"></select>
+		<div id="ship-note" class="text-xs text-gray-500 mt-1"></div>
+	</div>
+	{% if publishable_key %}
+	<label class="block text-sm">Email</label>
+	<input id="email" type="email" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="you@example.com" />
+	<div id="payment-element" class="bg-gray-900 border border-gray-800 rounded p-3"></div>
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+		<button id="submit" class="w-full bg-white text-black px-4 py-2 rounded">Pay ${{ '%.2f'|format(total_amount) }}</button>
+		<button id="test-gelato" class="w-full bg-gray-800 text-white px-4 py-2 rounded">Send draft order to Gelato</button>
+	</div>
+	<div id="payment-message" class="text-sm text-red-400" role="alert"></div>
+	{% else %}
+	<div class="grid grid-cols-1 gap-3">
+		<button id="test-gelato" class="w-full bg-gray-800 text-white px-4 py-2 rounded">Send draft order to Gelato</button>
+		<p class="text-xs text-gray-500">Stripe not configured; using Gelato draft test only.</p>
+	</div>
+	<div id="payment-message" class="text-sm text-red-400" role="alert"></div>
+	{% endif %}
+</div>
+
+{% if publishable_key %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(async function() {
+	const amount = {{ '%.2f'|format(total_amount) }}; // major units
+	// load shipping methods
+	const shipSel = document.getElementById('ship-select');
+	const shipNote = document.getElementById('ship-note');
+	let selectedShip = null;
+	function applyFallback() {
+		shipSel.innerHTML = '';
+		const fallback = [
+			{ uid: 'free_3_5', name: 'Free shipping (3-5 days)', price: '0.00 USD' },
+			{ uid: 'express_2d', name: 'Express (2 days)', price: '19.99 USD' },
+		];
+		fallback.forEach(m => {
+			const opt = document.createElement('option');
+			opt.value = m.uid;
+			opt.textContent = `${m.name} — ${m.price}`;
+			shipSel.appendChild(opt);
+		});
+		selectedShip = shipSel.value;
+		shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+		shipNote.textContent = 'Using fallback shipping options.';
+	}
+	try {
+		const r = await fetch('/api/shipment-methods?country=US');
+		const j = await r.json();
+		const methods = Array.isArray(j) ? j : (j.methods || []);
+		shipSel.innerHTML = '';
+		if (!methods.length) { applyFallback(); }
+		else {
+			methods.forEach(m => {
+				const opt = document.createElement('option');
+				const uid = m.uid || m.shipmentMethodUid || m.id;
+				const name = m.name || m.shipmentMethodName || uid;
+				opt.value = uid;
+				opt.textContent = `${name}`;
+				shipSel.appendChild(opt);
+			});
+			selectedShip = shipSel.value;
+			shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+			shipNote.textContent = 'Choose a method. This will be sent to Gelato.';
+		}
+	} catch(e) { applyFallback(); }
+
+	const resp = await fetch('/api/create-payment-intent', {
+		method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({amount})
+	});
+	const data = await resp.json();
+	if(!resp.ok){
+		const msg = document.getElementById('payment-message');
+		msg.textContent = (data && data.error) ? data.error : 'Failed to start payment';
+		return;
+	}
+	const clientSecret = data.clientSecret;
+	const stripe = Stripe('{{ publishable_key }}');
+	const appearance = { theme: 'night', variables: { colorPrimary: '#ffffff', colorBackground: '#0b0b0b', colorText: '#e5e7eb', colorDanger: '#ef4444', borderRadius: '6px' } };
+	const elements = stripe.elements({ clientSecret, appearance });
+	const paymentElement = elements.create('payment');
+	paymentElement.mount('#payment-element');
+	const submitBtn = document.getElementById('submit');
+	const msg = document.getElementById('payment-message');
+	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + amount.toFixed(2); }
+	submitBtn.addEventListener('click', async (e) => {
+		e.preventDefault(); msg.textContent=''; setLoading(true);
+		const email = document.getElementById('email').value.trim();
+		const {error, paymentIntent} = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
+		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
+		if (paymentIntent && paymentIntent.status === 'succeeded') { msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!'; }
+		else { msg.textContent = 'Payment processed.'; }
+		setLoading(false);
+	});
+
+	// Gelato test order
+	const testBtn = document.getElementById('test-gelato');
+	if(testBtn){
+		testBtn.addEventListener('click', async (e) => {
+			e.preventDefault(); msg.textContent=''; testBtn.disabled=true; testBtn.textContent='Sending…';
+			try {
+				let uidToSend = selectedShip || '';
+				if(uidToSend === 'free_3_5') uidToSend = 'economy';
+				if(uidToSend === 'express_2d') uidToSend = 'express';
+				const r = await fetch('/api/gelato/test-order', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ shipment_method_uid: uidToSend }) });
+				const j = await r.json();
+				if(!r.ok){ throw new Error(j.error || 'Failed'); }
+				msg.classList.remove('text-red-400'); msg.classList.add('text-green-400');
+				msg.textContent = 'Draft order sent to Gelato: ' + (j.gelato && j.gelato.id ? j.gelato.id : 'ok');
+			} catch(err){ msg.textContent = err.message || 'Failed to send draft order'; }
+			finally { testBtn.disabled=false; testBtn.textContent='Send draft order to Gelato'; }
+		});
+	}
+})();
+</script>
+{% else %}
+<script>
+(async function(){
+	const shipSel = document.getElementById('ship-select');
+	const shipNote = document.getElementById('ship-note');
+	let selectedShip = null;
+	function applyFallback() {
+		shipSel.innerHTML = '';
+		const fallback = [
+			{ uid: 'free_3_5', name: 'Free shipping (3-5 days)', price: '0.00 USD' },
+			{ uid: 'express_2d', name: 'Express (2 days)', price: '19.99 USD' },
+		];
+		fallback.forEach(m => {
+			const opt = document.createElement('option');
+			opt.value = m.uid;
+			opt.textContent = `${m.name} — ${m.price}`;
+			shipSel.appendChild(opt);
+		});
+		selectedShip = shipSel.value;
+		shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+		shipNote.textContent = 'Using fallback shipping options.';
+	}
+	try {
+		const r = await fetch('/api/shipment-methods?country=US');
+		const j = await r.json();
+		const methods = Array.isArray(j) ? j : (j.methods || []);
+		shipSel.innerHTML = '';
+		if (!methods.length) { applyFallback(); }
+		else {
+			methods.forEach(m => {
+				const opt = document.createElement('option');
+				const uid = m.uid || m.shipmentMethodUid || m.id;
+				const name = m.name || m.shipmentMethodName || uid;
+				opt.value = uid;
+				opt.textContent = `${name}`;
+				shipSel.appendChild(opt);
+			});
+			selectedShip = shipSel.value;
+			shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+			shipNote.textContent = 'Choose a method. This will be sent to Gelato.';
+		}
+	} catch(e) { applyFallback(); }
+	const msg = document.getElementById('payment-message');
+	const testBtn = document.getElementById('test-gelato');
+	if(testBtn){
+		testBtn.addEventListener('click', async (e) => {
+			e.preventDefault(); msg.textContent=''; testBtn.disabled=true; testBtn.textContent='Sending…';
+			try {
+				let uidToSend = selectedShip || '';
+				if(uidToSend === 'free_3_5') uidToSend = 'economy';
+				if(uidToSend === 'express_2d') uidToSend = 'express';
+				const r = await fetch('/api/gelato/test-order', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ shipment_method_uid: uidToSend }) });
+				const j = await r.json();
+				if(!r.ok){ throw new Error(j.error || 'Failed'); }
+				msg.classList.remove('text-red-400'); msg.classList.add('text-green-400');
+				msg.textContent = 'Draft order sent to Gelato: ' + (j.gelato && j.gelato.id ? j.gelato.id : 'ok');
+			} catch(err){ msg.textContent = err.message || 'Failed to send draft order'; }
+			finally { testBtn.disabled=false; testBtn.textContent='Send draft order to Gelato'; }
+		});
+	}
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Gelato Connection</h1>
+<div class="mb-4 text-sm">API Key set: {{ 'Yes' if (debug and not debug.get('error') == 'missing_api_key') else 'No' }}</div>
+{% if ok %}
+<div class="p-4 border border-green-800 bg-green-900/30 rounded text-green-200">Connected to Gelato. Sample catalog accessible.</div>
+{% else %}
+<div class="p-4 border border-red-800 bg-red-900/30 rounded text-red-200">Connection failed.</div>
+{% endif %}
+<div class="mt-4 p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
+	<h2 class="font-semibold mb-2">Debug</h2>
+	<pre>{{ debug | tojson(indent=2) }}</pre>
+</div>
+<p class="mt-4 text-gray-400 text-sm">Set GELATO_API_KEY in your .env and reload.</p>
+{% endblock %}
