@@ -55,6 +55,23 @@
 	{% endif %}
 </div>
 
+<script>
+// Google Ads purchase conversion helper
+function gtag_report_conversion(url){
+	var callback = function(){ if(typeof(url)!='undefined'){ window.location = url; } };
+	if (typeof gtag === 'function') {
+		gtag('event','conversion',{
+			send_to:'AW-17663388576/w1K1CIbnx68bEKDXx-ZB',
+			value: {{ '%.2f'|format(total_amount) }},
+			currency: '{{ currency }}',
+			transaction_id: '' ,
+			event_callback: callback
+		});
+	}
+	return false;
+}
+</script>
+
 {% if publishable_key %}
 <script src="https://js.stripe.com/v3/"></script>
 <script>
@@ -124,7 +141,7 @@
 		const email = document.getElementById('email').value.trim();
 		const {error, paymentIntent} = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
 		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
-		if (paymentIntent && paymentIntent.status === 'succeeded') { msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!'; }
+		if (paymentIntent && paymentIntent.status === 'succeeded') { msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!'; try{ gtag_report_conversion(); }catch(e){} }
 		else { msg.textContent = 'Payment processed.'; }
 		setLoading(false);
 	});
@@ -143,6 +160,7 @@
 				if(!r.ok){ throw new Error(j.error || 'Failed'); }
 				msg.classList.remove('text-red-400'); msg.classList.add('text-green-400');
 				msg.textContent = 'Draft order sent to Gelato: ' + (j.gelato && j.gelato.id ? j.gelato.id : 'ok');
+				try{ gtag_report_conversion(); }catch(e){}
 			} catch(err){ msg.textContent = err.message || 'Failed to send draft order'; }
 			finally { testBtn.disabled=false; testBtn.textContent='Send draft order to Gelato'; }
 		});
@@ -205,6 +223,7 @@
 				if(!r.ok){ throw new Error(j.error || 'Failed'); }
 				msg.classList.remove('text-red-400'); msg.classList.add('text-green-400');
 				msg.textContent = 'Draft order sent to Gelato: ' + (j.gelato && j.gelato.id ? j.gelato.id : 'ok');
+				try{ gtag_report_conversion(); }catch(e){}
 			} catch(err){ msg.textContent = err.message || 'Failed to send draft order'; }
 			finally { testBtn.disabled=false; testBtn.textContent='Send draft order to Gelato'; }
 		});
