@@ -43,6 +43,11 @@ def create_app() -> Flask:
 		count = sum(it.get("quantity", 0) for it in cart.get("items", []))
 		return {"cart_count": count}
 
+	# Expose Formspree endpoint to templates
+	@app.context_processor
+	def inject_forms():
+		return {"FORMSPREE_ENDPOINT": app.config.get("FORMSPREE_ENDPOINT", "")}
+
 	# CLI commands
 	register_commands(app)
 
