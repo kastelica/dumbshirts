@@ -25,6 +25,18 @@ def render_google_shopping_feed(items):
 		brand = item.get("brand")
 		if brand:
 			SubElement(it, "g:brand").text = brand
+		age = item.get("age_group")
+		if age:
+			SubElement(it, "g:age_group").text = age
+		color = item.get("color")
+		if color:
+			SubElement(it, "g:color").text = color
+		gender = item.get("gender")
+		if gender:
+			SubElement(it, "g:gender").text = gender
+		size = item.get("size")
+		if size:
+			SubElement(it, "g:size").text = size
 
 	xml_bytes = tostring(rss)
 	return Response(xml_bytes, content_type="application/xml")

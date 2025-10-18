@@ -29,5 +29,9 @@ def google_feed():
 			"availability": "in stock",
 			"image": _absolute_url(p.design.preview_url if (p.design and p.design.preview_url) else ""),
 			"brand": "Dumbshirts.store",
+			"age_group": "adult",
+			"color": "white",
+			"gender": "unisex",
+			"size": "Large",
 		})
 	return render_google_shopping_feed(items)
