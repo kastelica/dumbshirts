@@ -38,20 +38,19 @@
 		<div id="ship-note" class="text-xs text-gray-500 mt-1"></div>
 	</div>
 	{% if publishable_key %}
+	<label class="block text-sm">First name</label>
+	<input id="firstName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="First name" />
+	<label class="block text-sm">Last name</label>
+	<input id="lastName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Last name" />
+	<label class="block text-sm">Phone</label>
+	<input id="phone" type="tel" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="(555) 555-5555" />
 	<label class="block text-sm">Email</label>
 	<input id="email" type="email" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="you@example.com" />
 	<div id="payment-element" class="bg-gray-900 border border-gray-800 rounded p-3"></div>
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-		<button id="submit" class="w-full bg-white text-black px-4 py-2 rounded">Pay ${{ '%.2f'|format(total_amount) }}</button>
-		<button id="test-gelato" class="w-full bg-gray-800 text-white px-4 py-2 rounded">Send draft order to Gelato</button>
-	</div>
+	<button id="submit" class="w-full bg-white text-black px-4 py-2 rounded">Pay ${{ '%.2f'|format(total_amount) }}</button>
 	<div id="payment-message" class="text-sm text-red-400" role="alert"></div>
 	{% else %}
-	<div class="grid grid-cols-1 gap-3">
-		<button id="test-gelato" class="w-full bg-gray-800 text-white px-4 py-2 rounded">Send draft order to Gelato</button>
-		<p class="text-xs text-gray-500">Stripe not configured; using Gelato draft test only.</p>
-	</div>
-	<div id="payment-message" class="text-sm text-red-400" role="alert"></div>
+	<p class="text-xs text-gray-500">Stripe not configured. Set STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY.</p>
 	{% endif %}
 </div>
 
