@@ -11,6 +11,7 @@ from .utils import slugify, normalize_trend_term
 from .phrasegen import generate_candidates_from_title, memeify_term
 import os
 from werkzeug.utils import secure_filename
+import threading
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -435,45 +436,47 @@ def generate_openai_image(product_id: int):
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
 		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
-	try:
-		# Use OpenAI SDK v1+ exclusively
-		import os as _os
-		_os.environ["OPENAI_API_KEY"] = api_key
-		from openai import OpenAI
-		client = OpenAI().with_options(timeout=20.0)
-		result = client.images.generate(model="gpt-image-1", prompt=prompt, size="auto")
-		b64_data = result.data[0].b64_json
+	# Run in background to avoid 30s Heroku router timeout
+	def _worker(app_ctx, pid: int, prm: str):
+		with app_ctx:
+			try:
+				import os as _os
+				_os.environ["OPENAI_API_KEY"] = api_key
+				from openai import OpenAI
+				client = OpenAI().with_options(timeout=20.0)
+				res = client.images.generate(model="gpt-image-1", prompt=prm, size="auto")
+				b64 = res.data[0].b64_json
+				img = b64decode(b64)
+				fname = f"openai_{pid}_{int(time.time())}.png"
+				upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+				os.makedirs(upload_dir, exist_ok=True)
+				path = os.path.join(upload_dir, fname)
+				with open(path, "wb") as f:
+					f.write(img)
+				p = Product.query.get(pid)
+				if p:
+					if not p.design:
+						d = Design(type="image", text=p.title, approved=True)
+						db.session.add(d)
+						db.session.flush()
+						p.design = d
+					p.design.preview_url = f"/static/uploads/{fname}"
+					p.design.image_url = f"/static/uploads/{fname}"
+					db.session.commit()
+			except Exception as e:
+				current_app.logger.warning(f"generate-image bg failed: {e}")
 
-		img_bytes = b64decode(b64_data)
-		fname = f"openai_{product_id}_{int(time.time())}.png"
-		upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-		os.makedirs(upload_dir, exist_ok=True)
-		path = os.path.join(upload_dir, fname)
-		with open(path, "wb") as f:
-			f.write(img_bytes)
+	thr = threading.Thread(target=_worker, args=(current_app.app_context(), product_id, prompt), daemon=True)
+	thr.start()
+	return jsonify({"ok": True, "started": True})
 
-		p = Product.query.get_or_404(product_id)
-		if not p.design:
-			d = Design(type="image", text=p.title, approved=True)
-			db.session.add(d)
-			db.session.flush()
-			p.design = d
-		p.design.preview_url = f"/static/uploads/{fname}"
-		db.session.commit()
-		return jsonify({"ok": True, "url": p.design.preview_url})
-	except Exception as e:
-		# Attach extra debug to aid troubleshooting
-		version = None
-		try:
-			import openai as _ov
-			version = getattr(_ov, "__version__", None)
-		except Exception:
-			pass
-		return jsonify({
-			"error": str(e),
-			"type": e.__class__.__name__,
-			"openai_version": version,
-		}), 400
+
+@admin_bp.get("/products/<int:product_id>/generate-status")
+@login_required
+def generate_status(product_id: int):
+	p = Product.query.get_or_404(product_id)
+	url = p.design.preview_url if p.design else ""
+	return jsonify({"ready": bool(url), "url": url or ""})
 
 
 @admin_bp.get("/gelato")
