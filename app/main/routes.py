@@ -112,3 +112,13 @@ def checkout():
 @main_bp.get("/health")
 def health():
 	return {"status": "ok"}
+
+
+@main_bp.get("/shipping-returns")
+def shipping_returns():
+	return render_template("shipping_returns.html")
+
+
+@main_bp.get("/contact")
+def contact_page():
+	return render_template("contact.html")

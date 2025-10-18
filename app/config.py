@@ -13,6 +13,7 @@ class BaseConfig:
 	STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 	GELATO_API_KEY = os.getenv("GELATO_API_KEY", "")
 	OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+	FORMSPREE_ENDPOINT = os.getenv("FORMSPREE_ENDPOINT", "")
 
 	# Store
 	MARKUP_PERCENT = float(os.getenv("MARKUP_PERCENT", "35"))
