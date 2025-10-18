@@ -2,55 +2,100 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">Cart</h1>
 {% if cart['items'] %}
-<table class="w-full text-left text-sm">
-	<thead class="text-gray-400">
-		<tr>
-			<th class="py-2">Item</th>
-			<th class="py-2">Qty</th>
-			<th class="py-2">Price</th>
-			<th class="py-2">Actions</th>
-		</tr>
-	</thead>
-	<tbody>
-		{% for it in cart['items'] %}
-		<tr class="border-t border-gray-800">
-			<td class="py-2">
-				<a class="flex items-center gap-3 underline" href="{{ url_for('main.product_detail', slug=it.slug) }}">
-					<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
-						{% if it.image %}
-						<img src="{{ it.image }}" alt="{{ it.title }}" class="w-full h-full object-cover" />
-						{% else %}
-						<span class="text-gray-600 text-xs">No image</span>
-						{% endif %}
-					</div>
-					<span>{{ it.title }}</span>
-				</a>
-			</td>
-			<td class="py-2">
-				<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
-					<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
-					<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
-					<button class="bg-white text-black px-3 py-1 rounded">Update</button>
-				</form>
-			</td>
-			<td class="py-2">${{ '%.2f'|format(it.price) }} {{ it.currency }}</td>
-			<td class="py-2">
-				<form method="post" action="/cart/remove" class="inline">
-					<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
-					<button class="underline text-gray-300">Remove</button>
-				</form>
-			</td>
-		</tr>
-		{% endfor %}
-	</tbody>
-</table>
-<div class="mt-4 flex items-center justify-between">
-	<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
-	<div class="space-x-2">
-		<form method="post" action="/cart/clear" class="inline">
-			<button class="underline text-gray-300">Clear cart</button>
-		</form>
-		<a href="/checkout" class="bg-white text-black px-4 py-2 rounded">Checkout</a>
+
+{# Mobile layout #}
+<div class="md:hidden space-y-3">
+	{% for it in cart['items'] %}
+	<div class="border border-gray-800 rounded p-3 bg-gray-900">
+		<div class="flex items-start gap-3">
+			<div class="w-16 h-16 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+				{% if it.image %}
+				<img src="{{ it.image }}" alt="{{ it.title }}" class="w-full h-full object-cover" />
+				{% else %}
+				<span class="text-gray-600 text-xs">No</span>
+				{% endif %}
+			</div>
+			<div class="flex-1">
+				<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium underline">{{ it.title }}</a>
+				<div class="text-gray-300 mt-1">${{ '%.2f'|format(it.price) }} {{ it.currency }}</div>
+				<div class="mt-2 flex items-center gap-2">
+					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
+						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
+						<button class="bg-white text-black px-3 py-1 rounded">Update</button>
+					</form>
+					<form method="post" action="/cart/remove" class="inline">
+						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						<button class="underline text-gray-300">Remove</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endfor %}
+	<div class="mt-2 flex items-center justify-between">
+		<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
+		<div class="space-x-2">
+			<form method="post" action="/cart/clear" class="inline">
+				<button class="underline text-gray-300">Clear</button>
+			</form>
+			<a href="/checkout" class="bg-white text-black px-4 py-2 rounded">Checkout</a>
+		</div>
+	</div>
+</div>
+
+{# Desktop/table layout #}
+<div class="hidden md:block">
+	<table class="w-full text-left text-sm">
+		<thead class="text-gray-400">
+			<tr>
+				<th class="py-2">Item</th>
+				<th class="py-2">Qty</th>
+				<th class="py-2">Price</th>
+				<th class="py-2">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for it in cart['items'] %}
+			<tr class="border-t border-gray-800">
+				<td class="py-2">
+					<a class="flex items-center gap-3 underline" href="{{ url_for('main.product_detail', slug=it.slug) }}">
+						<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+							{% if it.image %}
+							<img src="{{ it.image }}" alt="{{ it.title }}" class="w-full h-full object-cover" />
+							{% else %}
+							<span class="text-gray-600 text-xs">No image</span>
+							{% endif %}
+						</div>
+						<span>{{ it.title }}</span>
+					</a>
+				</td>
+				<td class="py-2">
+					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
+						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
+						<button class="bg-white text-black px-3 py-1 rounded">Update</button>
+					</form>
+				</td>
+				<td class="py-2">${{ '%.2f'|format(it.price) }} {{ it.currency }}</td>
+				<td class="py-2">
+					<form method="post" action="/cart/remove" class="inline">
+						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						<button class="underline text-gray-300">Remove</button>
+					</form>
+				</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	<div class="mt-4 flex items-center justify-between">
+		<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
+		<div class="space-x-2">
+			<form method="post" action="/cart/clear" class="inline">
+				<button class="underline text-gray-300">Clear cart</button>
+			</form>
+			<a href="/checkout" class="bg-white text-black px-4 py-2 rounded">Checkout</a>
+		</div>
 	</div>
 </div>
 {% else %}

@@ -54,8 +54,33 @@
 		{% block content %}{% endblock %}
 	</main>
 	<footer class="border-t border-gray-800">
-		<div class="max-w-6xl mx-auto px-4 py-6 text-sm text-gray-400">
-			&copy; {{ 2025 }} TrendMerch
+		<div class="max-w-6xl mx-auto px-4 py-8 text-sm text-gray-300 grid grid-cols-1 md:grid-cols-3 gap-6">
+			<div>
+				<div class="font-semibold text-gray-100">Dumbshirts.store</div>
+				<p class="mt-2 text-gray-400">Solid colors. Clean designs. Fast checkout.</p>
+			</div>
+			<div>
+				<div class="font-semibold text-gray-100">Explore</div>
+				<ul class="mt-2 space-y-1">
+					<li><a href="/shop" class="hover:underline">Shop</a></li>
+					<li><a href="/search" class="hover:underline">Search</a></li>
+					<li><a href="/cart" class="hover:underline">Cart</a></li>
+					{% if current_user.is_authenticated %}
+					<li><a href="/admin" class="hover:underline">Admin</a></li>
+					{% endif %}
+				</ul>
+			</div>
+			<div>
+				<div class="font-semibold text-gray-100">About</div>
+				<ul class="mt-2 space-y-1">
+					<li><a href="#" class="hover:underline">Privacy</a></li>
+					<li><a href="#" class="hover:underline">Terms</a></li>
+					<li><a href="#" class="hover:underline">Contact</a></li>
+				</ul>
+			</div>
+		</div>
+		<div class="border-t border-gray-800">
+			<div class="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500">&copy; {{ 2025 }} Dumbshirts.store</div>
 		</div>
 	</footer>
 </body>
