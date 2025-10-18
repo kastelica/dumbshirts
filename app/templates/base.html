@@ -10,18 +10,36 @@
 <body class="min-h-screen bg-gray-950 text-gray-100">
 	<header class="border-b border-gray-800">
 		<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-			<a href="/" class="font-bold text-xl">Dumbshirts.store</a>
-			<nav class="space-x-4 text-gray-300">
-				<a href="/" class="hover:underline">Home</a>
-				<a href="/shop" class="hover:underline">Shop</a>
-				<a href="/search" class="hover:underline">Search</a>
-				<a href="/cart" class="hover:underline">Cart ({{ cart_count }})</a>
+			<a href="/" class="font-extrabold text-xl tracking-tight">Dumbshirts.store</a>
+			<div class="flex items-center gap-3">
+				<button id="menu-toggle" class="md:hidden bg-gray-900 border border-gray-800 text-gray-200 px-3 py-2 rounded" aria-label="Toggle menu">Menu</button>
+				<nav id="site-nav" class="hidden md:flex space-x-4 text-gray-300">
+					<a href="/" class="hover:underline">Home</a>
+					<a href="/shop" class="hover:underline">Shop</a>
+					<a href="/search" class="hover:underline">Search</a>
+					<a href="/cart" class="hover:underline">Cart ({{ cart_count }})</a>
+					{% if current_user.is_authenticated %}
+					<span class="text-gray-600 hidden md:inline">|</span>
+					<a href="/admin" class="hover:underline">Admin</a>
+					<a href="/admin/products" class="hover:underline">Products</a>
+					<a href="/admin/trends" class="hover:underline">Trends</a>
+					<a href="/admin/logout" class="hover:underline">Logout</a>
+					{% endif %}
+				</nav>
+			</div>
+		</div>
+		<div id="mobile-nav-wrap" class="md:hidden max-w-6xl mx-auto px-4 pb-3">
+			<nav id="mobile-nav" class="hidden flex-col gap-2 text-gray-300">
+				<a href="/" class="py-1">Home</a>
+				<a href="/shop" class="py-1">Shop</a>
+				<a href="/search" class="py-1">Search</a>
+				<a href="/cart" class="py-1">Cart ({{ cart_count }})</a>
 				{% if current_user.is_authenticated %}
-				<span class="text-gray-600">|</span>
-				<a href="/admin" class="hover:underline">Admin</a>
-				<a href="/admin/products" class="hover:underline">Products</a>
-				<a href="/admin/trends" class="hover:underline">Trends</a>
-				<a href="/admin/logout" class="hover:underline">Logout</a>
+				<div class="h-px bg-gray-800 my-1"></div>
+				<a href="/admin" class="py-1">Admin</a>
+				<a href="/admin/products" class="py-1">Products</a>
+				<a href="/admin/trends" class="py-1">Trends</a>
+				<a href="/admin/logout" class="py-1">Logout</a>
 				{% endif %}
 			</nav>
 		</div>
@@ -41,4 +59,15 @@
 		</div>
 	</footer>
 </body>
+<script>
+(function(){
+	const btn = document.getElementById('menu-toggle');
+	const mobile = document.getElementById('mobile-nav');
+	if(btn && mobile){
+		btn.addEventListener('click', ()=>{
+			mobile.classList.toggle('hidden');
+		});
+	}
+})();
+</script>
 </html>
