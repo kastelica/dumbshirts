@@ -176,7 +176,7 @@ def ignore_trend(trend_id: int):
 	return redirect(url_for("admin.trends_page"))
 
 def _create_product_for_design(design: Design) -> Product:
-	base_cost = Decimal("10.00")
+	base_cost = Decimal("18.00")
 	markup_percent = Decimal(str(current_app.config.get("MARKUP_PERCENT", 35)))
 	price = (base_cost * (Decimal(1) + markup_percent / Decimal(100))).quantize(Decimal("0.01"))
 
