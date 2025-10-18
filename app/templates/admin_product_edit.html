@@ -55,17 +55,44 @@
 		const prompt = document.getElementById('ai-prompt').value.trim();
 		if(!prompt){ msg.textContent='Enter a prompt'; return; }
 		btn.disabled = true; msg.textContent = 'Generating…';
-		try {
-			const r = await fetch('{{ url_for('admin.generate_openai_image', product_id=product.id) }}', {
-				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt })
-			});
-			const j = await r.json();
-			if(!r.ok){ throw new Error(j.error || 'Failed'); }
-			preview.src = j.url;
-			preview.classList.remove('hidden');
-			if(empty){ empty.classList.add('hidden'); }
-			msg.textContent = 'Image updated.';
-		} catch(err){
+    try {
+        const startResp = await fetch('{{ url_for('admin.generate_openai_image', product_id=product.id) }}', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt })
+        });
+        const startJson = await startResp.json();
+        if(!startResp.ok){ throw new Error(startJson.error || 'Failed'); }
+        // If URL returned immediately, use it; else poll status
+        if(startJson.url){
+            preview.src = startJson.url;
+            preview.classList.remove('hidden');
+            if(empty){ empty.classList.add('hidden'); }
+            msg.textContent = 'Image updated.';
+        } else {
+            msg.textContent = 'Generating in background…';
+            const statusUrl = '{{ url_for('admin.generate_status', product_id=product.id) }}';
+            let attempts = 0;
+            const timer = setInterval(async ()=>{
+                attempts++;
+                try {
+                    const rs = await fetch(statusUrl, { cache: 'no-store' });
+                    const js = await rs.json();
+                    if(js.ready && js.url){
+                        clearInterval(timer);
+                        preview.src = js.url + '?t=' + Date.now();
+                        preview.classList.remove('hidden');
+                        if(empty){ empty.classList.add('hidden'); }
+                        msg.textContent = 'Image ready.';
+                    } else if(attempts > 20){
+                        clearInterval(timer);
+                        msg.textContent = 'Still processing… refresh in a moment.';
+                    }
+                } catch(e){
+                    clearInterval(timer);
+                    msg.textContent = 'Failed to check status';
+                }
+            }, 2000);
+        }
+    } catch(err){
 			msg.textContent = err.message || 'Generation failed';
 		} finally {
 			btn.disabled = false;
