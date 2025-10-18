@@ -440,8 +440,8 @@ def generate_openai_image(product_id: int):
 		import os as _os
 		_os.environ["OPENAI_API_KEY"] = api_key
 		from openai import OpenAI
-		client = OpenAI()
-		result = client.images.generate(model="gpt-image-1", prompt=prompt, size="1024x1024")
+		client = OpenAI().with_options(timeout=20.0)
+		result = client.images.generate(model="gpt-image-1", prompt=prompt, size="512x512")
 		b64_data = result.data[0].b64_json
 
 		img_bytes = b64decode(b64_data)
