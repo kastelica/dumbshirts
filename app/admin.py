@@ -66,36 +66,40 @@ def queue_design():
 	flash("Design queued as draft", "success")
 	return redirect(url_for("admin.trends_page"))
 
-def _auto_import_trends(limit: int = 5) -> int:
-	"""Create draft products from the most recent trends. Returns created count."""
+def _auto_import_trends(limit: int = 1, generate_images: bool = False, messages: list | None = None) -> int:
+	"""Create draft products from the most recent trends (default: 1). Returns created count.
+
+	Writes progress to current_app.logger and optional messages list for flashing.
+	"""
 	created = 0
 	trends = Trend.query.order_by(Trend.created_at.desc()).limit(limit * 3).all()
+	current_app.logger.info(f"[auto-mode] scanning {len(trends)} trends, target={limit}")
+	if messages is not None:
+		messages.append(f"Scanning {len(trends)} trends…")
 	for t in trends:
-		# Skip if already linked to a product
 		if t.products:
+			current_app.logger.info(f"[auto-mode] skip already linked trend {t.id}:{t.normalized}")
 			continue
 		text = t.term or t.normalized
 		if not text:
 			continue
-		# Create design
+		current_app.logger.info(f"[auto-mode] creating design for '{text}'")
 		d = Design(type="image", text=text, approved=True)
 		db.session.add(d)
 		db.session.flush()
-		# Create product (draft)
 		product = _create_product_for_design(d)
 		product.status = "draft"
-		# Ensure single variant mapped to default tee
 		_ensure_single_variant(product)
-		# Attempt OpenAI image generation
-		try:
-			api_key = current_app.config.get("OPENAI_API_KEY", "")
-			if api_key:
+		if messages is not None:
+			messages.append(f"Draft product '{product.title}' created.")
+		if generate_images and current_app.config.get("OPENAI_API_KEY"):
+			try:
 				from base64 import b64decode
 				import os as _os
 				from openai import OpenAI
-				_os.environ["OPENAI_API_KEY"] = api_key
+				_os.environ["OPENAI_API_KEY"] = current_app.config.get("OPENAI_API_KEY")
 				client = OpenAI()
-				prompt = f"Minimal bold text design: '{text}' centered on chest, white shirt, black text."
+				prompt = f"Minimal bold text or simple icon graphic for '{text}'. Solid colors, transparent PNG, centered."
 				res = client.images.generate(model="gpt-image-1", prompt=prompt, size="1024x1024")
 				b64_data = res.data[0].b64_json
 				img_bytes = b64decode(b64_data)
@@ -105,23 +109,17 @@ def _auto_import_trends(limit: int = 5) -> int:
 				path = os.path.join(upload_dir, fname)
 				with open(path, "wb") as f:
 					f.write(img_bytes)
-				# Set both preview (mock on site) and image_url (artwork-only) to the same generated file for now
 				product.design.preview_url = f"/static/uploads/{fname}"
 				product.design.image_url = f"/static/uploads/{fname}"
-			else:
-				# Fallback placeholder
-				placeholder_text = (text or "Design").replace(" ", "+")
-				product.design.preview_url = f"https://placehold.co/1024x1024?text={placeholder_text}"
-		except Exception:
-			# Keep product without image if generation fails
-			pass
-		# Link trend to product
+				current_app.logger.info(f"[auto-mode] artwork generated {fname}")
+			except Exception as e:
+				current_app.logger.warning(f"[auto-mode] artwork generation failed: {e}")
 		product.trends.append(t)
+		current_app.logger.info(f"[auto-mode] linked trend {t.id} -> product {product.id}")
 		created += 1
-		if created >= limit:
-			break
-	# Persist changes
+		break
 	db.session.commit()
+	current_app.logger.info(f"[auto-mode] created={created}")
 	return created
 
 
@@ -133,10 +131,12 @@ def toggle_auto_mode():
 	current_app.config["AUTO_MODE"] = new_state
 	created = 0
 	if new_state:
-		# On enable, import a small batch immediately
-		created = _auto_import_trends(limit=5)
-	if new_state:
-		flash(f"Auto mode ON. Imported {created} products.", "success")
+		steps = []
+		created = _auto_import_trends(limit=1, generate_images=current_app.config.get("AUTO_MODE_GENERATE_IMAGES", False), messages=steps)
+		flash("Auto mode ON.", "success")
+		for m in steps:
+			flash(m, "info")
+		flash(f"Imported {created} product(s).", "success")
 	else:
 		flash("Auto mode OFF.", "success")
 	return redirect(url_for("admin.products_list"))
