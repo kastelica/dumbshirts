@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Import Trends (SerpAPI)</h1>
+
+<form method="get" action="{{ url_for('admin.trends_import_page') }}" class="mb-4 flex flex-wrap gap-2 items-end">
+  <div>
+    <label class="block text-sm text-gray-400">Geo</label>
+    <input type="text" name="geo" value="{{ geo }}" class="bg-black border border-gray-800 px-2 py-1 rounded w-24" />
+  </div>
+  <div>
+    <label class="block text-sm text-gray-400">Limit</label>
+    <input type="number" name="limit" value="{{ limit }}" class="bg-black border border-gray-800 px-2 py-1 rounded w-24" />
+  </div>
+  <div>
+    <label class="block text-sm text-gray-400">Mode</label>
+    <select name="preview" class="bg-black border border-gray-800 px-2 py-1 rounded">
+      <option value="0" {% if not preview %}selected{% endif %}>Idle</option>
+      <option value="1" {% if preview %}selected{% endif %}>Preview</option>
+    </select>
+  </div>
+  <button class="bg-white text-black px-3 py-1 rounded">Update</button>
+</form>
+
+{% if preview %}
+<div class="mb-4">
+  <h2 class="text-xl font-semibold mb-2">Preview Results ({{ phrases|length }})</h2>
+  <form method="post" action="{{ url_for('admin.trends_import_commit') }}" class="mb-3">
+    <input type="hidden" name="geo" value="{{ geo }}" />
+    <input type="hidden" name="limit" value="{{ limit }}" />
+    <button class="bg-white text-black px-3 py-1 rounded">Import These</button>
+  </form>
+  <div class="border border-gray-800 rounded overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-900 text-gray-400">
+        <tr>
+          <th class="p-2 text-left">#</th>
+          <th class="p-2 text-left">Phrase</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in phrases %}
+        <tr class="border-t border-gray-800">
+          <td class="p-2 text-gray-400">{{ loop.index }}</td>
+          <td class="p-2">{{ p }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" class="p-3 text-gray-400">No phrases.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mb-4">
+  <h2 class="text-xl font-semibold mb-2">Seeds and Raw JSON</h2>
+  <div class="text-sm text-gray-400 mb-2">Click a seed to view the full SerpAPI JSON response.</div>
+  <div class="flex flex-wrap gap-2">
+    {% for s in seeds %}
+      <a class="underline" target="_blank" href="{{ url_for('admin.trends_import_raw', seed=s, geo=geo) }}">{{ s }}</a>
+    {% endfor %}
+  </div>
+  <div class="mt-2 text-sm text-gray-500">Debug: {{ debug | tojson }}</div>
+</div>
+{% else %}
+<div class="text-gray-400">Set Mode to Preview to fetch sample phrases. Ensure SERPAPI_API_KEY is configured.</div>
+{% endif %}
+
+<div class="mt-6">
+  <a href="{{ url_for('admin.trends_page') }}" class="underline">Back to Tracked Trends</a>
+  </div>
+{% endblock %}
+
+

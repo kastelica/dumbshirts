@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">Tracked Trends</h1>
+<div class="mb-4 flex gap-2">
+    <a href="{{ url_for('admin.trends_import_page') }}" class="bg-white text-black px-3 py-1 rounded">Import Trends</a>
+    <a href="{{ url_for('admin.trends_import_page', preview=1) }}" class="bg-white text-black px-3 py-1 rounded">Preview SerpAPI</a>
+    <a href="{{ url_for('admin.trends_import_page', preview=1, geo='US', limit=50) }}" class="bg-white text-black px-3 py-1 rounded">Preview 50 (US)</a>
+  </div>
 <div class="border border-gray-800 rounded overflow-hidden">
 	<table class="w-full text-sm">
 		<thead class="bg-gray-900 text-gray-400">
