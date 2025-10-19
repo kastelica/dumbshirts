@@ -148,7 +148,7 @@ def _auto_import_trends(limit: int = 1, generate_images: bool = False, messages:
 				_os.environ["OPENAI_API_KEY"] = current_app.config.get("OPENAI_API_KEY")
 				client = OpenAI()
 				prompt = f"Minimal bold text or simple icon graphic for '{text}'. Solid colors, transparent PNG, centered."
-				res = client.images.generate(model="gpt-image-1", prompt=prompt, size="1024x1024")
+				res = client.images.generate(model="gpt-image-1-mini", prompt=prompt, size="1024x1024")
 				b64_data = res.data[0].b64_json
 				img_bytes = b64decode(b64_data)
 				fname = f"auto_{product.id}.png"
@@ -498,7 +498,7 @@ def generate_openai_image(product_id: int):
 				last_err = None
 				for attempt, delay in enumerate(delays, start=1):
 					try:
-						res = client.images.generate(model="gpt-image-1", prompt=prm, size="1024x1024")
+						res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
 						b64 = res.data[0].b64_json
 						img = b64decode(b64)
 						fname = f"openai_{pid}_{int(_time.time())}.png"
