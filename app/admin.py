@@ -55,6 +55,53 @@ def trends_page():
 	return render_template("trends_admin.html", trends=trends)
 
 
+@admin_bp.post("/trends/import")
+@login_required
+def import_trends():
+	geo = (request.form.get("geo") or "US").upper()
+	try:
+		limit = int(request.form.get("limit") or "10")
+	except Exception:
+		limit = 10
+	limit = max(1, min(limit, 50))
+
+	phrases, debug = fetch_trending_phrases_any(geo=geo, limit=limit)
+	created = 0
+	for phrase in phrases:
+		norm = normalize_trend_term(phrase)
+		if not norm:
+			continue
+		if Trend.query.filter_by(normalized=norm).first():
+			continue
+		slug = slugify(phrase) or slugify(norm) or "trend"
+		base = slug
+		idx = 2
+		while Trend.query.filter_by(slug=slug).first():
+			slug = f"{base}-{idx}"
+			idx += 1
+		t = Trend(
+			term=phrase,
+			normalized=norm,
+			slug=slug,
+			source=(debug.get("source") if isinstance(debug, dict) else None),
+			status="new",
+		)
+		db.session.add(t)
+		created += 1
+
+	if created:
+		try:
+			save_cache(geo, phrases, debug if isinstance(debug, dict) else {})
+		except Exception:
+			pass
+		db.session.commit()
+		flash(f"Imported {created} new trend(s).", "success")
+	else:
+		flash("No new trends found.", "info")
+
+	return redirect(url_for("admin.trends_page"))
+
+
 @admin_bp.post("/designs/queue")
 @login_required
 def queue_design():

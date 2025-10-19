@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">Tracked Trends</h1>
+<form method="post" action="{{ url_for('admin.import_trends') }}" class="mb-4 flex items-center gap-2">
+    <input type="text" name="geo" value="US" class="bg-black border border-gray-800 px-2 py-1 text-sm" placeholder="Geo (US)" />
+    <input type="number" name="limit" value="10" min="1" max="50" class="bg-black border border-gray-800 px-2 py-1 text-sm w-20" />
+    <button class="bg-white text-black px-3 py-1 rounded">Import Trends</button>
+    <span class="text-gray-400 text-sm">Fetches latest and adds new ones only.</span>
+</form>
 <div class="border border-gray-800 rounded overflow-hidden">
 	<table class="w-full text-sm">
 		<thead class="bg-gray-900 text-gray-400">
