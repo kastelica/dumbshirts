@@ -3,6 +3,8 @@ import click
 from flask import Flask, session
 from .config import get_config
 from .extensions import db, migrate, login_manager
+import cloudinary
+import cloudinary.uploader
 
 
 def create_app() -> Flask:
@@ -14,6 +16,11 @@ def create_app() -> Flask:
 	migrate.init_app(app, db)
 	login_manager.init_app(app)
 	login_manager.login_view = "admin.login_page"
+
+	# Configure Cloudinary if URL is provided
+	cloud_url = app.config.get("CLOUDINARY_URL", "").strip()
+	if cloud_url:
+		cloudinary.config(cloudinary_url=cloud_url)
 
 	# Register blueprints
 	from .main import main_bp

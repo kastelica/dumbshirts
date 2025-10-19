@@ -151,14 +151,23 @@ def _auto_import_trends(limit: int = 1, generate_images: bool = False, messages:
 				res = client.images.generate(model="gpt-image-1-mini", prompt=prompt, size="1024x1024")
 				b64_data = res.data[0].b64_json
 				img_bytes = b64decode(b64_data)
-				fname = f"auto_{product.id}.png"
-				upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-				os.makedirs(upload_dir, exist_ok=True)
-				path = os.path.join(upload_dir, fname)
-				with open(path, "wb") as f:
-					f.write(img_bytes)
-				product.design.preview_url = f"/static/uploads/{fname}"
-				product.design.image_url = f"/static/uploads/{fname}"
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					public_id = slugify(product.title or text or "design")
+					res_up = cu.upload(img_bytes, folder="products", public_id=public_id, overwrite=True, resource_type="image")
+					secure_url = res_up.get("secure_url") or res_up.get("url")
+					product.design.preview_url = secure_url
+					product.design.image_url = secure_url
+				else:
+					fname = f"auto_{product.id}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img_bytes)
+					product.design.preview_url = f"/static/uploads/{fname}"
+					product.design.image_url = f"/static/uploads/{fname}"
 				current_app.logger.info(f"[auto-mode] artwork generated {fname}")
 			except Exception as e:
 				current_app.logger.warning(f"[auto-mode] artwork generation failed: {e}")
@@ -273,25 +282,65 @@ DEFAULT_SINGLE_VARIANT_NAME = "L / White / Front"
 
 
 def _ensure_single_variant(product: Product) -> None:
-	"""Ensure the product has exactly one variant mapped to default tee UID."""
-	from .config import BaseConfig
-	# Remove existing variants
-	for v in list(product.variants):
-		db.session.delete(v)
-	db.session.flush()
-	# Create one variant
+	"""Ensure a primary variant exists and avoid deleting variants referenced by orders.
+
+	Strategy:
+	- If there are no variants: create one default variant.
+	- If variants exist: pick one to keep (prefer one referenced by OrderItem), update it to defaults,
+	  and delete only unreferenced extras. Referenced variants are preserved to avoid FK violations.
+	"""
+	# Local import to avoid circulars
+	from .models import OrderItem
+
 	uid = current_app.config.get("DEFAULT_TEE_UID")
-	v = Variant(
-		product_id=product.id,
-		name=DEFAULT_SINGLE_VARIANT_NAME,
-		color="White",
-		size="L",
-		print_area="front",
-		gelato_sku=uid,
-		price=product.price,
-		base_cost=product.base_cost,
-	)
-	db.session.add(v)
+	variant_ids = [v.id for v in product.variants]
+	if not variant_ids:
+		v = Variant(
+			product_id=product.id,
+			name=DEFAULT_SINGLE_VARIANT_NAME,
+			color="White",
+			size="L",
+			print_area="front",
+			gelato_sku=uid,
+			price=product.price,
+			base_cost=product.base_cost,
+		)
+		db.session.add(v)
+		db.session.flush()
+		return
+
+	# Determine which variants are referenced by existing order items
+	ref_rows = db.session.query(OrderItem.variant_id).filter(OrderItem.variant_id.in_(variant_ids)).all()
+	referenced_ids = {rid for (rid,) in ref_rows if rid is not None}
+
+	# Choose a primary variant to keep (prefer referenced)
+	keep_variant = None
+	if referenced_ids:
+		for v in product.variants:
+			if v.id in referenced_ids:
+				keep_variant = v
+				break
+	else:
+		keep_variant = product.variants[0]
+
+	# Update primary variant fields to match defaults
+	keep_variant.name = DEFAULT_SINGLE_VARIANT_NAME
+	keep_variant.color = "White"
+	keep_variant.size = "L"
+	keep_variant.print_area = "front"
+	keep_variant.gelato_sku = uid
+	keep_variant.price = product.price
+	keep_variant.base_cost = product.base_cost
+
+	# Delete only unreferenced, non-primary variants
+	for v in list(product.variants):
+		if v.id == keep_variant.id:
+			continue
+		if v.id in referenced_ids:
+			# Preserve variants tied to orders to avoid FK violations
+			continue
+		db.session.delete(v)
+
 	db.session.flush()
 
 
@@ -450,14 +499,24 @@ def edit_product_submit(product_id: int):
 	uploaded = False
 	# Handle image upload
 	if image_file and image_file.filename:
-		fname = secure_filename(image_file.filename)
-		upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-		os.makedirs(upload_dir, exist_ok=True)
-		path = os.path.join(upload_dir, fname)
-		image_file.save(path)
-		# Public URL
-		p.design.preview_url = f"/static/uploads/{fname}"
-		p.design.image_url = f"/static/uploads/{fname}"
+		# Upload to Cloudinary if configured; fallback to local
+		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		if cloud_url:
+			import cloudinary.uploader as cu
+			public_id = slugify(p.title or "design")
+			res = cu.upload(image_file, folder="products", public_id=public_id, overwrite=True, resource_type="image")
+			secure_url = res.get("secure_url") or res.get("url")
+			p.design.preview_url = secure_url
+			p.design.image_url = secure_url
+		else:
+			fname = secure_filename(image_file.filename)
+			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+			os.makedirs(upload_dir, exist_ok=True)
+			path = os.path.join(upload_dir, fname)
+			image_file.save(path)
+			# Public URL
+			p.design.preview_url = f"/static/uploads/{fname}"
+			p.design.image_url = f"/static/uploads/{fname}"
 		uploaded = True
 
 	# Placeholder AI generation (no external call yet)
@@ -500,20 +559,30 @@ def generate_openai_image(product_id: int):
 				img = b64decode(b64)
 				p2 = Product.query.get(pid)
 				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
-				fname = f"{slug_base}_{int(_time.time())}.png"
-				upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-				os.makedirs(upload_dir, exist_ok=True)
-				path = os.path.join(upload_dir, fname)
-				with open(path, "wb") as f:
-					f.write(img)
+				# Upload to Cloudinary if configured; otherwise save locally
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					# Upload bytes directly
+					res_up = cu.upload(img, folder="products", public_id=slug_base, overwrite=True, resource_type="image")
+					secure_url = res_up.get("secure_url") or res_up.get("url")
+					final_url = secure_url
+				else:
+					fname = f"{slug_base}_{int(_time.time())}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img)
+					final_url = f"/static/uploads/{fname}"
 				if p2:
 					if not p2.design:
 						d = Design(type="image", text=p2.title, approved=True)
 						db.session.add(d)
 						db.session.flush()
 						p2.design = d
-					p2.design.preview_url = f"/static/uploads/{fname}"
-					p2.design.image_url = f"/static/uploads/{fname}"
+					p2.design.preview_url = final_url
+					p2.design.image_url = final_url
 					db.session.commit()
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
