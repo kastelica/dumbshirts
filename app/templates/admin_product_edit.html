@@ -56,7 +56,7 @@
 		if(!prompt){ msg.textContent='Enter a prompt'; return; }
 		btn.disabled = true; msg.textContent = 'Generating…';
     try {
-        const startResp = await fetch('{{ url_for('admin.generate_openai_image', product_id=product.id) }}', {
+        const startResp = await fetch("{{ url_for('admin.generate_openai_image', product_id=product.id) }}", {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt })
         });
         const startJson = await startResp.json();
@@ -69,7 +69,7 @@
             msg.textContent = 'Image updated.';
         } else {
             msg.textContent = 'Generating in background…';
-            const statusUrl = '{{ url_for('admin.generate_status', product_id=product.id) }}';
+            const statusUrl = "{{ url_for('admin.generate_status', product_id=product.id) }}";
             let attempts = 0;
             const timer = setInterval(async ()=>{
                 attempts++;
@@ -82,7 +82,7 @@
                         preview.classList.remove('hidden');
                         if(empty){ empty.classList.add('hidden'); }
                         msg.textContent = 'Image ready.';
-                    } else if(attempts > 20){
+                    } else if(attempts > 45){
                         clearInterval(timer);
                         msg.textContent = 'Still processing… refresh in a moment.';
                     }

@@ -491,7 +491,7 @@ def generate_openai_image(product_id: int):
 				import os as _os
 				_os.environ["OPENAI_API_KEY"] = api_key
 				from openai import OpenAI
-				client = OpenAI().with_options(timeout=29.0)
+				client = OpenAI().with_options(timeout=60.0)
 				import time as _time
 				last_err = None
 				# Single attempt only; no retries, no Pillow fallback
@@ -517,7 +517,7 @@ def generate_openai_image(product_id: int):
 					db.session.commit()
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
-				current_app.logger.error(f"generate-image bg outer failed: {e_all}")
+				current_app.logger.warning(f"generate-image failed: {e_all}")
 
 	thr = threading.Thread(target=_worker, args=(current_app.app_context(), product_id, prompt), daemon=True)
 	thr.start()
