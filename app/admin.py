@@ -493,84 +493,29 @@ def generate_openai_image(product_id: int):
 				from openai import OpenAI
 				client = OpenAI().with_options(timeout=29.0)
 				import time as _time
-				# Fewer attempts to reduce noisy timeouts
-				delays = [9, 18]
 				last_err = None
-				for attempt, delay in enumerate(delays, start=1):
-					try:
-						res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
-						b64 = res.data[0].b64_json
-						img = b64decode(b64)
-						# Name image by product title or prompt
-						p2 = Product.query.get(pid)
-						slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
-						fname = f"{slug_base}_{int(_time.time())}.png"
-						upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-						os.makedirs(upload_dir, exist_ok=True)
-						path = os.path.join(upload_dir, fname)
-						with open(path, "wb") as f:
-							f.write(img)
-						p = Product.query.get(pid)
-						if p:
-							if not p.design:
-								d = Design(type="image", text=p.title, approved=True)
-								db.session.add(d)
-								db.session.flush()
-								p.design = d
-							p.design.preview_url = f"/static/uploads/{fname}"
-							p.design.image_url = f"/static/uploads/{fname}"
-							db.session.commit()
-						current_app.logger.info("generate-image bg completed via OpenAI")
-						return
-					except Exception as e:
-						last_err = e
-						current_app.logger.warning(f"generate-image attempt {attempt} failed: {e}")
-						_time.sleep(delay)
-				# Fallback: render simple text PNG so preview still appears
-				try:
-					from PIL import Image, ImageDraw, ImageFont
-					p = Product.query.get(pid)
-					text = (p.title if p else prm) or "Design"
-					img = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
-					draw = ImageDraw.Draw(img)
-					font = ImageFont.load_default()
-					# simple wrap
-					words = text.split()
-					lines = []
-					line = ""
-					for w in words:
-						if len(line) + len(w) + 1 > 18:
-							lines.append(line)
-							line = w
-						else:
-							line = (line + " " + w).strip()
-					if line:
-						lines.append(line)
-					content = "\n".join(lines[:6])
-					w, h = draw.multiline_textsize(content, font=font, spacing=6)
-					x = (1024 - w) // 2
-					y = (1024 - h) // 2
-					draw.multiline_text((x, y), content, fill=(0, 0, 0, 255), font=font, align="center", spacing=6)
-					# Name fallback image by product title or prompt
-					p2 = Product.query.get(pid)
-					slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
-					fname = f"{slug_base}_{int(_time.time())}.png"
-					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-					os.makedirs(upload_dir, exist_ok=True)
-					path = os.path.join(upload_dir, fname)
-					img.save(path, format="PNG")
-					if p:
-						if not p.design:
-							d = Design(type="image", text=p.title, approved=True)
-							db.session.add(d)
-							db.session.flush()
-							p.design = d
-						p.design.preview_url = f"/static/uploads/{fname}"
-						p.design.image_url = f"/static/uploads/{fname}"
-						db.session.commit()
-					current_app.logger.warning(f"generate-image used fallback after error: {last_err}")
-				except Exception as e2:
-					current_app.logger.error(f"generate-image fallback failed: {e2}")
+				# Single attempt only; no retries, no Pillow fallback
+				res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
+				b64 = res.data[0].b64_json
+				img = b64decode(b64)
+				p2 = Product.query.get(pid)
+				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
+				fname = f"{slug_base}_{int(_time.time())}.png"
+				upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+				os.makedirs(upload_dir, exist_ok=True)
+				path = os.path.join(upload_dir, fname)
+				with open(path, "wb") as f:
+					f.write(img)
+				if p2:
+					if not p2.design:
+						d = Design(type="image", text=p2.title, approved=True)
+						db.session.add(d)
+						db.session.flush()
+						p2.design = d
+					p2.design.preview_url = f"/static/uploads/{fname}"
+					p2.design.image_url = f"/static/uploads/{fname}"
+					db.session.commit()
+				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
 				current_app.logger.error(f"generate-image bg outer failed: {e_all}")
 
