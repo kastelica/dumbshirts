@@ -33,5 +33,9 @@ def google_feed():
 			"color": "white",
 			"gender": "unisex",
 			"size": "Large",
+			# Google Shopping
+			"google_product_category": "Apparel & Accessories > Clothing > Shirts & Tops",
+			"product_type": "t-shirt",
+			"shipping": {"country": "US"},
 		})
 	return render_google_shopping_feed(items)

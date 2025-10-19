@@ -22,6 +22,19 @@ def render_google_shopping_feed(items):
 		img = item.get("image")
 		if img:
 			SubElement(it, "g:image_link").text = img
+		# Google Shopping category and product type
+		gcat = item.get("google_product_category")
+		if gcat:
+			SubElement(it, "g:google_product_category").text = gcat
+		ptype = item.get("product_type")
+		if ptype:
+			SubElement(it, "g:product_type").text = ptype
+		# US-only shipping
+		ship = item.get("shipping") or {}
+		country = ship.get("country")
+		if country:
+			ship_el = SubElement(it, "g:shipping")
+			SubElement(ship_el, "g:country").text = country
 		brand = item.get("brand")
 		if brand:
 			SubElement(it, "g:brand").text = brand
