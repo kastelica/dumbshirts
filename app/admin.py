@@ -3,11 +3,10 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required
 from .extensions import db
 from .models import Admin, Design, Product, Category, Variant, Trend
-from .trends import fetch_trending_phrases_any, fetch_serpapi_trending_phrases_debug
+from .trends import fetch_trending_phrases_any
 from .trends_store import load_cache, save_cache
 from .gelato_client import GelatoClient
 from flask import current_app
-import requests
 from .utils import slugify, normalize_trend_term
 from .phrasegen import generate_candidates_from_title, memeify_term
 import os
@@ -54,98 +53,6 @@ def trends_page():
 	# Re-imaged: show existing tracked trends only, newest first
 	trends = Trend.query.order_by(Trend.created_at.desc()).all()
 	return render_template("trends_admin.html", trends=trends)
-
-
-@admin_bp.get("/trends/import")
-@login_required
-def trends_import_page():
-	"""Preview SerpAPI queries and results before importing trends."""
-	geo = (request.args.get("geo") or "US").upper()
-	try:
-		limit = int(request.args.get("limit") or 20)
-	except Exception:
-		limit = 20
-	preview = request.args.get("preview") == "1"
-	# Seeds used for SerpAPI queries (keep in sync with trends.fetch_serpapi_trending_phrases_debug)
-	seeds = ["meme", "funny", "tshirt", "hoodie", "gift"]
-	phrases = []
-	debug = {}
-	if preview:
-		phrases, debug = fetch_serpapi_trending_phrases_debug(geo=geo, limit=limit)
-	return render_template(
-		"admin_trends_import.html",
-		geo=geo,
-		limit=limit,
-		preview=preview,
-		seeds=seeds,
-		phrases=phrases,
-		debug=debug,
-	)
-
-
-@admin_bp.get("/trends/import/raw")
-@login_required
-def trends_import_raw():
-	"""Proxy raw SerpAPI JSON for a given seed so admin can inspect full payload."""
-	geo = (request.args.get("geo") or "US").upper()
-	seed = (request.args.get("seed") or "meme").strip()
-	api_key = current_app.config.get("SERPAPI_API_KEY") or os.getenv("SERPAPI_API_KEY", "").strip()
-	if not api_key:
-		return jsonify({"error": "SERPAPI_API_KEY not set"}), 400
-	params = {
-		"engine": "google_trends",
-		"data_type": "RELATED_QUERIES",
-		"q": seed,
-		"geo": geo,
-		"date": "now 7-d",
-		"output": "json",
-		"api_key": api_key,
-		"no_cache": "true",
-	}
-	try:
-		resp = requests.get("https://serpapi.com/search", params=params, timeout=20)
-		status = resp.status_code
-		data = resp.json() if status == 200 else {"status": status, "text": resp.text}
-		return jsonify(data), status
-	except Exception as e:
-		return jsonify({"error": str(e)}), 500
-
-
-@admin_bp.post("/trends/import/commit")
-@login_required
-def trends_import_commit():
-	"""Import previewed SerpAPI phrases into tracked `Trend` rows."""
-	geo = (request.form.get("geo") or "US").upper()
-	try:
-		limit = int(request.form.get("limit") or 20)
-	except Exception:
-		limit = 20
-	phrases, debug = fetch_serpapi_trending_phrases_debug(geo=geo, limit=limit)
-	created = 0
-	for term in phrases:
-		norm = normalize_trend_term(term)
-		if not norm:
-			continue
-		# Skip if already present by normalized key
-		existing = Trend.query.filter_by(normalized=norm).first()
-		if existing:
-			continue
-		# Generate slug unique
-		slug_base = slugify(norm)
-		slug = slug_base or norm
-		idx = 2
-		while Trend.query.filter_by(slug=slug).first() is not None:
-			slug = f"{slug_base}-{idx}"
-			idx += 1
-		t = Trend(term=term, normalized=norm, slug=slug, source="serpapi", geo=geo)
-		db.session.add(t)
-		created += 1
-	if created:
-		db.session.commit()
-	flash(f"Imported {created} trend(s).", "success")
-	if not created:
-		flash("No new trends to import.", "info")
-	return redirect(url_for("admin.trends_page"))
 
 
 @admin_bp.post("/designs/queue")
