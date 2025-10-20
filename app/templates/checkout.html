@@ -90,13 +90,14 @@ function gtag_report_conversion(url){
 	function applyFallback() {
 		shipSel.innerHTML = '';
 		const fallback = [
-			{ uid: 'free_3_5', name: 'Free shipping (3-5 days)', price: '0.00 USD' },
-			{ uid: 'express_2d', name: 'Express (2 days)', price: '19.99 USD' },
+			{ uid: 'free_3_5', name: 'Free shipping', price: 0, currency: '{{ currency }}', minDays: 3, maxDays: 5 },
+			{ uid: 'express', name: 'Express', price: 19.99, currency: '{{ currency }}', minDays: 2, maxDays: 2 },
 		];
 		fallback.forEach(m => {
 			const opt = document.createElement('option');
-			opt.value = m.uid;
-			opt.textContent = `${m.name} — ${m.price}`;
+			opt.value = JSON.stringify(m);
+			const range = (m.minDays && m.maxDays) ? ` (${m.minDays}-${m.maxDays} days)` : '';
+			opt.textContent = `${m.name} — ${m.price.toFixed(2)} ${m.currency}${range}`;
 			shipSel.appendChild(opt);
 		});
 		selectedShip = shipSel.value;
@@ -104,30 +105,31 @@ function gtag_report_conversion(url){
 		shipNote.textContent = 'Using fallback shipping options.';
 	}
 	try {
-		const r = await fetch('/api/shipment-methods?country=US');
+		const r = await fetch('/api/shipment-methods');
 		const j = await r.json();
-		const methods = Array.isArray(j) ? j : (j.methods || []);
+		const methods = (j && Array.isArray(j.methods)) ? j.methods : [];
 		shipSel.innerHTML = '';
 		if (!methods.length) { applyFallback(); }
 		else {
 			methods.forEach(m => {
 				const opt = document.createElement('option');
-				const uid = m.uid || m.shipmentMethodUid || m.id;
-				const name = m.name || m.shipmentMethodName || uid;
-				opt.value = uid;
-				opt.textContent = `${name}`;
+				opt.value = JSON.stringify(m);
+				const range = (m.minDays && m.maxDays) ? ` (${m.minDays}-${m.maxDays} days)` : '';
+				const price = (typeof m.price === 'number') ? m.price.toFixed(2) : (m.price || '');
+				opt.textContent = `${m.name} — ${price} ${m.currency || ''}${range}`;
 				shipSel.appendChild(opt);
 			});
 			selectedShip = shipSel.value;
 			shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
-			shipNote.textContent = 'Choose a method. This will be sent to Gelato.';
+			shipNote.textContent = 'Choose a method. This will be added to the total.';
 		}
 	} catch(e) { applyFallback(); }
 
-    const resp = await fetch('/api/create-payment-intent', {
+	const chosen = selectedShip ? JSON.parse(selectedShip) : { uid: 'free_3_5', price: 0 };
+	const resp = await fetch('/api/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amount, shipment_method_uid: (selectedShip || '').toString() })
+		body: JSON.stringify({ amount: amount, shipment_method_uid: (chosen.uid || '').toString(), shipping_price: chosen.price || 0 })
     });
 	const data = await resp.json();
 	if(!resp.ok){

@@ -33,6 +33,66 @@ def _compute_cart_total(cart: dict) -> int:
 	return int(total * 100)  # cents
 
 
+@stripe_bp.get("/api/shipment-methods")
+def shipment_methods():
+    try:
+        client = GelatoClient()
+        cart = session.get("cart") or {"items": []}
+        # Build minimal quote payload using cart contents and default US address
+        products = []
+        idx = 1
+        for it in cart.get("items", []):
+            uid = it.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID", "")
+            if not uid:
+                continue
+            products.append({
+                "itemReferenceId": f"cart-{idx}",
+                "productUid": uid,
+                "files": [{"type": "default", "url": it.get("image") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"}],
+                "quantity": int(it.get("quantity", 1)),
+            })
+            idx += 1
+        payload = {
+            "orderReferenceId": "cart-quote",
+            "customerReferenceId": "cart",
+            "currency": current_app.config.get("STORE_CURRENCY", "USD"),
+            "allowMultipleQuotes": False,
+            "recipient": {
+                "country": "US",
+                "companyName": "Example",
+                "firstName": "Test",
+                "lastName": "User",
+                "addressLine1": "451 Clarkson Ave",
+                "addressLine2": "Brooklyn",
+                "state": "NY",
+                "city": "New York",
+                "postCode": "11203",
+                "email": "test@example.com",
+                "phone": "123456789"
+            },
+            "products": products or []
+        }
+        q = client.quote_order(payload)
+        # Flatten shipment methods from first quote
+        quotes = (q or {}).get("quotes") or []
+        methods = []
+        if quotes:
+            for m in (quotes[0].get("shipmentMethods") or []):
+                methods.append({
+                    "name": m.get("name"),
+                    "uid": m.get("shipmentMethodUid"),
+                    "price": m.get("price"),
+                    "currency": m.get("currency"),
+                    "minDays": m.get("minDeliveryDays"),
+                    "maxDays": m.get("maxDeliveryDays"),
+                    "minDate": m.get("minDeliveryDate"),
+                    "maxDate": m.get("maxDeliveryDate"),
+                })
+        return jsonify({"methods": methods})
+    except Exception as e:
+        return jsonify({"error": str(e), "methods": []}), 200
+
+
 @stripe_bp.post("/api/create-payment-intent")
 def create_payment_intent():
     try:
@@ -88,8 +148,15 @@ def create_payment_intent():
             )
             db.session.add(order_item)
 
+        # Add shipping (ground free). Use shipment_method_uid from request to decide
+        ship_uid = (data.get("shipment_method_uid") or "").strip().lower()
+        shipping_cents = 0
+        if ship_uid and ship_uid not in ("economy", "free", "free_3_5"):
+            # naive: add flat 999 for non-free; ideally fetch selected price client-side and post it
+            shipping_cents = 999
+        total_cents = amount_cents + shipping_cents
         # Create PaymentIntent
-        pi = stripe.PaymentIntent.create(amount=amount_cents, currency=currency, automatic_payment_methods={"enabled": True})
+        pi = stripe.PaymentIntent.create(amount=total_cents, currency=currency, automatic_payment_methods={"enabled": True})
         order.stripe_payment_intent_id = pi.id
         db.session.commit()
         return jsonify({"clientSecret": pi.client_secret})

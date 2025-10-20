@@ -129,3 +129,10 @@ class GelatoClient:
 			return []
 		except Exception:
 			return []
+
+	def quote_order(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+		"""Call Orders:Quote to get shipping methods and product pricing."""
+		url = f"{self.ORDER_HOST}/orders:quote"
+		resp = requests.post(url, headers=self.headers, json=payload, timeout=30)
+		resp.raise_for_status()
+		return resp.json()
