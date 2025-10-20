@@ -430,7 +430,7 @@ def gelato_order_product(product_id: int):
 	from .gelato_client import GelatoClient
 	client = GelatoClient()
 	payload = {
-		"orderType": "order",
+		"orderType": "draft",
 		"orderReferenceId": f"admin-product-{p.id}",
 		"customerReferenceId": "admin-trigger",
 		"currency": (p.currency or current_app.config.get("STORE_CURRENCY", "USD")),
