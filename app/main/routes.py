@@ -1,8 +1,9 @@
-from flask import render_template, current_app, request, abort, session
+from flask import render_template, current_app, request, abort, session, Response
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
 from ..models import Order, Address
+from urllib.parse import urljoin
 
 
 @main_bp.get("/")
@@ -156,3 +157,53 @@ def shipping_returns():
 @main_bp.get("/contact")
 def contact_page():
 	return render_template("contact.html")
+
+
+@main_bp.get("/privacy")
+def privacy_page():
+	return render_template("privacy.html")
+
+
+@main_bp.get("/terms")
+def terms_page():
+	return render_template("terms.html")
+
+
+@main_bp.get("/sitemap.xml")
+def sitemap_xml():
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	urls: list[str] = []
+	# Static pages
+	for path in [
+		"/",
+		"/shop",
+		"/search",
+		"/cart",
+		"/checkout",
+		"/shipping-returns",
+		"/contact",
+		"/privacy",
+		"/terms",
+	]:
+		urls.append(urljoin(base, path))
+	# Product pages
+	for p in Product.query.filter_by(status="active").all():
+		urls.append(urljoin(base, f"/product/{p.slug}"))
+
+	items = []
+	for u in urls:
+		items.append(f"<url><loc>{u}</loc></url>")
+	xml = (
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"\
+		+ "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"\
+		+ "".join(items)\
+		+ "</urlset>"
+	)
+	return Response(xml, content_type="application/xml")
+
+
+@main_bp.get("/robots.txt")
+def robots_txt():
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	body = f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
+	return Response(body, content_type="text/plain")
