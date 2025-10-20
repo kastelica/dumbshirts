@@ -4,6 +4,7 @@ from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
 from ..models import Order, Address
 from urllib.parse import urljoin
+from datetime import datetime
 
 
 @main_bp.get("/")
@@ -172,31 +173,52 @@ def terms_page():
 @main_bp.get("/sitemap.xml")
 def sitemap_xml():
 	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
-	urls: list[str] = []
-	# Static pages
-	for path in [
-		"/",
-		"/shop",
-		"/search",
-		"/cart",
-		"/checkout",
-		"/shipping-returns",
-		"/contact",
-		"/privacy",
-		"/terms",
-	]:
-		urls.append(urljoin(base, path))
-	# Product pages
-	for p in Product.query.filter_by(status="active").all():
-		urls.append(urljoin(base, f"/product/{p.slug}"))
-
 	items = []
-	for u in urls:
-		items.append(f"<url><loc>{u}</loc></url>")
+	iso_today = datetime.utcnow().date().isoformat()
+
+	def add_url(loc: str, lastmod: str | None = None, changefreq: str | None = None, priority: str | None = None, image: str | None = None, image_title: str | None = None):
+		parts = [f"<loc>{loc}</loc>"]
+		if lastmod:
+			parts.append(f"<lastmod>{lastmod}</lastmod>")
+		if changefreq:
+			parts.append(f"<changefreq>{changefreq}</changefreq>")
+		if priority:
+			parts.append(f"<priority>{priority}</priority>")
+		if image:
+			img = f"<image:image><image:loc>{image}</image:loc>" + (f"<image:title>{image_title}</image:title>" if image_title else "") + "</image:image>"
+			parts.append(img)
+		items.append("<url>" + "".join(parts) + "</url>")
+
+	# Static pages
+	static_pages = [
+		("/", iso_today, "daily", "0.9"),
+		("/shop", iso_today, "daily", "0.8"),
+		("/search", iso_today, "weekly", "0.5"),
+		("/cart", iso_today, "daily", "0.3"),
+		("/checkout", iso_today, "daily", "0.6"),
+		("/shipping-returns", iso_today, "yearly", "0.3"),
+		("/contact", iso_today, "yearly", "0.2"),
+		("/privacy", iso_today, "yearly", "0.2"),
+		("/terms", iso_today, "yearly", "0.2"),
+	]
+	for path, lm, cf, pr in static_pages:
+		add_url(urljoin(base, path), lm, cf, pr)
+
+	# Category filtered pages
+	for c in Category.query.all():
+		add_url(urljoin(base, f"/shop?cat={c.slug}"), iso_today, "weekly", "0.6")
+
+	# Product pages with images and lastmod
+	for p in Product.query.filter_by(status="active").all():
+		img = p.design.preview_url if getattr(p, "design", None) and p.design.preview_url else ""
+		img_abs = img if (img.startswith("http://") or img.startswith("https://")) else (urljoin(base, img) if img else None)
+		lm = (p.updated_at or p.created_at).date().isoformat() if getattr(p, "updated_at", None) or getattr(p, "created_at", None) else iso_today
+		add_url(urljoin(base, f"/product/{p.slug}"), lm, "weekly", "0.7", img_abs, p.title)
+
 	xml = (
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"\
-		+ "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"\
-		+ "".join(items)\
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+		+ "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\">"
+		+ "".join(items)
 		+ "</urlset>"
 	)
 	return Response(xml, content_type="application/xml")
