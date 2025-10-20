@@ -84,14 +84,6 @@
         </div>
     </form>
 	{% if publishable_key %}
-	<label class="block text-sm">First name</label>
-	<input id="firstName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="First name" />
-	<label class="block text-sm">Last name</label>
-	<input id="lastName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Last name" />
-	<label class="block text-sm">Phone</label>
-	<input id="phone" type="tel" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="(555) 555-5555" />
-	<label class="block text-sm">Email</label>
-	<input id="email" type="email" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="you@example.com" />
 	<div id="payment-element" class="bg-gray-900 border border-gray-800 rounded p-3"></div>
 	<button id="submit" class="w-full bg-white text-black px-4 py-2 rounded">Pay ${{ '%.2f'|format(total_amount) }}</button>
 	<div id="payment-message" class="text-sm text-red-400" role="alert"></div>
