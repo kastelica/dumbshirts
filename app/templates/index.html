@@ -30,7 +30,7 @@
 					<div class="font-semibold leading-snug">{{ p.title }}</div>
 					<div class="text-sm text-right">
 						<div class="line-through text-gray-500">${{ '%.2f'|format(p.price) }}</div>
-						<div class="text-gray-200 bg-gray-800 rounded px-2 py-1 inline-block mt-1">${{ '%.2f'|format(p.price * 0.95) }}</div>
+						<div class="text-gray-200 bg-gray-800 rounded px-2 py-1 inline-block mt-1">${{ '%.2f'|format((p.price * 95) / 100) }}</div>
 					</div>
 				</div>
 			<div class="text-gray-400 text-xs mt-1 uppercase">{{ p.currency }}</div>
