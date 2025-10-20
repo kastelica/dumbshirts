@@ -201,6 +201,7 @@ def sitemap_xml():
 		("/contact", iso_today, "yearly", "0.2"),
 		("/privacy", iso_today, "yearly", "0.2"),
 		("/terms", iso_today, "yearly", "0.2"),
+		("/subscribe/monthly-shirt", iso_today, "monthly", "0.6"),
 	]
 	for path, lm, cf, pr in static_pages:
 		add_url(urljoin(base, path), lm, cf, pr)
@@ -243,3 +244,26 @@ def gelato_product_info():
 		return jsonify(data)
 	except Exception as e:
 		return jsonify({"error": str(e)}), 400
+
+
+@main_bp.get("/subscribe/monthly-shirt")
+def subscribe_monthly():
+    products = Product.query.filter_by(status="active").order_by(Product.title.asc()).all()
+    # Preload variants for client-side filtering
+    product_variants = {}
+    for p in products:
+        product_variants[p.id] = [
+            {
+                "id": v.id,
+                "name": v.name,
+                "size": v.size or "",
+                "color": v.color or "",
+            }
+            for v in (p.variants or [])
+        ]
+    return render_template(
+        "subscribe_monthly.html",
+        products=products,
+        product_variants=product_variants,
+        price_per_month=15.00,
+    )

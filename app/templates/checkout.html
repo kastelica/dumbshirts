@@ -34,7 +34,15 @@
 <p class="text-gray-400">Your cart is empty.</p>
 {% endif %}
 
-<div class="w-full space-y-4">
+            <div class="w-full space-y-4">
+              <div class="bg-gray-900 border border-gray-800 rounded p-3 text-sm">
+                <label class="flex items-start gap-2">
+                  <input type="checkbox" id="subscribe_disclosure" class="mt-1">
+                  <span>
+                    By completing checkout you agree that any active subscription purchases will renew automatically at their stated price and cadence. For subscriptions, recurring charge of $15.00 every 1 month until canceled. No discounts or sales apply.
+                  </span>
+                </label>
+              </div>
     <div id="checkout-data" data-total="{{ '%.2f'|format(total_amount) }}" data-currency="{{ currency }}"></div>
     <form id="ship-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div class="md:col-span-2">

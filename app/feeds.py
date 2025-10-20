@@ -56,6 +56,13 @@ def render_google_shopping_feed(items):
 		size = item.get("size")
 		if size:
 			SubElement(it, "g:size").text = size
+		# Subscription cost (for subscription landing page items only)
+		sub = item.get("subscription_cost")
+		if sub:
+			sc = SubElement(it, "g:subscription_cost")
+			SubElement(sc, "g:period").text = sub.get("period")
+			SubElement(sc, "g:period_length").text = str(sub.get("period_length"))
+			SubElement(sc, "g:amount").text = sub.get("amount")
 
 	xml_bytes = tostring(rss)
 	return Response(xml_bytes, content_type="application/xml")
