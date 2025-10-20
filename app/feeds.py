@@ -19,6 +19,9 @@ def render_google_shopping_feed(items):
 		# Manufacturer Part Number - use our item id as requested
 		SubElement(it, "g:mpn").text = str(item.get("id", ""))
 		SubElement(it, "g:price").text = f"{item.get('price', '0.00')} USD"
+		sp = item.get("sale_price")
+		if sp:
+			SubElement(it, "g:sale_price").text = f"{sp} USD"
 		SubElement(it, "g:availability").text = item.get("availability", "in stock")
 		SubElement(it, "g:condition").text = "new"
 		SubElement(it, "g:identifier_exists").text = "FALSE"
