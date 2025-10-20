@@ -95,7 +95,10 @@
 		<div>
 			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
 			<p class="text-gray-300 mt-3">{{ product.description }}</p>
-			<div class="mt-6 text-2xl">${{ '%.2f'|format(product.price) }} {{ product.currency }}</div>
+			<div class="mt-6 text-2xl">
+				<span class="line-through text-gray-500">${{ '%.2f'|format(product.price) }}</span>
+				<span class="ml-2">${{ '%.2f'|format(product.price * 0.95) }} {{ product.currency }}</span>
+			</div>
 
 			<form id="add-form" class="mt-6 space-y-4" method="post" action="/cart/add">
 				<input type="hidden" id="buy-now-flag" name="buy_now" value="">

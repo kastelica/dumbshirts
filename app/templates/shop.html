@@ -43,7 +43,10 @@
 		</div>
 		<div class="p-4">
 			<div class="font-semibold leading-snug">{{ p.title }}</div>
-			<div class="text-gray-400 text-sm mt-1">${{ '%.2f'|format(p.price) }} {{ p.currency }}</div>
+			<div class="mt-1 text-sm">
+				<span class="line-through text-gray-500">${{ '%.2f'|format(p.price) }}</span>
+				<span class="ml-2 text-gray-200">${{ '%.2f'|format(p.price * 0.95) }} {{ p.currency }}</span>
+			</div>
 		</div>
 	</a>
 	{% else %}
