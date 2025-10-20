@@ -113,39 +113,48 @@ function gtag_report_conversion(url){
 		else {
 			methods.forEach(m => {
 				const opt = document.createElement('option');
-				opt.value = JSON.stringify(m);
+				// Make USPS Ground Advantage free for customers
+				let priceNum = (typeof m.price === 'number') ? m.price : parseFloat(m.price || '0');
+				const nname = (m.name || '').toLowerCase();
+				if (nname.includes('usps ground advantage')) { priceNum = 0; m.price = 0; }
+				opt.value = JSON.stringify({ ...m, price: priceNum });
 				const range = (m.minDays && m.maxDays) ? ` (${m.minDays}-${m.maxDays} days)` : '';
-				const price = (typeof m.price === 'number') ? m.price.toFixed(2) : (m.price || '');
-				opt.textContent = `${m.name} — ${price} ${m.currency || ''}${range}`;
+				const priceTxt = priceNum === 0 ? 'Free' : `${priceNum.toFixed(2)} ${m.currency || ''}`;
+				opt.textContent = `${m.name} — ${priceTxt}${range}`;
 				shipSel.appendChild(opt);
 			});
 			selectedShip = shipSel.value;
-			shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+			shipSel.addEventListener('change', async ()=>{ selectedShip = shipSel.value; await createOrUpdatePI(); updatePayLabel(); });
 			shipNote.textContent = 'Choose a method. This will be added to the total.';
 		}
 	} catch(e) { applyFallback(); }
 
-	const chosen = selectedShip ? JSON.parse(selectedShip) : { uid: 'free_3_5', price: 0 };
-	const resp = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ amount: amount, shipment_method_uid: (chosen.uid || '').toString(), shipping_price: chosen.price || 0 })
-    });
-	const data = await resp.json();
-	if(!resp.ok){
-		const msg = document.getElementById('payment-message');
-		msg.textContent = (data && data.error) ? data.error : 'Failed to start payment';
-		return;
-	}
-	const clientSecret = data.clientSecret;
 	const stripe = Stripe('{{ publishable_key }}');
 	const appearance = { theme: 'night', variables: { colorPrimary: '#ffffff', colorBackground: '#0b0b0b', colorText: '#e5e7eb', colorDanger: '#ef4444', borderRadius: '6px' } };
-	const elements = stripe.elements({ clientSecret, appearance });
-	const paymentElement = elements.create('payment');
-	paymentElement.mount('#payment-element');
+	let elements, paymentElement, clientSecret;
 	const submitBtn = document.getElementById('submit');
 	const msg = document.getElementById('payment-message');
-	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + amount.toFixed(2); }
+	function getChosen(){ try { return selectedShip ? JSON.parse(selectedShip) : { uid: 'free_3_5', price: 0 }; } catch(e){ return { uid: 'free_3_5', price: 0 }; } }
+	function currentTotal(){ const c = getChosen(); const s = parseFloat(c.price || 0); return (amount + (isNaN(s)?0:s)); }
+	function updatePayLabel(){ if(submitBtn){ submitBtn.textContent = 'Pay $' + currentTotal().toFixed(2); } }
+	async function createOrUpdatePI(){
+		const c = getChosen();
+		const resp = await fetch('/api/create-payment-intent', {
+			method: 'POST', headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ amount: amount, shipment_method_uid: (c.uid || '').toString(), shipping_price: c.price || 0 })
+		});
+		const data = await resp.json();
+		if(!resp.ok){ msg.textContent = (data && data.error) ? data.error : 'Failed to start payment'; return false; }
+		clientSecret = data.clientSecret;
+		if(paymentElement){ try { paymentElement.unmount(); } catch(e){} }
+		elements = stripe.elements({ clientSecret, appearance });
+		paymentElement = elements.create('payment');
+		paymentElement.mount('#payment-element');
+		return true;
+	}
+	updatePayLabel();
+	await createOrUpdatePI();
+	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); }
 	submitBtn.addEventListener('click', async (e) => {
 		e.preventDefault(); msg.textContent=''; setLoading(true);
 		const email = document.getElementById('email').value.trim();
