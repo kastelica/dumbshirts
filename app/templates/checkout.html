@@ -34,13 +34,55 @@
 <p class="text-gray-400">Your cart is empty.</p>
 {% endif %}
 
-<div class="max-w-md space-y-4">
+<div class="max-w-xl space-y-4">
     <div id="checkout-data" data-total="{{ '%.2f'|format(total_amount) }}" data-currency="{{ currency }}"></div>
-	<div>
-		<label class="block text-sm mb-1">Shipping method</label>
-		<select id="ship-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100"></select>
-		<div id="ship-note" class="text-xs text-gray-500 mt-1"></div>
-	</div>
+    <form id="ship-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Email</label>
+            <input id="email" type="email" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="you@example.com" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">First name</label>
+            <input id="firstName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="First name" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">Last name</label>
+            <input id="lastName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Last name" required />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Address line 1</label>
+            <input id="addr1" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Street address" required />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Address line 2 (optional)</label>
+            <input id="addr2" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Apt, suite, etc." />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">City</label>
+            <input id="city" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="City" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">State</label>
+            <input id="state" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="NY" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">Postal code</label>
+            <input id="postCode" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="11203" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">Country</label>
+            <input id="country" type="text" value="US" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Phone</label>
+            <input id="phone" type="tel" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="(555) 555-5555" />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Shipping method</label>
+            <select id="ship-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100"></select>
+            <div id="ship-note" class="text-xs text-gray-500 mt-1"></div>
+        </div>
+    </form>
 	{% if publishable_key %}
 	<label class="block text-sm">First name</label>
 	<input id="firstName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="First name" />
@@ -141,7 +183,21 @@ function gtag_report_conversion(url){
 		const c = getChosen();
 		const resp = await fetch('/api/create-payment-intent', {
 			method: 'POST', headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ amount: amount, shipment_method_uid: (c.uid || '').toString(), shipping_price: c.price || 0 })
+			body: JSON.stringify({
+				amount: amount,
+				shipment_method_uid: (c.uid || '').toString(),
+				shipping_price: c.price || 0,
+				first_name: document.getElementById('firstName').value.trim(),
+				last_name: document.getElementById('lastName').value.trim(),
+				address_line1: document.getElementById('addr1').value.trim(),
+				address_line2: document.getElementById('addr2').value.trim(),
+				city: document.getElementById('city').value.trim(),
+				state: document.getElementById('state').value.trim(),
+				post_code: document.getElementById('postCode').value.trim(),
+				country: document.getElementById('country').value.trim() || 'US',
+				email: document.getElementById('email').value.trim(),
+				phone: document.getElementById('phone').value.trim(),
+			})
 		});
 		const data = await resp.json();
 		if(!resp.ok){ msg.textContent = (data && data.error) ? data.error : 'Failed to start payment'; return false; }
