@@ -613,7 +613,7 @@ def gelato_status():
 @login_required
 def gelato_action():
 	client = GelatoClient()
-	action = (request.form.get("action") or "").strip()
+	action = (request.form.get("op") or request.form.get("action") or "").strip()
 	result = {}
 	error = None
 	try:

@@ -11,7 +11,7 @@
     <div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
         <h2 class="font-semibold mb-3">List Products</h2>
         <form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">
-            <input type="hidden" name="action" value="list_products" />
+            <input type="hidden" name="op" value="list_products" />
             <label class="block">Limit <input class="bg-black border border-gray-800 px-2 py-1" type="number" name="limit" value="10" min="1" max="50" /></label>
             <button class="bg-white text-black px-3 py-1 rounded">Fetch</button>
         </form>
@@ -19,7 +19,7 @@
     <div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
         <h2 class="font-semibold mb-3">Get Product</h2>
         <form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">
-            <input type="hidden" name="action" value="get_product" />
+            <input type="hidden" name="op" value="get_product" />
             <label class="block">productUid <input class="bg-black border border-gray-800 px-2 py-1 w-full" type="text" name="product_uid" placeholder="apparel_product_..." /></label>
             <button class="bg-white text-black px-3 py-1 rounded">Fetch</button>
         </form>
@@ -27,7 +27,7 @@
     <div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
         <h2 class="font-semibold mb-3">Get Order</h2>
         <form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">
-            <input type="hidden" name="action" value="get_order" />
+            <input type="hidden" name="op" value="get_order" />
             <label class="block">orderId <input class="bg-black border border-gray-800 px-2 py-1 w-full" type="text" name="order_id" placeholder="ord_..." /></label>
             <button class="bg-white text-black px-3 py-1 rounded">Fetch</button>
         </form>
@@ -35,7 +35,7 @@
     <div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
         <h2 class="font-semibold mb-3">Shipping Rates</h2>
         <form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">
-            <input type="hidden" name="action" value="shipping_rates" />
+            <input type="hidden" name="op" value="shipping_rates" />
             <label class="block">productUid <input class="bg-black border border-gray-800 px-2 py-1 w-full" type="text" name="product_uid" value="{{ config.DEFAULT_TEE_UID }}" /></label>
             <label class="block">quantity <input class="bg-black border border-gray-800 px-2 py-1" type="number" name="quantity" value="1" min="1" /></label>
             <label class="block">country <input class="bg-black border border-gray-800 px-2 py-1" type="text" name="country" value="US" /></label>
@@ -45,7 +45,7 @@
     <div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300 md:col-span-2">
         <h2 class="font-semibold mb-3">Create Test Order (Draft)</h2>
         <form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">
-            <input type="hidden" name="action" value="create_test_order" />
+            <input type="hidden" name="op" value="create_test_order" />
             <label class="block">productUid <input class="bg-black border border-gray-800 px-2 py-1 w-full" type="text" name="product_uid" value="{{ config.DEFAULT_TEE_UID }}" /></label>
             <label class="block">quantity <input class="bg-black border border-gray-800 px-2 py-1" type="number" name="quantity" value="1" min="1" /></label>
             <label class="block">file_url <input class="bg-black border border-gray-800 px-2 py-1 w-full" type="url" name="file_url" placeholder="https://.../image.png" /></label>
