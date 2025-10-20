@@ -628,10 +628,13 @@ def gelato_action():
 			result = client.get_order(oid)
 		elif action == "shipping_rates":
 			# Minimal example payload; adjust as needed
+			uid_in = (request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID") or "").strip()
+			uid_clean = uid_in[uid_in.find("apparel_product_"):] if ("apparel_product_" in uid_in) else uid_in
+			uid_clean = uid_clean.replace(" ", "")
 			payload = {
 				"items": [
 					{
-						"productUid": request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID"),
+						"productUid": uid_clean,
 						"quantity": int(request.form.get("quantity") or "1"),
 					}
 				],
@@ -657,6 +660,9 @@ def gelato_action():
 			)
 			db.session.add(addr)
 			db.session.flush()
+			uid_in = (request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID") or "").strip()
+			uid_clean = uid_in[uid_in.find("apparel_product_"):] if ("apparel_product_" in uid_in) else uid_in
+			uid_clean = uid_clean.replace(" ", "")
 			payload = {
 				"orderType": "order",
 				"orderReferenceId": "admin-test",
@@ -666,7 +672,7 @@ def gelato_action():
 				"items": [
 					{
 						"itemReferenceId": "admin-1",
-						"productUid": request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID"),
+						"productUid": uid_clean,
 						"files": [
 							{"type": "default", "url": request.form.get("file_url") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"},
 							{"type": "back", "url": request.form.get("file_url") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"}
