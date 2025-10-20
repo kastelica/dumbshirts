@@ -16,7 +16,7 @@
 					<span class="text-gray-600 text-xs">No</span>
 					{% endif %}
 				</div>
-			<span>{{ it.title }} × {{ it.quantity }}</span>
+			<span>{{ it.title }} × {{ it.quantity }} <span class="text-xs text-gray-400 ml-2">{{ it.size }} {{ it.color }} {{ it.neck }}</span></span>
 			</span>
 			<span>
 				<span class="line-through text-gray-500">${{ '%.2f'|format((it.orig_price or it.price) * it.quantity) }}</span>

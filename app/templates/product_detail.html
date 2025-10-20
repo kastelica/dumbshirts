@@ -116,7 +116,7 @@
 				<div class="grid grid-cols-3 gap-3">
 					<div>
 						<label class="block text-sm mb-1">Size</label>
-						<select id="size-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
+					<select id="size-select" name="size" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
 							<option value="S">S</option>
 							<option value="M">M</option>
 							<option value="L" selected>L</option>
@@ -125,14 +125,14 @@
 					</div>
 					<div>
 						<label class="block text-sm mb-1">Color</label>
-						<select id="color-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
+						<select id="color-select" name="color" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
 							<option value="white" selected>White</option>
 							<option value="black">Black</option>
 						</select>
 					</div>
 					<div>
 						<label class="block text-sm mb-1">Neck</label>
-						<select id="neck-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
+						<select id="neck-select" name="neck" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
 							<option value="crewneck" selected>Crewneck</option>
 							<option value="v-neck">V‑neck</option>
 						</select>
@@ -142,6 +142,7 @@
 					<label class="block text-sm mb-1">Quantity</label>
 					<input type="number" min="1" name="quantity" value="1" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-24 text-gray-100" />
 				</div>
+				<div id="uid-debug" class="text-xs text-gray-500 break-all"></div>
 				<div class="flex items-center space-x-3">
 					<button type="submit" class="bg-white text-black px-5 py-2 rounded">Add to cart</button>
 					<button type="submit" id="buy-now-btn" class="bg-gray-800 text-white px-5 py-2 rounded">Buy now</button>
@@ -235,6 +236,8 @@
 		const neck = document.getElementById('neck-select').value;
 		const uid = buildProductUid(size, color, neck);
 		document.getElementById('productUidInput').value = uid;
+		const dbg = document.getElementById('uid-debug');
+		if(dbg){ dbg.textContent = 'Product UID: ' + uid; }
 	}
 	['size-select','color-select','neck-select'].forEach(id=>{
 		const el = document.getElementById(id);

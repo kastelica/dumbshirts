@@ -47,7 +47,10 @@ def add_to_cart():
 		"currency": product.currency,
 		"quantity": qty,
 		"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
-		"product_uid": (variant.gelato_sku or ""),
+		"product_uid": (request.form.get("product_uid") or variant.gelato_sku or ""),
+		"size": (request.form.get("size") or ""),
+		"color": (request.form.get("color") or ""),
+		"neck": (request.form.get("neck") or ""),
 	})
 	_save_cart(cart)
 	return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
