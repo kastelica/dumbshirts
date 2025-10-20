@@ -9,6 +9,7 @@ class GelatoClient:
 		"https://api.gelato.com/v4",
 	]
 	ORDER_HOST = "https://order.gelatoapis.com/v4"
+	PRODUCT_HOST_V3 = "https://product.gelatoapis.com/v3"
 
 	def __init__(self, api_key: str | None = None):
 		self.api_key = api_key or os.getenv("GELATO_API_KEY", "").strip()
@@ -134,5 +135,12 @@ class GelatoClient:
 		"""Call Orders:Quote to get shipping methods and product pricing."""
 		url = f"{self.ORDER_HOST}/orders:quote"
 		resp = requests.post(url, headers=self.headers, json=payload, timeout=30)
+		resp.raise_for_status()
+		return resp.json()
+
+	def get_product_v3(self, product_uid: str) -> Dict[str, Any]:
+		"""Fetch product info from Product API v3."""
+		url = f"{self.PRODUCT_HOST_V3}/products/{product_uid}"
+		resp = requests.get(url, headers=self.headers, timeout=20)
 		resp.raise_for_status()
 		return resp.json()

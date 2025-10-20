@@ -5,6 +5,7 @@ from decimal import Decimal
 from ..models import Order, Address
 from urllib.parse import urljoin
 from datetime import datetime
+from ..gelato_client import GelatoClient
 
 
 @main_bp.get("/")
@@ -229,3 +230,16 @@ def robots_txt():
 	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
 	body = f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
 	return Response(body, content_type="text/plain")
+
+
+@main_bp.get("/api/gelato/product")
+def gelato_product_info():
+	uid = (request.args.get("uid") or "").strip()
+	if not uid:
+		return jsonify({"error": "missing uid"}), 400
+	try:
+		client = GelatoClient()
+		data = client.get_product_v3(uid)
+		return jsonify(data)
+	except Exception as e:
+		return jsonify({"error": str(e)}), 400
