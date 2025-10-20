@@ -32,6 +32,7 @@
 {% endif %}
 
 <div class="max-w-md space-y-4">
+    <div id="checkout-data" data-total="{{ '%.2f'|format(total_amount) }}" data-currency="{{ currency }}"></div>
 	<div>
 		<label class="block text-sm mb-1">Shipping method</label>
 		<select id="ship-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100"></select>
@@ -59,13 +60,16 @@
 function gtag_report_conversion(url){
 	var callback = function(){ if(typeof(url)!='undefined'){ window.location = url; } };
 	if (typeof gtag === 'function') {
-		gtag('event','conversion',{
-			send_to:'AW-17663388576/w1K1CIbnx68bEKDXx-ZB',
-			value: {{ '%.2f'|format(total_amount) }},
-			currency: '{{ currency }}',
-			transaction_id: '' ,
-			event_callback: callback
-		});
+        var el = document.getElementById('checkout-data');
+        var convValue = parseFloat(el ? el.dataset.total : '0');
+        var convCurrency = el ? el.dataset.currency : 'USD';
+        gtag('event','conversion',{
+            send_to:'AW-17663388576/w1K1CIbnx68bEKDXx-ZB',
+            value: convValue,
+            currency: convCurrency,
+            transaction_id: '',
+            event_callback: callback
+        });
 	}
 	return false;
 }
@@ -75,7 +79,7 @@ function gtag_report_conversion(url){
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 (async function() {
-	const amount = {{ '%.2f'|format(total_amount) }}; // major units
+	const amount = parseFloat((document.getElementById('checkout-data')?.dataset.total) || '0'); // major units
 	// load shipping methods
 	const shipSel = document.getElementById('ship-select');
 	const shipNote = document.getElementById('ship-note');
@@ -117,9 +121,11 @@ function gtag_report_conversion(url){
 		}
 	} catch(e) { applyFallback(); }
 
-	const resp = await fetch('/api/create-payment-intent', {
-		method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({amount})
-	});
+    const resp = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amount, shipment_method_uid: (selectedShip || '').toString() })
+    });
 	const data = await resp.json();
 	if(!resp.ok){
 		const msg = document.getElementById('payment-message');
@@ -145,25 +151,7 @@ function gtag_report_conversion(url){
 		setLoading(false);
 	});
 
-	// Gelato test order
-	const testBtn = document.getElementById('test-gelato');
-	if(testBtn){
-		testBtn.addEventListener('click', async (e) => {
-			e.preventDefault(); msg.textContent=''; testBtn.disabled=true; testBtn.textContent='Sending…';
-			try {
-				let uidToSend = selectedShip || '';
-				if(uidToSend === 'free_3_5') uidToSend = 'economy';
-				if(uidToSend === 'express_2d') uidToSend = 'express';
-				const r = await fetch('/api/gelato/test-order', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ shipment_method_uid: uidToSend }) });
-				const j = await r.json();
-				if(!r.ok){ throw new Error(j.error || 'Failed'); }
-				msg.classList.remove('text-red-400'); msg.classList.add('text-green-400');
-				msg.textContent = 'Draft order sent to Gelato: ' + (j.gelato && j.gelato.id ? j.gelato.id : 'ok');
-				try{ gtag_report_conversion(); }catch(e){}
-			} catch(err){ msg.textContent = err.message || 'Failed to send draft order'; }
-			finally { testBtn.disabled=false; testBtn.textContent='Send draft order to Gelato'; }
-		});
-	}
+    // Remove test order UI. Gelato order is created on webhook after Stripe success.
 })();
 </script>
 {% else %}
@@ -208,25 +196,7 @@ function gtag_report_conversion(url){
 			shipNote.textContent = 'Choose a method. This will be sent to Gelato.';
 		}
 	} catch(e) { applyFallback(); }
-	const msg = document.getElementById('payment-message');
-	const testBtn = document.getElementById('test-gelato');
-	if(testBtn){
-		testBtn.addEventListener('click', async (e) => {
-			e.preventDefault(); msg.textContent=''; testBtn.disabled=true; testBtn.textContent='Sending…';
-			try {
-				let uidToSend = selectedShip || '';
-				if(uidToSend === 'free_3_5') uidToSend = 'economy';
-				if(uidToSend === 'express_2d') uidToSend = 'express';
-				const r = await fetch('/api/gelato/test-order', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ shipment_method_uid: uidToSend }) });
-				const j = await r.json();
-				if(!r.ok){ throw new Error(j.error || 'Failed'); }
-				msg.classList.remove('text-red-400'); msg.classList.add('text-green-400');
-				msg.textContent = 'Draft order sent to Gelato: ' + (j.gelato && j.gelato.id ? j.gelato.id : 'ok');
-				try{ gtag_report_conversion(); }catch(e){}
-			} catch(err){ msg.textContent = err.message || 'Failed to send draft order'; }
-			finally { testBtn.disabled=false; testBtn.textContent='Send draft order to Gelato'; }
-		});
-	}
+    // No test order path when Stripe not configured
 })();
 </script>
 {% endif %}

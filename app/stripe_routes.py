@@ -35,70 +35,72 @@ def _compute_cart_total(cart: dict) -> int:
 
 @stripe_bp.post("/api/create-payment-intent")
 def create_payment_intent():
-	try:
-		if not current_app.config.get("STRIPE_SECRET_KEY") or not current_app.config.get("STRIPE_PUBLISHABLE_KEY"):
-			return jsonify({"error": "Stripe not configured"}), 400
-		cart = session.get("cart") or {"items": []}
-		amount_cents = _compute_cart_total(cart)
-		currency = current_app.config.get("STORE_CURRENCY", "USD").lower()
-		if amount_cents <= 0:
-			return jsonify({"error": "Cart is empty"}), 400
+    try:
+        if not current_app.config.get("STRIPE_SECRET_KEY") or not current_app.config.get("STRIPE_PUBLISHABLE_KEY"):
+            return jsonify({"error": "Stripe not configured"}), 400
+        cart = session.get("cart") or {"items": []}
+        data = request.get_json(silent=True) or {}
+        amount_cents = _compute_cart_total(cart)
+        currency = current_app.config.get("STORE_CURRENCY", "USD").lower()
+        if amount_cents <= 0:
+            return jsonify({"error": "Cart is empty"}), 400
 
-		# Create a local order (pending)
-		shipping = Address(
-			company_name="Example",
-			first_name="Test",
-			last_name="User",
-			address_line1="451 Clarkson Ave",
-			address_line2="Brooklyn",
-			state="NY",
-			city="New York",
-			post_code="11203",
-			country="US",
-			email="test@example.com",
-			phone="123456789",
-		)
-		db.session.add(shipping)
-		db.session.flush()
-		order = Order(
-			status="pending",
-			currency=currency.upper(),
-			total_amount=Decimal(amount_cents) / 100,
-			shipment_method_uid=current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
-			shipping_address_id=shipping.id,
-		)
-		db.session.add(order)
-		db.session.flush()
+        # Create a local order (pending)
+        shipping = Address(
+            company_name="Example",
+            first_name="Test",
+            last_name="User",
+            address_line1="451 Clarkson Ave",
+            address_line2="Brooklyn",
+            state="NY",
+            city="New York",
+            post_code="11203",
+            country="US",
+            email="test@example.com",
+            phone="123456789",
+        )
+        db.session.add(shipping)
+        db.session.flush()
+        shipment_method = (data.get("shipment_method_uid") or current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express")).strip()
+        order = Order(
+            status="pending",
+            currency=currency.upper(),
+            total_amount=Decimal(amount_cents) / 100,
+            shipment_method_uid=shipment_method,
+            shipping_address_id=shipping.id,
+        )
+        db.session.add(order)
+        db.session.flush()
 
-		# Items
-		for it in cart.get("items", []):
-			variant = db.session.get(Variant, int(it.get("variant_id"))) if it.get("variant_id") else None
-			product = db.session.get(Product, int(it.get("product_id"))) if it.get("product_id") else None
-			product_uid = variant.gelato_sku if variant and variant.gelato_sku else "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4"
-			order_item = OrderItem(
-				order_id=order.id,
-				product_id=product.id if product else None,
-				variant_id=variant.id if variant else None,
-				title=it.get("title"),
-				quantity=int(it.get("quantity", 1)),
-				unit_price=Decimal(str(it.get("price", 0))),
-				product_uid=product_uid,
-			)
-			db.session.add(order_item)
+        # Items
+        for it in cart.get("items", []):
+            variant = db.session.get(Variant, int(it.get("variant_id"))) if it.get("variant_id") else None
+            product = db.session.get(Product, int(it.get("product_id"))) if it.get("product_id") else None
+            product_uid = variant.gelato_sku if variant and variant.gelato_sku else "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4"
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=product.id if product else None,
+                variant_id=variant.id if variant else None,
+                title=it.get("title"),
+                quantity=int(it.get("quantity", 1)),
+                unit_price=Decimal(str(it.get("price", 0))),
+                product_uid=product_uid,
+            )
+            db.session.add(order_item)
 
-		# Create PaymentIntent
-		pi = stripe.PaymentIntent.create(amount=amount_cents, currency=currency, automatic_payment_methods={"enabled": True})
-		order.stripe_payment_intent_id = pi.id
-		db.session.commit()
-		return jsonify({"clientSecret": pi.client_secret})
-	except Exception as e:
-		current_app.logger.exception("create-payment-intent failed")
-		# Rollback any partial transaction
-		try:
-			db.session.rollback()
-		except Exception:
-			pass
-		return jsonify({"error": str(e)}), 500
+        # Create PaymentIntent
+        pi = stripe.PaymentIntent.create(amount=amount_cents, currency=currency, automatic_payment_methods={"enabled": True})
+        order.stripe_payment_intent_id = pi.id
+        db.session.commit()
+        return jsonify({"clientSecret": pi.client_secret})
+    except Exception as e:
+        current_app.logger.exception("create-payment-intent failed")
+        # Rollback any partial transaction
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return jsonify({"error": str(e)}), 500
 
 
 @stripe_bp.post("/webhooks/stripe")
