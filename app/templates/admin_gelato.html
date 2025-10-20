@@ -59,5 +59,63 @@
     <pre>{{ debug | tojson(indent=2) }}</pre>
     <p class="mt-3 text-gray-400 text-xs">Set GELATO_API_KEY in your environment and reload.</p>
 </div>
+
+<div class="mt-6 p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
+    <h2 class="font-semibold mb-2">Result</h2>
+    <div class="mb-3">
+        <img id="gelato-preview" src="" alt="Preview" class="max-w-full h-auto border border-gray-800 rounded" style="display:none" />
+    </div>
+    <pre id="gelato-json" class="whitespace-pre-wrap"></pre>
+    <p class="mt-2 text-gray-500 text-xs">Actions above are executed via AJAX and responses appear here. For orders, if a preview_default is present, it will show above.</p>
+    <script>
+    (function(){
+        const container = document.currentScript.closest('div');
+        const previewImg = container.querySelector('#gelato-preview');
+        const out = container.querySelector('#gelato-json');
+        function extractPreviewUrl(result){
+            if(!result) return '';
+            // Try result.items array
+            const items = result.items || [];
+            if(Array.isArray(items)){
+                for(const it of items){
+                    const previews = it && it.previews;
+                    if(Array.isArray(previews)){
+                        const def = previews.find(p => (p && p.type) === 'preview_default' && p.url);
+                        if(def && def.url) return def.url;
+                    }
+                    // fallback: fileUrl
+                    if(it && it.fileUrl) return it.fileUrl;
+                }
+            }
+            return '';
+        }
+        // Intercept all forms on this page that post to gelato_action
+        const forms = document.querySelectorAll('form[action$="/admin/gelato/action"]');
+        forms.forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                previewImg.style.display = 'none';
+                previewImg.src = '';
+                out.textContent = 'Loading…';
+                try {
+                    const fd = new FormData(form);
+                    const resp = await fetch(form.action, { method: 'POST', body: fd });
+                    const js = await resp.json();
+                    out.textContent = JSON.stringify(js, null, 2);
+                    if(js && js.ok && js.result){
+                        const url = extractPreviewUrl(js.result);
+                        if(url){
+                            previewImg.src = url;
+                            previewImg.style.display = '';
+                        }
+                    }
+                } catch(err){
+                    out.textContent = 'Error: ' + (err && err.message ? err.message : 'request failed');
+                }
+            });
+        });
+    })();
+    </script>
+</div>
 <p class="mt-4 text-gray-400 text-sm">Set GELATO_API_KEY in your .env and reload.</p>
 {% endblock %}

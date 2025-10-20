@@ -658,15 +658,19 @@ def gelato_action():
 			db.session.add(addr)
 			db.session.flush()
 			payload = {
-				"orderType": "draft",
+				"orderType": "order",
 				"orderReferenceId": "admin-test",
+				"customerReferenceId": "local-tester",
 				"currency": current_app.config.get("STORE_CURRENCY", "USD"),
 				"shipmentMethodUid": current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
 				"items": [
 					{
 						"itemReferenceId": "admin-1",
 						"productUid": request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID"),
-						"files": [ {"type": "default", "url": request.form.get("file_url") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"} ],
+						"files": [
+							{"type": "default", "url": request.form.get("file_url") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"},
+							{"type": "back", "url": request.form.get("file_url") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"}
+						],
 						"quantity": int(request.form.get("quantity") or "1"),
 					}
 				],
@@ -681,6 +685,21 @@ def gelato_action():
 					"email": addr.email,
 					"phone": addr.phone,
 				},
+				"returnAddress": {
+					"companyName": "TrendMerch",
+					"addressLine1": "3333 Saint Marys Avenue",
+					"addressLine2": "Brooklyn",
+					"city": "New York",
+					"state": "NY",
+					"postCode": "13202",
+					"country": "US",
+					"email": "apisupport@gelato.com",
+					"phone": "123456789"
+				},
+				"metadata": [
+					{"key": "keyIdentifier1", "value": "keyValue1"},
+					{"key": "keyIdentifier2", "value": "keyValue2"}
+				]
 			}
 			result = client.create_order(payload)
 		else:

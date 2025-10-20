@@ -98,7 +98,16 @@ class GelatoClient:
 			raise RuntimeError("Missing GELATO_API_KEY")
 		url = f"{self.ORDER_HOST}/orders"
 		resp = requests.post(url, headers=self.headers, json=order, timeout=30)
-		resp.raise_for_status()
+		try:
+			resp.raise_for_status()
+		except requests.HTTPError as e:
+			# Surface response body for easier debugging in admin UI
+			text = ""
+			try:
+				text = resp.text
+			except Exception:
+				text = ""
+			raise RuntimeError(f"{resp.status_code} {text[:800]}") from e
 		return resp.json()
 
 	def get_order(self, order_id: str) -> Dict[str, Any]:
