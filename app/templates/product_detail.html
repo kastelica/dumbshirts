@@ -109,6 +109,7 @@
 						<option value="{{ v.id }}">{{ v.name }}</option>
 						{% endfor %}
 					</select>
+					<div id="color-swatches" class="mt-3 flex flex-wrap gap-2"></div>
 					<div id="gelato-attrs" class="mt-3 text-sm text-gray-300"></div>
 				</div>
 				<div>
@@ -153,6 +154,16 @@
 	// Fetch Gelato product attributes for the current variant's productUid if present
 	const variantSelect = document.getElementById('variant-select');
 	const attrsEl = document.getElementById('gelato-attrs');
+    const swatchesEl = document.getElementById('color-swatches');
+	function hexToSwatch(hex){
+		const d = document.createElement('button');
+		d.type = 'button';
+		d.className = 'w-7 h-7 rounded border border-gray-700';
+		d.style.backgroundColor = hex;
+		d.title = hex;
+		return d;
+	}
+
 	async function loadGelato(uid){
 		if(!uid){ attrsEl.textContent=''; return; }
 		try{
@@ -162,6 +173,16 @@
 				const keys = Object.keys(j.attributes).slice(0,6);
 				attrsEl.innerHTML = '<div class="text-xs text-gray-400 mb-1">Available options</div>' + keys.map(k=>`<div>${k}: <span class="text-gray-100">${j.attributes[k]}</span></div>`).join('');
 			}
+			// Try to render color swatch from hex if available
+			try {
+				swatchesEl.innerHTML = '';
+				const dim = j.dimensions || {};
+				const hex = (dim['Color HEX Code'] && dim['Color HEX Code'].value) || (dim['Color HEX Code (contents should be copied to original colorHexCode once apparel v2 migration is finished)'] && dim['Color HEX Code (contents should be copied to original colorHexCode once apparel v2 migration is finished)'].value) || '';
+				if (typeof hex === 'string' && /^#?[0-9a-fA-F]{6}$/.test(hex)) {
+					const norm = hex.startswith ? (hex.startswith('#') ? hex : '#' + hex) : (hex[0]==='#'?hex:'#'+hex);
+					swatchesEl.appendChild(hexToSwatch(norm));
+				}
+			} catch(e){ swatchesEl.innerHTML=''; }
 		}catch(e){ attrsEl.textContent=''; }
 	}
 	// Try with the product's first variant gelato_sku
