@@ -33,11 +33,13 @@ def _compute_cart_total(cart: dict) -> int:
 	return int(total * 100)  # cents
 
 
-@stripe_bp.get("/api/shipment-methods")
+
+@stripe_bp.post("/api/shipment-methods")
 def shipment_methods():
 	try:
 		client = GelatoClient()
 		cart = session.get("cart") or {"items": []}
+		addr = request.get_json(silent=True) or {}
 		# Build minimal quote payload using cart contents and default US address
 		products = []
 		idx = 1
@@ -58,17 +60,17 @@ def shipment_methods():
 			"currency": current_app.config.get("STORE_CURRENCY", "USD"),
 			"allowMultipleQuotes": False,
 			"recipient": {
-				"country": "US",
-				"companyName": "Example",
-				"firstName": "Test",
-				"lastName": "User",
-				"addressLine1": "451 Clarkson Ave",
-				"addressLine2": "Brooklyn",
-				"state": "NY",
-				"city": "New York",
-				"postCode": "11203",
-				"email": "test@example.com",
-				"phone": "123456789"
+				"country": (addr.get("country") or "US"),
+				"companyName": (addr.get("company_name") or ""),
+				"firstName": (addr.get("first_name") or ""),
+				"lastName": (addr.get("last_name") or ""),
+				"addressLine1": (addr.get("address_line1") or ""),
+				"addressLine2": (addr.get("address_line2") or ""),
+				"state": (addr.get("state") or ""),
+				"city": (addr.get("city") or ""),
+				"postCode": (addr.get("post_code") or ""),
+				"email": (addr.get("email") or ""),
+				"phone": (addr.get("phone") or ""),
 			},
 			"products": products or []
 		}

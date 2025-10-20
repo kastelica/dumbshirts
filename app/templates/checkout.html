@@ -36,7 +36,7 @@
 
 <div class="max-w-xl space-y-4">
     <div id="checkout-data" data-total="{{ '%.2f'|format(total_amount) }}" data-currency="{{ currency }}"></div>
-    <form id="ship-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <form id="ship-form" class="grid grid-cols-1 gap-3">
         <div class="md:col-span-2">
             <label class="block text-sm mb-1">Email</label>
             <input id="email" type="email" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="you@example.com" required />
@@ -121,7 +121,7 @@ function gtag_report_conversion(url){
 	const shipSel = document.getElementById('ship-select');
 	const shipNote = document.getElementById('ship-note');
 	let selectedShip = null;
-	function applyFallback() {
+    function applyFallback() {
 		shipSel.innerHTML = '';
 		const fallback = [
 			{ uid: 'free_3_5', name: 'Free shipping', price: 0, currency: '{{ currency }}', minDays: 3, maxDays: 5 },
@@ -138,9 +138,20 @@ function gtag_report_conversion(url){
 		shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
 		shipNote.textContent = 'Using fallback shipping options.';
 	}
-	try {
-		const r = await fetch('/api/shipment-methods');
-		const j = await r.json();
+    async function fetchMethods() {
+        const payload = {
+            email: document.getElementById('email').value.trim(),
+            first_name: document.getElementById('firstName').value.trim(),
+            last_name: document.getElementById('lastName').value.trim(),
+            address_line1: document.getElementById('addr1').value.trim(),
+            address_line2: document.getElementById('addr2').value.trim(),
+            city: document.getElementById('city').value.trim(),
+            state: document.getElementById('state').value.trim(),
+            post_code: document.getElementById('postCode').value.trim(),
+            country: (document.getElementById('country').value.trim() || 'US')
+        };
+        const r = await fetch('/api/shipment-methods', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const j = await r.json();
 		const methods = (j && Array.isArray(j.methods)) ? j.methods : [];
 		shipSel.innerHTML = '';
 		if (!methods.length) { applyFallback(); }
@@ -161,7 +172,8 @@ function gtag_report_conversion(url){
 			shipSel.addEventListener('change', async ()=>{ selectedShip = shipSel.value; await createOrUpdatePI(); updatePayLabel(); });
 			shipNote.textContent = 'Choose a method. This will be added to the total.';
 		}
-	} catch(e) { applyFallback(); }
+    }
+    try { await fetchMethods(); } catch(e) { applyFallback(); }
 
 	const stripe = Stripe('{{ publishable_key }}');
 	const appearance = { theme: 'night', variables: { colorPrimary: '#ffffff', colorBackground: '#0b0b0b', colorText: '#e5e7eb', colorDanger: '#ef4444', borderRadius: '6px' } };
@@ -200,8 +212,14 @@ function gtag_report_conversion(url){
 		paymentElement.mount('#payment-element');
 		return true;
 	}
-	updatePayLabel();
-	await createOrUpdatePI();
+    updatePayLabel();
+    await createOrUpdatePI();
+
+    // Re-fetch shipping methods when address changes
+    ['email','firstName','lastName','addr1','addr2','city','state','postCode','country'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el){ el.addEventListener('change', async ()=>{ try { await fetchMethods(); await createOrUpdatePI(); updatePayLabel(); } catch(e){} }); }
+    });
 	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); }
 	submitBtn.addEventListener('click', async (e) => {
 		e.preventDefault(); msg.textContent=''; setLoading(true);
