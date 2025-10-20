@@ -45,23 +45,23 @@ def google_feed():
 			"product_type": "t-shirt",
 			"shipping": {"country": "US"},
 		})
-        # Add a subscription variant item linking to the subscription landing page (one price per page)
-        items.append({
-            "id": f"sub-{p.id}",
-            "title": f"{p.title} - Monthly Subscription",
-            "link": url_for('main.subscribe_monthly', _external=True),
-            "description": (p.description or "") + " Monthly subscription: $15.00 billed every 1 month.",
-            "price": f"15.00",
-            "availability": "in stock",
-            "image": _absolute_url(p.design.preview_url if (p.design and p.design.preview_url) else ""),
-            "brand": "Dumbshirts.store",
-            "age_group": "adult",
-            "color": "white",
-            "gender": "unisex",
-            "size": "Large",
-            "google_product_category": "Apparel & Accessories > Clothing > Shirts & Tops",
-            "product_type": "t-shirt",
-            "shipping": {"country": "US"},
-            "subscription_cost": {"period": "month", "period_length": 1, "amount": "15.00 USD"},
-        })
+		# Add a subscription variant item linking to the subscription landing page (one price per page)
+		items.append({
+			"id": f"sub-{p.id}",
+			"title": f"{p.title} - Monthly Subscription",
+			"link": url_for('main.subscribe_monthly', _external=True),
+			"description": (p.description or "") + " Monthly subscription: $15.00 billed every 1 month.",
+			"price": f"15.00",
+			"availability": "in stock",
+			"image": _absolute_url(p.design.preview_url if (p.design and p.design.preview_url) else ""),
+			"brand": "Dumbshirts.store",
+			"age_group": "adult",
+			"color": "white",
+			"gender": "unisex",
+			"size": "Large",
+			"google_product_category": "Apparel & Accessories > Clothing > Shirts & Tops",
+			"product_type": "t-shirt",
+			"shipping": {"country": "US"},
+			"subscription_cost": {"period": "month", "period_length": 1, "amount": "15.00 USD"},
+		})
 	return render_google_shopping_feed(items)

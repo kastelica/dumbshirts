@@ -13,42 +13,42 @@ stripe_bp = Blueprint("stripe", __name__)
 
 @stripe_bp.post("/api/subscribe/create-session")
 def create_subscribe_session():
-    try:
-        if not current_app.config.get("STRIPE_SECRET_KEY") or not current_app.config.get("STRIPE_PUBLISHABLE_KEY"):
-            return jsonify({"error": "Stripe not configured"}), 400
-        data = request.form or {}
-        # Fixed subscription price: $15/month USD
-        price_amount = 1500  # cents
-        currency = current_app.config.get("STORE_CURRENCY", "USD").lower()
+	try:
+		if not current_app.config.get("STRIPE_SECRET_KEY") or not current_app.config.get("STRIPE_PUBLISHABLE_KEY"):
+			return jsonify({"error": "Stripe not configured"}), 400
+		data = request.form or {}
+		# Fixed subscription price: $15/month USD
+		price_amount = 1500  # cents
+		currency = current_app.config.get("STORE_CURRENCY", "USD").lower()
 
-        # Create or reuse Price; for simplicity create inline now
-        session_obj = stripe.checkout.Session.create(
-            mode="subscription",
-            line_items=[{
-                "price_data": {
-                    "currency": currency,
-                    "product_data": {
-                        "name": "Monthly Shirt Subscription",
-                        "metadata": {
-                            "product_id": data.get("product_id") or "",
-                            "size": data.get("size") or "",
-                            "color": data.get("color") or "",
-                        }
-                    },
-                    "unit_amount": price_amount,
-                    "recurring": {"interval": "month", "interval_count": 1},
-                },
-                "quantity": 1,
-            }],
-            success_url=_absolute_url("/"),
-            cancel_url=_absolute_url("/subscribe/monthly-shirt"),
-            shipping_address_collection={"allowed_countries": ["US"]},
-            allow_promotion_codes=False,
-        )
-        return jsonify({"url": session_obj.url})
-    except Exception as e:
-        current_app.logger.exception("create_subscribe_session failed")
-        return jsonify({"error": str(e)}), 500
+		# Create or reuse Price; for simplicity create inline now
+		session_obj = stripe.checkout.Session.create(
+			mode="subscription",
+			line_items=[{
+				"price_data": {
+					"currency": currency,
+					"product_data": {
+						"name": "Monthly Shirt Subscription",
+						"metadata": {
+							"product_id": data.get("product_id") or "",
+							"size": data.get("size") or "",
+							"color": data.get("color") or "",
+						}
+					},
+					"unit_amount": price_amount,
+					"recurring": {"interval": "month", "interval_count": 1},
+				},
+				"quantity": 1,
+			}],
+			success_url=_absolute_url("/"),
+			cancel_url=_absolute_url("/subscribe/monthly-shirt"),
+			shipping_address_collection={"allowed_countries": ["US"]},
+			allow_promotion_codes=False,
+		)
+		return jsonify({"url": session_obj.url})
+	except Exception as e:
+		current_app.logger.exception("create_subscribe_session failed")
+		return jsonify({"error": str(e)}), 500
 
 @stripe_bp.before_app_request
 def _setup_stripe():
@@ -172,7 +172,7 @@ def create_payment_intent():
 		db.session.add(order)
 		db.session.flush()
 
-        # Items
+		# Items
 		for it in cart.get("items", []):
 			variant = db.session.get(Variant, int(it.get("variant_id"))) if it.get("variant_id") else None
 			product = db.session.get(Product, int(it.get("product_id"))) if it.get("product_id") else None
@@ -222,7 +222,7 @@ def stripe_webhook():
 	except Exception as e:
 		return (str(e), 400)
 
-    if event["type"] == "payment_intent.succeeded":
+	if event["type"] == "payment_intent.succeeded":
 		pi = event["data"]["object"]
 		order = Order.query.filter_by(stripe_payment_intent_id=pi["id"]).first()
 		if not order:
@@ -282,82 +282,80 @@ def stripe_webhook():
 		except Exception:
 			order.status = "failed"
 			db.session.commit()
-        return ("gelato order failed", 200)
+			return ("gelato order failed", 200)
 
-    # Handle subscription renewals: create Gelato order after successful invoice payment
-    if event["type"] in ("invoice.payment_succeeded",):
-        invoice = event["data"]["object"]
-        try:
-            # Extract subscription and customer details
-            customer_email = invoice.get("customer_email") or ""
-            # Build a Gelato order using metadata stored on the price/product in the first line
-            lines = (invoice.get("lines", {}) or {}).get("data", [])
-            first = lines[0] if lines else {}
-            pd = ((first.get("price") or {}).get("product") or None)
-            # Fallback to description parsing if needed
-            meta = {}
-            try:
-                # Retrieve price to get product metadata if available
-                if first.get("price", {}).get("id"):
-                    price_obj = stripe.Price.retrieve(first["price"]["id"])  # may contain product
-                    if price_obj and price_obj.get("product"):
-                        product_obj = stripe.Product.retrieve(price_obj["product"])
-                        meta = product_obj.get("metadata") or {}
-            except Exception:
-                meta = {}
+	# Handle subscription renewals: create Gelato order after successful invoice payment
+	if event["type"] in ("invoice.payment_succeeded",):
+		invoice = event["data"]["object"]
+		try:
+			# Extract subscription and customer details
+			customer_email = invoice.get("customer_email") or ""
+			# Build a Gelato order using metadata stored on the price/product in the first line
+			lines = (invoice.get("lines", {}) or {}).get("data", [])
+			first = lines[0] if lines else {}
+			# Try to get product metadata from Stripe Product via Price
+			meta = {}
+			try:
+				if first.get("price", {}).get("id"):
+					price_obj = stripe.Price.retrieve(first["price"]["id"])  # may contain product
+					if price_obj and price_obj.get("product"):
+						product_obj = stripe.Product.retrieve(price_obj["product"])
+						meta = product_obj.get("metadata") or {}
+			except Exception:
+				meta = {}
 
-            # Map metadata to a variant/product if present
-            product_id = int(meta.get("product_id") or 0) if meta.get("product_id") else None
-            size = (meta.get("size") or "")
-            color = (meta.get("color") or "")
+			# Map metadata to a variant/product if present
+			product_id = int(meta.get("product_id") or 0) if meta.get("product_id") else None
+			size = (meta.get("size") or "")
+			color = (meta.get("color") or "")
 
-            # Resolve a variant
-            variant = None
-            product = None
-            if product_id:
-                product = db.session.get(Product, product_id)
-                if product:
-                    qv = [v for v in (product.variants or []) if (not size or (v.size or "") == size) and (not color or (v.color or "") == color)]
-                    variant = qv[0] if qv else None
+			# Resolve a variant
+			variant = None
+			product = None
+			if product_id:
+				product = db.session.get(Product, product_id)
+				if product:
+					qv = [v for v in (product.variants or []) if (not size or (v.size or "") == size) and (not color or (v.color or "") == color)]
+					variant = qv[0] if qv else None
 
-            # Build shipping from invoice shipping details if present; fallback empty US
-            addr = (invoice.get("customer_shipping") or {}).get("address") if invoice.get("customer_shipping") else None
-            shipping = {
-                "companyName": "",
-                "firstName": (invoice.get("customer_name") or "")[:50],
-                "lastName": "",
-                "addressLine1": (addr.get("line1") if addr else ""),
-                "addressLine2": (addr.get("line2") if addr else ""),
-                "state": (addr.get("state") if addr else ""),
-                "city": (addr.get("city") if addr else ""),
-                "postCode": (addr.get("postal_code") if addr else ""),
-                "country": (addr.get("country") if addr else "US") or "US",
-                "email": customer_email or "",
-                "phone": "",
-            }
+			# Build shipping from invoice shipping details if present; fallback empty US
+			addr = (invoice.get("customer_shipping") or {}).get("address") if invoice.get("customer_shipping") else None
+			shipping = {
+				"companyName": "",
+				"firstName": (invoice.get("customer_name") or "")[:50],
+				"lastName": "",
+				"addressLine1": (addr.get("line1") if addr else ""),
+				"addressLine2": (addr.get("line2") if addr else ""),
+				"state": (addr.get("state") if addr else ""),
+				"city": (addr.get("city") if addr else ""),
+				"postCode": (addr.get("postal_code") if addr else ""),
+				"country": (addr.get("country") if addr else "US") or "US",
+				"email": customer_email or "",
+				"phone": "",
+			}
 
-            client = GelatoClient()
-            product_uid = (variant.gelato_sku if variant and variant.gelato_sku else current_app.config.get("DEFAULT_TEE_UID", ""))
-            items = [{
-                "itemReferenceId": f"sub-{invoice.get('id')}",
-                "productUid": product_uid,
-                "files": [{"type": "default", "url": current_app.config.get("BASE_URL", "") + "/static/uploads/2600.png"}],
-                "quantity": 1,
-            }]
-            payload = {
-                "orderType": "draft",
-                "orderReferenceId": invoice.get("id"),
-                "customerReferenceId": customer_email,
-                "currency": (invoice.get("currency") or "usd").upper(),
-                "items": items,
-                "shipmentMethodUid": current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
-                "shippingAddress": shipping,
-            }
-            try:
-                client.create_order(payload)
-            except Exception:
-                pass
-        except Exception:
-            pass
+			client = GelatoClient()
+			product_uid = (variant.gelato_sku if variant and variant.gelato_sku else current_app.config.get("DEFAULT_TEE_UID", ""))
+			items = [{
+				"itemReferenceId": f"sub-{invoice.get('id')}",
+				"productUid": product_uid,
+				"files": [{"type": "default", "url": current_app.config.get("BASE_URL", "") + "/static/uploads/2600.png"}],
+				"quantity": 1,
+			}]
+			payload = {
+				"orderType": "draft",
+				"orderReferenceId": invoice.get("id"),
+				"customerReferenceId": customer_email,
+				"currency": (invoice.get("currency") or "usd").upper(),
+				"items": items,
+				"shipmentMethodUid": current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
+				"shippingAddress": shipping,
+			}
+			try:
+				client.create_order(payload)
+			except Exception:
+				pass
+		except Exception:
+			pass
 
 	return ("", 200)
