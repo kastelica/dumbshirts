@@ -17,10 +17,13 @@
 	{% else %}
 		{% set image_abs = '' %}
 	{% endif %}
-	<title>{{ product.title }} | Trendmerch</title>
+	<title>{{ product.title }} | Dumbshirts.store</title>
 	<meta name="description" content="{{ (product.description or product.title)[:160] }}">
 	<link rel="canonical" href="{{ canonical }}">
+	<link rel="alternate" href="{{ canonical }}" hreflang="x-default">
+	<link rel="alternate" href="{{ canonical }}" hreflang="en-us">
 	{% if product.status != 'active' %}<meta name="robots" content="noindex, nofollow">{% endif %}
+	<meta name="robots" content="max-image-preview:large">
 	{% if prev_slug %}<link rel="prev" href="{{ url_for('main.product_detail', slug=prev_slug, _external=True) }}">{% endif %}
 	{% if next_slug %}<link rel="next" href="{{ url_for('main.product_detail', slug=next_slug, _external=True) }}">{% endif %}
 	<meta property="og:type" content="product">
@@ -28,10 +31,15 @@
 	<meta property="og:description" content="{{ (product.description or product.title)[:200] }}">
 	<meta property="og:url" content="{{ canonical }}">
 	{% if image_abs %}<meta property="og:image" content="{{ image_abs }}">{% endif %}
+	<meta property="og:site_name" content="Dumbshirts.store">
+	{% if image_abs %}<meta property="og:image:alt" content="{{ product.title }}">{% endif %}
 	<meta name="twitter:card" content="summary_large_image">
 	<meta name="twitter:title" content="{{ product.title }}">
 	<meta name="twitter:description" content="{{ (product.description or product.title)[:200] }}">
 	{% if image_abs %}<meta name="twitter:image" content="{{ image_abs }}">{% endif %}
+	{% if image_abs %}<meta name="twitter:image:alt" content="{{ product.title }}">{% endif %}
+	<meta property="product:price:amount" content="{{ '%.2f'|format(product.price) }}">
+	<meta property="product:price:currency" content="{{ product.currency }}">
 	<script type="application/ld+json">
 	{
 		"@context": "https://schema.org",
@@ -40,7 +48,7 @@
 		{% if image_abs %}"image": [{{ image_abs|tojson }}],{% endif %}
 		"description": {{ (product.description or product.title)|tojson }},
 		"sku": {{ (product.variants[0].gelato_sku if product.variants and product.variants[0].gelato_sku else product.id)|string|tojson }},
-		"brand": { "@type": "Brand", "name": "Trendmerch" },
+		"brand": { "@type": "Brand", "name": "Dumbshirts.store" },
 		"url": {{ canonical|tojson }},
 		"offers": {
 			"@type": "Offer",
@@ -53,7 +61,7 @@
 	}
 	</script>
 {% endblock %}
-{% block title %}{{ product.title }} | TrendMerch{% endblock %}
+{% block title %}{{ product.title }} | Dumbshirts.store{% endblock %}
 {% block content %}
 <div class="relative">
 	{% if prev_slug %}
