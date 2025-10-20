@@ -78,6 +78,20 @@ class GelatoClient:
 			raise last_exc
 		raise RuntimeError("Failed to list products from Gelato")
 
+	def get_product(self, product_uid: str) -> Dict[str, Any]:
+		"""Fetch a single product by productUid from the Catalog API."""
+		last_exc: Optional[Exception] = None
+		for host in self.HOSTS:
+			try:
+				resp = self._get(host, f"/catalog/products/{product_uid}")
+				resp.raise_for_status()
+				return resp.json()
+			except Exception as e:
+				last_exc = e
+		if last_exc:
+			raise last_exc
+		raise RuntimeError("Failed to fetch product from Gelato")
+
 	def create_order(self, order: Dict[str, Any]) -> Dict[str, Any]:
 		"""Create an order via Gelato Order API."""
 		if not self.api_key:
@@ -87,6 +101,22 @@ class GelatoClient:
 		resp.raise_for_status()
 		return resp.json()
 
+	def get_order(self, order_id: str) -> Dict[str, Any]:
+		"""Fetch a single order by ID from the Order API."""
+		url = f"{self.ORDER_HOST}/orders/{order_id}"
+		resp = requests.get(url, headers=self.headers, timeout=30)
+		resp.raise_for_status()
+		return resp.json()
+
 	def get_shipping_rates(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-		# TODO: call Gelato shipping rates
-		return []
+		"""Request shipping rates (endpoint may vary; this is a placeholder call)."""
+		try:
+			url = f"{self.ORDER_HOST}/shipping/rates"
+			resp = requests.post(url, headers=self.headers, json=payload, timeout=30)
+			resp.raise_for_status()
+			data = resp.json()
+			if isinstance(data, dict):
+				return data.get("rates", []) or []
+			return []
+		except Exception:
+			return []

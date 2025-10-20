@@ -607,3 +607,85 @@ def gelato_status():
 	client = GelatoClient()
 	ok, debug = client.verify()
 	return render_template("admin_gelato.html", ok=ok, debug=debug)
+
+
+@admin_bp.post("/gelato/action")
+@login_required
+def gelato_action():
+	client = GelatoClient()
+	action = (request.form.get("action") or "").strip()
+	result = {}
+	error = None
+	try:
+		if action == "list_products":
+			limit = int(request.form.get("limit") or "10")
+			result = client.list_products(limit=limit)
+		elif action == "get_product":
+			uid = (request.form.get("product_uid") or "").strip()
+			result = client.get_product(uid)
+		elif action == "get_order":
+			oid = (request.form.get("order_id") or "").strip()
+			result = client.get_order(oid)
+		elif action == "shipping_rates":
+			# Minimal example payload; adjust as needed
+			payload = {
+				"items": [
+					{
+						"productUid": request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID"),
+						"quantity": int(request.form.get("quantity") or "1"),
+					}
+				],
+				"address": {
+					"country": request.form.get("country") or "US",
+				},
+			}
+			rates = client.get_shipping_rates(payload)
+			result = {"rates": rates}
+		elif action == "create_test_order":
+			# Build a minimal draft order
+			from .models import Address
+			addr = Address(
+				first_name="Test",
+				last_name="User",
+				address_line1="1600 Amphitheatre Pkwy",
+				city="Mountain View",
+				state="CA",
+				post_code="94043",
+				country="US",
+				email="test@example.com",
+				phone="5550001111",
+			)
+			db.session.add(addr)
+			db.session.flush()
+			payload = {
+				"orderType": "draft",
+				"orderReferenceId": "admin-test",
+				"currency": current_app.config.get("STORE_CURRENCY", "USD"),
+				"shipmentMethodUid": current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
+				"items": [
+					{
+						"itemReferenceId": "admin-1",
+						"productUid": request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID"),
+						"files": [ {"type": "default", "url": request.form.get("file_url") or "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"} ],
+						"quantity": int(request.form.get("quantity") or "1"),
+					}
+				],
+				"shippingAddress": {
+					"firstName": addr.first_name,
+					"lastName": addr.last_name,
+					"addressLine1": addr.address_line1,
+					"city": addr.city,
+					"state": addr.state,
+					"postCode": addr.post_code,
+					"country": addr.country,
+					"email": addr.email,
+					"phone": addr.phone,
+				},
+			}
+			result = client.create_order(payload)
+		else:
+			error = "Unknown action"
+	except Exception as e:
+		error = str(e)
+
+	return jsonify({"ok": error is None, "error": error, "result": result})

@@ -1,4 +1,4 @@
-from flask import Response
+from flask import Response, current_app
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 
@@ -6,7 +6,8 @@ def render_google_shopping_feed(items):
 	rss = Element("rss", attrib={"version": "2.0", "xmlns:g": "http://base.google.com/ns/1.0"})
 	channel = SubElement(rss, "channel")
 	SubElement(channel, "title").text = "TrendMerch Products"
-	SubElement(channel, "link").text = "https://example.com"
+	# Use configured BASE_URL for channel link
+	SubElement(channel, "link").text = current_app.config.get("BASE_URL", "http://localhost:5000")
 	SubElement(channel, "description").text = "Trending POD products"
 
 	for item in items:
