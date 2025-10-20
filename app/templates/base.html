@@ -26,11 +26,13 @@
 					<a href="/" class="hover:underline">Home</a>
 					<a href="/shop" class="hover:underline">Shop</a>
 					<a href="/search" class="hover:underline">Search</a>
+					<a href="/loyalty" class="hover:underline">Loyalty</a>
 					{% if current_user.is_authenticated %}
 					<span class="text-gray-600 hidden md:inline">|</span>
 					<a href="/admin" class="hover:underline">Admin</a>
 					<a href="/admin/products" class="hover:underline">Products</a>
 					<a href="/admin/trends" class="hover:underline">Trends</a>
+					<a href="/admin/gelato" class="hover:underline">Gelato</a>
 					<a href="/admin/logout" class="hover:underline">Logout</a>
 					{% endif %}
 				</nav>
@@ -47,12 +49,14 @@
 				<a href="/" class="py-1">Home</a>
 				<a href="/shop" class="py-1">Shop</a>
 				<a href="/search" class="py-1">Search</a>
+				<a href="/loyalty" class="py-1">Loyalty</a>
 				<a href="/cart" class="py-1">Cart ({{ cart_count }})</a>
 				{% if current_user.is_authenticated %}
 				<div class="h-px bg-gray-800 my-1"></div>
 				<a href="/admin" class="py-1">Admin</a>
 				<a href="/admin/products" class="py-1">Products</a>
 				<a href="/admin/trends" class="py-1">Trends</a>
+				<a href="/admin/gelato" class="py-1">Gelato</a>
 				<a href="/admin/logout" class="py-1">Logout</a>
 				{% endif %}
 			</nav>
@@ -79,6 +83,7 @@
 					<li><a href="/shop" class="hover:underline">Shop</a></li>
 					<li><a href="/search" class="hover:underline">Search</a></li>
 					<li><a href="/cart" class="hover:underline">Cart</a></li>
+						<li><a href="/loyalty" class="hover:underline">Loyalty</a></li>
 					{% if current_user.is_authenticated %}
 					<li><a href="/admin" class="hover:underline">Admin</a></li>
 					{% endif %}

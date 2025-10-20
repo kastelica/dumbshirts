@@ -2,6 +2,7 @@ from flask import render_template, current_app, request, abort, session
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
+from ..models import Order, Address
 
 
 @main_bp.get("/")
@@ -108,6 +109,38 @@ def checkout():
 		total_amount=float(total),
 		currency=current_app.config.get("STORE_CURRENCY", "USD"),
 	)
+
+
+@main_bp.get("/loyalty")
+def loyalty_page():
+	"""Show loyalty status for the email stored in session, or a signup form."""
+	email = (session.get("loyalty_email") or "").strip().lower()
+	points = 0
+	tier = "none"
+	perks = []
+	if email:
+		# Sum dollars from qualifying orders for this email
+		total_spent = Decimal("0.00")
+		q = Order.query.filter(Order.status.in_(["paid", "submitted", "fulfilled"]))
+		q = q.join(Address, Order.shipping_address_id == Address.id).filter(Address.email.ilike(email))
+		for o in q.all():
+			total_spent += (o.total_amount or Decimal("0.00"))
+		points = int(total_spent)
+		if points >= 100:
+			tier = "vip"
+			perks = ["Bigger discounts", "One free shirt"]
+		else:
+			tier = "member"
+	return render_template("loyalty.html", email=email, points=points, tier=tier, perks=perks)
+
+
+@main_bp.post("/loyalty/signup")
+def loyalty_signup():
+	email = (request.form.get("email") or "").strip().lower()
+	if email:
+		session["loyalty_email"] = email
+		session.modified = True
+	return render_template("loyalty.html", email=email, points=0, tier="member", perks=[]) 
 
 
 @main_bp.get("/health")

@@ -119,6 +119,14 @@ def stripe_webhook():
 		if not order:
 			return ("order not found", 200)
 		order.status = "paid"
+		# Persist receipt_email to shipping address for loyalty linkage
+		receipt = pi.get("receipt_email") or ""
+		try:
+			if receipt and order.shipping_address and not order.shipping_address.email:
+				order.shipping_address.email = receipt
+				db.session.flush()
+		except Exception:
+			pass
 		# Build Gelato draft order
 		client = GelatoClient()
 		items = []
