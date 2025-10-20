@@ -414,6 +414,55 @@ def unpublish_product(product_id: int):
 	return redirect(url_for("admin.edit_product_page", product_id=p.id))
 
 
+@admin_bp.post("/products/<int:product_id>/gelato-order")
+@login_required
+def gelato_order_product(product_id: int):
+	p = Product.query.get_or_404(product_id)
+	# Hardcoded Gelato product UID to start with
+	uid = "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_l_gco_white_gpr_4-0_gildan_5000"
+	# Build minimal draft order payload
+	file_url = "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"
+	if p.design:
+		if getattr(p.design, "image_url", None):
+			file_url = p.design.image_url
+		elif p.design.preview_url:
+			file_url = p.design.preview_url
+	from .gelato_client import GelatoClient
+	client = GelatoClient()
+	payload = {
+		"orderType": "order",
+		"orderReferenceId": f"admin-product-{p.id}",
+		"customerReferenceId": "admin-trigger",
+		"currency": (p.currency or current_app.config.get("STORE_CURRENCY", "USD")),
+		"items": [
+			{
+				"itemReferenceId": f"prod-{p.id}-1",
+				"productUid": uid,
+				"files": [ {"type": "default", "url": file_url} ],
+				"quantity": 1,
+			}
+		],
+		"shipmentMethodUid": current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
+		"shippingAddress": {
+			"firstName": "Test",
+			"lastName": "Admin",
+			"addressLine1": "451 Clarkson Ave",
+			"addressLine2": "Brooklyn",
+			"state": "NY",
+			"city": "New York",
+			"postCode": "11203",
+			"country": "US",
+			"email": "test@example.com",
+			"phone": "123456789",
+		},
+	}
+	try:
+		res = client.create_order(payload)
+		flash(f"Gelato order created: {res.get('id', 'ok')}", "success")
+	except Exception as e:
+		flash(f"Gelato order failed: {e}", "error")
+	return redirect(url_for("admin.products_list"))
+
 @admin_bp.get("/products/<int:product_id>/preview")
 @login_required
 def preview_product(product_id: int):
