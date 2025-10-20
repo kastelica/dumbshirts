@@ -98,6 +98,7 @@ def checkout():
 	cart = session.get("cart") or {"items": []}
 	total = Decimal("0.00")
 	for it in cart.get("items", []):
+		# Sum discounted price stored in cart
 		total += Decimal(str(it.get("price", 0))) * int(it.get("quantity", 0))
 	publishable = current_app.config.get("STRIPE_PUBLISHABLE_KEY", "")
 	return render_template(

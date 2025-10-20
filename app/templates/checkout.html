@@ -16,9 +16,12 @@
 					<span class="text-gray-600 text-xs">No</span>
 					{% endif %}
 				</div>
-				<span>{{ it.title }} × {{ it.quantity }}</span>
+			<span>{{ it.title }} × {{ it.quantity }}</span>
 			</span>
-			<span>${{ '%.2f'|format(it.price * it.quantity) }} {{ it.currency }}</span>
+			<span>
+				<span class="line-through text-gray-500">${{ '%.2f'|format((it.orig_price or it.price) * it.quantity) }}</span>
+				<span class="ml-1">${{ '%.2f'|format(it.price * it.quantity) }} {{ it.currency }}</span>
+			</span>
 		</li>
 		{% endfor %}
 	</ul>

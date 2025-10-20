@@ -41,7 +41,9 @@ def add_to_cart():
 		"variant_id": variant.id,
 		"title": product.title,
 		"slug": product.slug,
-		"price": float(product.price),
+		# Store discounted sale price (5% off) as price, keep original as orig_price
+		"orig_price": float(product.price),
+		"price": float((product.price * Decimal("95")) / Decimal("100")),
 		"currency": product.currency,
 		"quantity": qty,
 		"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
@@ -93,4 +95,4 @@ def view_cart():
 	total = Decimal("0.00")
 	for it in cart["items"]:
 		total += Decimal(str(it["price"])) * it["quantity"]
-	return render_template("cart.html", cart=cart, total=total)
+	return render_template("cart.html", cart=cart, total=total, currency="USD")
