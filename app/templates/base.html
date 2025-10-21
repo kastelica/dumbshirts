@@ -50,26 +50,26 @@
 		</div>
 		<div id="mobile-nav-wrap" class="md:hidden max-w-6xl mx-auto px-4 pb-3">
 			<nav id="mobile-nav" class="hidden flex-col bg-gray-900 border border-gray-800 rounded-lg mt-2 overflow-hidden shadow-lg divide-y divide-gray-800">
-				<a href="/" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Home</a>
-				<a href="/shop" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Shop</a>
-				<a href="/subscribe/monthly-shirt" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Monthly Shirt</a>
-				<a href="/search" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Search</a>
-				<a href="/loyalty" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Loyalty</a>
-				<a href="/cart" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors flex items-center justify-between">
+				<a href="/" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Home</a>
+				<a href="/shop" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Shop</a>
+				<a href="/subscribe/monthly-shirt" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Monthly Shirt</a>
+				<a href="/search" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Search</a>
+				<a href="/loyalty" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Loyalty</a>
+				<a href="/cart" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">
 					<span>Cart</span>
 					{% if cart_count %}
-					<span class="bg-white text-black text-xs px-2 py-1 rounded-full min-w-[20px] text-center">{{ cart_count }}</span>
+					<span class="float-right bg-white text-black text-xs px-2 py-1 rounded-full min-w-[20px] text-center">{{ cart_count }}</span>
 					{% endif %}
 				</a>
 				{% if current_user.is_authenticated %}
 				<div class="px-4 py-2 bg-gray-800">
 					<span class="text-xs text-gray-400 uppercase tracking-wide font-medium">Admin</span>
 				</div>
-				<a href="/admin" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Dashboard</a>
-				<a href="/admin/products" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Products</a>
-				<a href="/admin/trends" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Trends</a>
-				<a href="/admin/gelato" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Gelato</a>
-				<a href="/admin/logout" class="px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Logout</a>
+				<a href="/admin" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Dashboard</a>
+				<a href="/admin/products" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Products</a>
+				<a href="/admin/trends" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Trends</a>
+				<a href="/admin/gelato" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Gelato</a>
+				<a href="/admin/logout" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Logout</a>
 				{% endif %}
 			</nav>
 		</div>
