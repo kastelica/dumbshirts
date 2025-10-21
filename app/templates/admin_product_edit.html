@@ -52,6 +52,25 @@
 			</div>
 		</div>
 	</div>
+	<div>
+		<label class="block text-sm mb-1">Pricing</label>
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+			<div>
+				<label class="block text-xs mb-1 text-gray-400">Base cost</label>
+				<input type="number" step="0.01" min="0" name="base_cost" value="{{ '%.2f'|format(product.base_cost or 0) }}" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100" />
+			</div>
+			<div>
+				<label class="block text-xs mb-1 text-gray-400">Price</label>
+				<input id="price-input" type="number" step="0.01" min="0" name="price" value="{{ '%.2f'|format(product.price or 0) }}" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100" />
+			</div>
+			<div>
+				<label class="block text-xs mb-1 text-gray-400">Sale price (5% off)</label>
+				<input id="sale-price" type="number" step="0.01" min="0" value="" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100" readonly />
+			</div>
+		</div>
+		<label class="inline-flex items-center gap-2 text-sm mt-2"><input id="use-formula" type="checkbox" name="use_formula" value="1" /> Use margin upsell ({{ config.MARKUP_PERCENT|int }}%)</label>
+		<p class="text-xs text-gray-400">If checked, price = base cost × (1 + {{ config.MARKUP_PERCENT|int }}/100).</p>
+	</div>
 	<div class="flex items-center gap-2">
 		<button class="bg-white text-black px-4 py-2 rounded">Save</button>
 		<a href="{{ url_for('admin.products_list') }}" class="underline text-gray-300">Cancel</a>
@@ -60,7 +79,7 @@
 
 <div class="max-w-2xl mt-8 space-y-2">
 	<label class="block text-sm">AI prompt</label>
-	<textarea id="ai-prompt" rows="4" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Describe the text-only graphic for this tee (no gradients, solid colors).">make a square design of the: {{ product.title }}. It will be used as a graphic designed for the center front of a t-shirt. Make it simple and bold on a white background. image only or text only or hybrid all ok</textarea>
+	<textarea id="ai-prompt" rows="4" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Describe the text-only graphic for this tee (no gradients, solid colors).">make a square graphic design of the {{ product.title }} trend term to be used as a center front print on a t-shirt. output on #ffffff background.</textarea>
 	<div class="flex items-center gap-2">
 		<button id="ai-generate" class="bg-gray-800 text-white px-4 py-2 rounded">Generate with OpenAI</button>
 		<span id="ai-msg" class="text-sm text-gray-400"></span>
@@ -73,6 +92,34 @@
 	const msg = document.getElementById('ai-msg');
 	const preview = document.getElementById('design-preview');
 	const empty = document.getElementById('design-empty');
+	// Pricing helpers
+	const baseCost = document.querySelector('input[name="base_cost"]');
+	const priceInput = document.getElementById('price-input');
+	const saleInput = document.getElementById('sale-price');
+	const useFormula = document.getElementById('use-formula');
+	const markupPct = {{ config.MARKUP_PERCENT|int }};
+	function updateSale(){
+		if(!saleInput || !priceInput) return;
+		const p = parseFloat(priceInput.value || '0');
+		const s = (p * 0.95);
+		saleInput.value = s.toFixed(2);
+	}
+	function updateFromFormula(){
+		if(!baseCost || !priceInput) return;
+		const bc = parseFloat(baseCost.value || '0');
+		if(useFormula && useFormula.checked){
+			const p = (bc * (1 + (markupPct/100)));
+			priceInput.value = p.toFixed(2);
+		}
+		updateSale();
+	}
+	// initial
+	updateFromFormula();
+	updateSale();
+	useFormula && useFormula.addEventListener('change', updateFromFormula);
+	baseCost && baseCost.addEventListener('input', updateFromFormula);
+	priceInput && priceInput.addEventListener('input', updateSale);
+
 	if(!btn) return;
 	btn.addEventListener('click', async (e) => {
 		e.preventDefault();

@@ -576,6 +576,9 @@ def edit_product_submit(product_id: int):
 	description = request.form.get("description", "").strip()
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
+	use_formula = request.form.get("use_formula") == "1"
+	base_cost_in = (request.form.get("base_cost") or "").strip()
+	price_in = (request.form.get("price") or "").strip()
 	image_file = request.files.get("image")
 	extra1 = request.files.get("extra_image1")
 	extra2 = request.files.get("extra_image2")
@@ -606,6 +609,20 @@ def edit_product_submit(product_id: int):
 		db.session.add(d)
 		db.session.flush()
 		p.design = d
+
+	# Pricing updates
+	try:
+		if base_cost_in:
+			p.base_cost = Decimal(str(base_cost_in)).quantize(Decimal("0.01"))
+		# Apply pricing formula if requested; otherwise use provided price if any
+		if use_formula:
+			markup_percent = Decimal(str(current_app.config.get("MARKUP_PERCENT", 35)))
+			p.price = (Decimal(p.base_cost) * (Decimal(1) + markup_percent / Decimal(100))).quantize(Decimal("0.01"))
+		elif price_in:
+			p.price = Decimal(str(price_in)).quantize(Decimal("0.01"))
+	except Exception:
+		# Silently ignore bad inputs; keep previous values
+		pass
 
 	uploaded = False
 	# Handle image upload
