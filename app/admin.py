@@ -469,7 +469,25 @@ def gelato_order_product(product_id: int):
 def delete_product(product_id: int):
 	p = Product.query.get_or_404(product_id)
 	product_title = p.title
-	# Delete the product (cascades to variants, order items, etc.)
+	
+	# Handle foreign key constraints by first removing references
+	# Delete order items that reference this product's variants
+	from .models import OrderItem
+	OrderItem.query.filter(OrderItem.product_id == p.id).delete()
+	
+	# Delete variants (now safe since no order items reference them)
+	for variant in p.variants:
+		db.session.delete(variant)
+	
+	# Remove product from categories and trends
+	p.categories.clear()
+	p.trends.clear()
+	
+	# Delete the design if it's only used by this product
+	if p.design and len(p.design.products) <= 1:
+		db.session.delete(p.design)
+	
+	# Finally delete the product
 	db.session.delete(p)
 	db.session.commit()
 	flash(f"Product '{product_title}' deleted", "success")
