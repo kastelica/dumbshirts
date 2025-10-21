@@ -1,4 +1,4 @@
-from flask import render_template, current_app, request, abort, session, Response
+from flask import render_template, current_app, request, abort, session, Response, jsonify
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
