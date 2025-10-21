@@ -463,6 +463,18 @@ def gelato_order_product(product_id: int):
 		flash(f"Gelato order failed: {e}", "error")
 	return redirect(url_for("admin.products_list"))
 
+
+@admin_bp.post("/products/<int:product_id>/delete")
+@login_required
+def delete_product(product_id: int):
+	p = Product.query.get_or_404(product_id)
+	product_title = p.title
+	# Delete the product (cascades to variants, order items, etc.)
+	db.session.delete(p)
+	db.session.commit()
+	flash(f"Product '{product_title}' deleted", "success")
+	return redirect(url_for("admin.products_list"))
+
 @admin_bp.get("/products/<int:product_id>/preview")
 @login_required
 def preview_product(product_id: int):
