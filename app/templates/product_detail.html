@@ -166,13 +166,12 @@
 				<input type="hidden" id="productUidInput" name="product_uid" value="">
 				<div>
 					<label class="block text-sm mb-1">Variant</label>
-					<select id="variant-select" name="variant_id" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-full">
+					<select id="variant-select" name="variant_id" class="hidden bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-full">
 						{% for v in product.variants %}
 						<option value="{{ v.id }}">{{ v.name }}</option>
 						{% endfor %}
 					</select>
-					<div id="color-swatches" class="mt-3 flex flex-wrap gap-2"></div>
-					<div id="gelato-attrs" class="mt-3 text-sm text-gray-300"></div>
+
 				</div>
 				<div class="grid grid-cols-3 gap-3">
 					<div>
@@ -269,62 +268,35 @@
 		buyBtn.addEventListener('click', ()=>{ buyFlag.value = '1'; });
 	}
 	// Fetch Gelato product attributes for the current variant's productUid if present
-	const variantSelect = document.getElementById('variant-select');
-	const attrsEl = document.getElementById('gelato-attrs');
-    const swatchesEl = document.getElementById('color-swatches');
-	function hexToSwatch(hex){
-		const d = document.createElement('button');
-		d.type = 'button';
-		d.className = 'w-7 h-7 rounded border border-gray-700';
-		d.style.backgroundColor = hex;
-		d.title = hex;
-		return d;
-	}
+    const variantSelect = document.getElementById('variant-select');
 
-	function buildProductUid(size, color, neck){
-		// Very simplified mapper for Gelato apparel productUid; real mapping should use API catalog
-		const sizeMap = { S: 'gsi_s', M: 'gsi_m', L: 'gsi_l', XL: 'gsi_xl' };
-		const colorMap = { white: 'gco_white', black: 'gco_black' };
-		const neckMap = { crewneck: 'gsc_crewneck', 'v-neck': 'gsc_v-neck' };
-		const sizeTok = sizeMap[size] || 'gsi_l';
-		const colorTok = colorMap[color] || 'gco_white';
-		const neckTok = neckMap[neck] || 'gsc_crewneck';
-		// Base tokens for unisex classic tee
-		return `apparel_product_gca_t-shirt_${neckTok}_gcu_unisex_gqa_classic_${sizeTok}_${colorTok}_gpr_4-4`;
-	}
+// Hardcoded mapping from selection -> exact Gelato productUid (edit as needed)
+function lookupProductUid(size, color, neck){
+    const MAP = {
+        'S|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
+        'M|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
+        'L|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
+        'XL|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+        'S|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_black_gpr_4-4',
+        'M|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_black_gpr_4-4',
+        'L|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_black_gpr_4-4',
+        'XL|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_black_gpr_4-4',
+        'S|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
+        'M|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
+        'L|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
+        'XL|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+    };
+    const key = `${size}|${color}|${neck}`;
+    return MAP[key] || '';
+}
 
-	async function loadGelato(uid){
-		if(!uid){ attrsEl.textContent=''; return; }
-		try{
-			const r = await fetch('/api/gelato/product?uid=' + encodeURIComponent(uid));
-			const j = await r.json();
-			if(j && j.attributes){
-				const keys = Object.keys(j.attributes).slice(0,6);
-				attrsEl.innerHTML = '<div class="text-xs text-gray-400 mb-1">Available options</div>' + keys.map(k=>`<div>${k}: <span class="text-gray-100">${j.attributes[k]}</span></div>`).join('');
-			}
-			// Try to render color swatch from hex if available
-			try {
-				swatchesEl.innerHTML = '';
-				const dim = j.dimensions || {};
-				const hex = (dim['Color HEX Code'] && dim['Color HEX Code'].value) || (dim['Color HEX Code (contents should be copied to original colorHexCode once apparel v2 migration is finished)'] && dim['Color HEX Code (contents should be copied to original colorHexCode once apparel v2 migration is finished)'].value) || '';
-				if (typeof hex === 'string' && /^#?[0-9a-fA-F]{6}$/.test(hex)) {
-				const norm = (typeof hex === 'string' && hex[0] === '#') ? hex : ('#' + hex);
-					swatchesEl.appendChild(hexToSwatch(norm));
-				}
-			} catch(e){ swatchesEl.innerHTML=''; }
-		}catch(e){ attrsEl.textContent=''; }
-	}
-	// Try with the product's first variant gelato_sku
-	try{
-		const firstSku = {{ (product.variants[0].gelato_sku if product.variants and product.variants[0].gelato_sku else 'null')|tojson }};
-		if(firstSku){ loadGelato(firstSku); document.getElementById('productUidInput').value = firstSku; }
-	}catch(e){}
+    // Removed Gelato attribute fetch and swatch rendering
 
 	function updateProductUid(){
 		const size = document.getElementById('size-select').value;
 		const color = document.getElementById('color-select').value;
 		const neck = document.getElementById('neck-select').value;
-		const uid = buildProductUid(size, color, neck);
+    const uid = lookupProductUid(size, color, neck);
 		document.getElementById('productUidInput').value = uid;
 	}
 	['size-select','color-select','neck-select'].forEach(id=>{
