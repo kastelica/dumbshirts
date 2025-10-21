@@ -37,3 +37,14 @@
 	{% endfor %}
 </div>
 {% endblock %}
+
+{% block head %}
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    var q = document.querySelector('input[name="q"]');
+    if(q){ q.placeholder = 'meme'; }
+  });
+})();
+</script>
+{% endblock %}
