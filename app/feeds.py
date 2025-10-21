@@ -59,10 +59,19 @@ def render_google_shopping_feed(items):
 		# Subscription cost (for subscription landing page items only)
 		sub = item.get("subscription_cost")
 		if sub:
-			sc = SubElement(it, "g:subscription_cost")
-			SubElement(sc, "g:period").text = sub.get("period")
-			SubElement(sc, "g:period_length").text = str(sub.get("period_length"))
-			SubElement(sc, "g:amount").text = sub.get("amount")
+			# Format as "month:12:35.00 EUR" per Google requirements
+			period = sub.get("period", "month")
+			period_length = sub.get("period_length", 1)
+			amount = sub.get("amount", "15.00 USD")
+			# Extract currency from amount if present, default to USD
+			currency = "USD"
+			if " " in amount:
+				currency = amount.split(" ")[-1]
+				amount_value = amount.split(" ")[0]
+			else:
+				amount_value = amount
+			subscription_cost_text = f"{period}:{period_length}:{amount_value} {currency}"
+			SubElement(it, "g:subscription_cost").text = subscription_cost_text
 
 	xml_bytes = tostring(rss)
 	return Response(xml_bytes, content_type="application/xml")
