@@ -37,9 +37,13 @@
 		<div class="relative js-card-gallery">
 			<div class="aspect-square bg-gray-950 flex items-center justify-center">
 				{% if p.design and p.design.preview_url %}
-					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" data-frame="0" />
-					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame="1" />
-					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame="2" />
+					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" data-frame />
+					{% if p.design.extra_image1_url %}
+					<img src="{{ p.design.extra_image1_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame />
+					{% endif %}
+					{% if p.design.extra_image2_url %}
+					<img src="{{ p.design.extra_image2_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame />
+					{% endif %}
 				{% else %}
 					<span class="text-gray-600 text-sm">No image</span>
 				{% endif %}
@@ -68,6 +72,8 @@
     document.querySelectorAll('.js-card-gallery').forEach(g => {
       let idx = 0;
       const frames = Array.from(g.querySelectorAll('img[data-frame]'));
+      if(!frames.length) return;
+      frames.forEach((im, j)=>{ if(j===0){ im.classList.remove('hidden'); } });
       const show = (i)=>{ frames.forEach((im,j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } }); idx=i; };
       g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
       g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx+1)%frames.length); });
