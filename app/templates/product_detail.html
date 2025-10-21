@@ -185,10 +185,8 @@
 					</div>
 					<div>
 						<label class="block text-sm mb-1">Color</label>
-						<select id="color-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
-							<option value="white" selected>White</option>
-							<option value="black">Black</option>
-						</select>
+						<div id="color-swatches" class="grid grid-cols-5 gap-2"></div>
+						<input type="hidden" id="color-select" value="white">
 					</div>
 					<div>
 						<label class="block text-sm mb-1">Neck</label>
@@ -290,7 +288,35 @@ function lookupProductUid(size, color, neck){
     return MAP[key] || '';
 }
 
-    // Removed Gelato attribute fetch and swatch rendering
+	// Build color swatches (5 common colors)
+	(function buildColorSwatches(){
+		const colors = [
+			{ key: 'white', hex: '#ffffff' },
+			{ key: 'black', hex: '#000000' },
+			{ key: 'heather', hex: '#9ca3af' },
+			{ key: 'red', hex: '#ef4444' },
+			{ key: 'blue', hex: '#3b82f6' },
+		];
+		const wrap = document.getElementById('color-swatches');
+		const hidden = document.getElementById('color-select');
+		if(!wrap || !hidden) return;
+		wrap.innerHTML = '';
+		colors.forEach(c => {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'h-8 rounded border border-gray-700';
+			b.style.backgroundColor = c.hex;
+			b.setAttribute('aria-label', c.key);
+			b.addEventListener('click', () => {
+				hidden.value = c.key;
+				Array.from(wrap.children).forEach(el => el.classList.remove('ring-2','ring-white'));
+				b.classList.add('ring-2','ring-white');
+				updateProductUid();
+			});
+			if(hidden.value === c.key){ b.classList.add('ring-2','ring-white'); }
+			wrap.appendChild(b);
+		});
+	})();
 
 	function updateProductUid(){
 		const size = document.getElementById('size-select').value;
