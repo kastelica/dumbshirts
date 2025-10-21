@@ -159,7 +159,7 @@
 				<input type="hidden" id="buy-now-flag" name="buy_now" value="">
 				<input type="hidden" id="productUidInput" name="product_uid" value="">
 				<div>
-					<label class="block text-sm mb-1">Variant</label>
+					
 					<select id="variant-select" name="variant_id" class="hidden bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-full">
 						{% for v in product.variants %}
 						<option value="{{ v.id }}">{{ v.name }}</option>
