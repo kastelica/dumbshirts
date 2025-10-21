@@ -394,6 +394,36 @@ def toggle_product_visibility(product_id: int):
 	return redirect(url_for("admin.products_list"))
 
 
+@admin_bp.post("/products/new")
+@login_required
+def create_blank_product():
+    """Create a draft product with minimal defaults and redirect to edit page."""
+    title = "New Product"
+    base_slug = slugify(title) or "product"
+    slug = base_slug
+    idx = 2
+    while Product.query.filter_by(slug=slug).first():
+        slug = f"{base_slug}-{idx}"
+        idx += 1
+
+    p = Product(
+        slug=slug,
+        title=title,
+        description="",
+        status="draft",
+        base_cost=Decimal("0.00"),
+        price=Decimal("0.00"),
+        currency=current_app.config.get("STORE_CURRENCY", "USD"),
+    )
+    db.session.add(p)
+    db.session.commit()
+    # Ensure at least one variant exists for editing/preview flows
+    _ensure_single_variant(p)
+    db.session.commit()
+    flash("Draft product created", "success")
+    return redirect(url_for("admin.edit_product_page", product_id=p.id))
+
+
 @admin_bp.post("/products/<int:product_id>/publish")
 @login_required
 def publish_product(product_id: int):

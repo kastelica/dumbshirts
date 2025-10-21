@@ -2,9 +2,17 @@
 {% block content %}
 <div class="flex items-center justify-between mb-4">
     <h1 class="text-2xl font-semibold">Products</h1>
-    <form method="post" action="{{ url_for('admin.toggle_auto_mode') }}">
-        <button class="bg-gray-800 text-white px-4 py-2 rounded">Toggle Auto Mode</button>
-    </form>
+    <div class="flex items-center gap-2">
+        <form method="post" action="{{ url_for('admin.products_list') }}" onsubmit="return false;">
+            <button type="button" onclick="location.reload()" class="bg-gray-800 text-white px-4 py-2 rounded">Refresh</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.create_blank_product') }}">
+            <button class="bg-white text-black px-4 py-2 rounded">Add Product</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.toggle_auto_mode') }}">
+            <button class="bg-gray-800 text-white px-4 py-2 rounded">Toggle Auto Mode</button>
+        </form>
+    </div>
  </div>
 <table class="w-full text-left text-sm">
 	<thead class="text-gray-400">
