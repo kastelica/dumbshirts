@@ -128,15 +128,21 @@
 
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 		<div>
-			<div id="main-image" class="aspect-square bg-gray-900 border border-gray-800 rounded flex items-center justify-center overflow-hidden">
-				{% if images and images[0].src %}
-				<img src="{{ images[0].src }}" alt="{{ images[0].alt }}" class="w-full h-full object-cover">
-				{% else %}
-				<div class="text-gray-500">No image</div>
-				{% endif %}
+			<div class="relative js-gallery">
+				<div class="aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					{% set imgs = images or [] %}
+					{% if imgs %}
+						{% for img in imgs %}
+							<img src="{{ img.src }}" alt="{{ img.alt }}" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
+						{% endfor %}
+					{% else %}
+						<div class="w-full h-full flex items-center justify-center text-gray-500">No image</div>
+					{% endif %}
+				</div>
+				<button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800" data-action="prev">‹</button>
+				<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800" data-action="next">›</button>
 			</div>
-			
-			</div>
+		</div>
 		<div>
 			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
 			<p class="text-gray-300 mt-3">{{ product.description }}</p>
@@ -223,9 +229,7 @@
 			<div class="mt-2 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more products</div>
 		
 
-			<div class="mt-8 text-sm text-gray-400">
-				<span>Status: </span><span class="uppercase">{{ product.status }}</span>
-			</div>
+			
 		</div>
 	</div>
 </div>
@@ -358,6 +362,18 @@ function lookupProductUid(size, color, neck){
 		if(el){ el.addEventListener('change', updateProductUid); }
 	});
 	updateProductUid();
+
+	// Simple gallery controls
+	document.querySelectorAll('.js-gallery').forEach(g => {
+		let idx = 0;
+		const frames = Array.from(g.querySelectorAll('img[data-frame]'));
+		const show = (i)=>{
+			frames.forEach((im, j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } });
+			idx = i;
+		};
+		g.querySelector('[data-action="prev"]')?.addEventListener('click', ()=>{ if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
+		g.querySelector('[data-action="next"]')?.addEventListener('click', ()=>{ if(!frames.length) return; show((idx+1)%frames.length); });
+	});
 })();
 </script>
 {% endblock %}

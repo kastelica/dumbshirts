@@ -59,6 +59,8 @@ def shop():
 @main_bp.get("/search")
 def search():
 	q = request.args.get("q", "").strip()
+	if not q:
+		q = "meme"
 	results = []
 	# Recent approved trends for bubbles
 	trend_bubbles = Trend.query.filter_by(status="approved").order_by(Trend.created_at.desc()).limit(10).all()

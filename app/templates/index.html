@@ -18,12 +18,18 @@
 <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
 	{% for p in products %}
 	<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors">
-		<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
-			{% if p.design and p.design.preview_url %}
-			<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" />
-			{% else %}
-			<span class="text-gray-600 text-sm">No image</span>
-			{% endif %}
+		<div class="relative js-card-gallery">
+			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
+				{% if p.design and p.design.preview_url %}
+					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" data-frame="0" />
+					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame="1" />
+					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame="2" />
+				{% else %}
+					<span class="text-gray-600 text-sm">No image</span>
+				{% endif %}
+			</div>
+			<button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-lg hidden group-hover:flex items-center justify-center" data-action="prev">‹</button>
+			<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-lg hidden group-hover:flex items-center justify-center" data-action="next">›</button>
 		</div>
 		<div class="p-4">
 				<div class="flex items-start justify-between gap-3 w-full">
@@ -43,4 +49,20 @@
 	</div>
 	{% endfor %}
 </div>
+{% endblock %}
+
+{% block head %}
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.js-card-gallery').forEach(g => {
+      let idx = 0;
+      const frames = Array.from(g.querySelectorAll('img[data-frame]'));
+      const show = (i)=>{ frames.forEach((im,j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } }); idx=i; };
+      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
+      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); if(!frames.length) return; show((idx+1)%frames.length); });
+    });
+  });
+})();
+</script>
 {% endblock %}
