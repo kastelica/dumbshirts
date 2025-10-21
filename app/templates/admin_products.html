@@ -29,13 +29,14 @@
 		<tr class="border-t border-gray-800">
 			<td class="py-2">
 				<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="flex items-center gap-3">
-					<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
-						{% if p.design and p.design.preview_url %}
-						<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" />
-						{% else %}
-						<span class="text-gray-600 text-xs">No</span>
-						{% endif %}
-					</div>
+				<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+					{% set thumb = (p.design.preview_url if p.design and p.design.preview_url else (p.design.extra_image1_url if p.design and p.design.extra_image1_url else '')) %}
+					{% if thumb %}
+					<img src="{{ thumb }}" alt="{{ p.title }}" class="w-full h-full object-cover" />
+					{% else %}
+					<span class="text-gray-600 text-xs">No</span>
+					{% endif %}
+				</div>
 					<span class="font-medium">{{ p.title }}</span>
 				</a>
 			</td>

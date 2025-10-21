@@ -577,6 +577,8 @@ def edit_product_submit(product_id: int):
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
 	image_file = request.files.get("image")
+	extra1 = request.files.get("extra_image1")
+	extra2 = request.files.get("extra_image2")
 
 	if title:
 		p.title = title
@@ -627,6 +629,37 @@ def edit_product_submit(product_id: int):
 			p.design.preview_url = f"/static/uploads/{fname}"
 			p.design.image_url = f"/static/uploads/{fname}"
 		uploaded = True
+
+	# Handle extra images upload
+	if (extra1 and extra1.filename) or (extra2 and extra2.filename):
+		# Ensure design exists
+		if not p.design:
+			d = Design(type="image", text=p.title, approved=True)
+			db.session.add(d)
+			db.session.flush()
+			p.design = d
+		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		def _save_extra(file_obj):
+			if not file_obj or not file_obj.filename:
+				return None
+			if cloud_url:
+				import cloudinary.uploader as cu
+				public_id = slugify(p.title or "design") + "_extra"
+				res = cu.upload(file_obj, folder="products", public_id=public_id + '_' + (file_obj.filename or 'x'), overwrite=True, resource_type="image")
+				return res.get("secure_url") or res.get("url")
+			else:
+				fname = secure_filename(file_obj.filename)
+				upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+				os.makedirs(upload_dir, exist_ok=True)
+				path = os.path.join(upload_dir, fname)
+				file_obj.save(path)
+				return f"/static/uploads/{fname}"
+		url1 = _save_extra(extra1)
+		url2 = _save_extra(extra2)
+		if url1:
+			p.design.extra_image1_url = url1
+		if url2:
+			p.design.extra_image2_url = url2
 
 	# Placeholder AI generation (no external call yet)
 	if generate_ai and not uploaded:

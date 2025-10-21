@@ -55,6 +55,9 @@ class Design(db.Model, TimestampMixin):
 	image_url = db.Column(db.String(500))
 	approved = db.Column(db.Boolean, default=False, nullable=False)
 	preview_url = db.Column(db.String(500))
+	# Optional extra images for galleries
+	extra_image1_url = db.Column(db.String(500))
+	extra_image2_url = db.Column(db.String(500))
 
 
 class Trend(db.Model, TimestampMixin):

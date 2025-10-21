@@ -131,6 +131,10 @@
 			<div class="relative js-gallery">
 				<div class="aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
 					{% set imgs = images or [] %}
+					{% if product.design and (product.design.extra_image1_url or product.design.extra_image2_url) %}
+						{% set _ = imgs.append({'src': product.design.extra_image1_url, 'alt': product.title}) if product.design.extra_image1_url %}
+						{% set _ = imgs.append({'src': product.design.extra_image2_url, 'alt': product.title}) if product.design.extra_image2_url %}
+					{% endif %}
 					{% if imgs %}
 						{% for img in imgs %}
 							<img src="{{ img.src }}" alt="{{ img.alt }}" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">

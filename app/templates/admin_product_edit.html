@@ -28,6 +28,30 @@
 			</div>
 		</div>
 	</div>
+	<div>
+		<label class="block text-sm mb-1">Extra images (optional)</label>
+		<div class="flex items-start gap-4">
+			<div class="w-24 h-24 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+				{% if product.design and product.design.extra_image1_url %}
+				<img src="{{ product.design.extra_image1_url }}" alt="Extra 1" class="w-full h-full object-cover" />
+				{% else %}
+				<span class="text-gray-600 text-xs">No</span>
+				{% endif %}
+			</div>
+			<div class="w-24 h-24 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+				{% if product.design and product.design.extra_image2_url %}
+				<img src="{{ product.design.extra_image2_url }}" alt="Extra 2" class="w-full h-full object-cover" />
+				{% else %}
+				<span class="text-gray-600 text-xs">No</span>
+				{% endif %}
+			</div>
+			<div class="space-y-2">
+				<input type="file" name="extra_image1" accept="image/*" class="block text-sm" />
+				<input type="file" name="extra_image2" accept="image/*" class="block text-sm" />
+				<p class="text-xs text-gray-400">Upload up to two additional images for the gallery.</p>
+			</div>
+		</div>
+	</div>
 	<div class="flex items-center gap-2">
 		<button class="bg-white text-black px-4 py-2 rounded">Save</button>
 		<a href="{{ url_for('admin.products_list') }}" class="underline text-gray-300">Cancel</a>
