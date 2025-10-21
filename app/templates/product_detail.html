@@ -125,12 +125,7 @@
 {% block title %}{{ product.title }} | Dumbshirts.store{% endblock %}
 {% block content %}
 <div class="relative">
-	{% if prev_slug %}
-	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-14 h-14 text-3xl font-bold text-gray-200 rounded-full bg-gray-900/80 border border-gray-800 hover:bg-gray-800 hover:text-white absolute left-2 top-1/2 -translate-y-1/2 z-10" aria-label="Previous product">‹</a>
-	{% endif %}
-	{% if next_slug %}
-	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-14 h-14 text-3xl font-bold text-gray-200 rounded-full bg-gray-900/80 border border-gray-800 hover:bg-gray-800 hover:text-white absolute right-2 top-1/2 -translate-y-1/2 z-10" aria-label="Next product">›</a>
-	{% endif %}
+
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 		<div>
 			<div id="main-image" class="aspect-square bg-gray-900 border border-gray-800 rounded flex items-center justify-center overflow-hidden">
@@ -141,8 +136,7 @@
 				{% endif %}
 			</div>
 			
-			<div class="mt-2 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more products</div>
-		</div>
+			</div>
 		<div>
 			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
 			<p class="text-gray-300 mt-3">{{ product.description }}</p>
@@ -226,11 +220,24 @@
 				</ul>
 			</div>
 
+			<div class="mt-2 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more products</div>
+		
+
 			<div class="mt-8 text-sm text-gray-400">
 				<span>Status: </span><span class="uppercase">{{ product.status }}</span>
 			</div>
 		</div>
 	</div>
+</div>
+<div class="mt-6 flex items-center justify-between">
+	{% if prev_slug %}
+	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white" aria-label="Previous product">‹</a>
+	{% else %}
+	<span></span>
+	{% endif %}
+	{% if next_slug %}
+	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white" aria-label="Next product">›</a>
+	{% endif %}
 </div>
 <script>
 (function(){
