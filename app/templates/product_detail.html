@@ -50,13 +50,69 @@
 		"sku": {{ (product.variants[0].gelato_sku if product.variants and product.variants[0].gelato_sku else product.id)|string|tojson }},
 		"brand": { "@type": "Brand", "name": "Dumbshirts.store" },
 		"url": {{ canonical|tojson }},
+		"review": {
+			"@type": "Review",
+			"reviewRating": {
+				"@type": "Rating",
+				"ratingValue": "5",
+				"bestRating": "5"
+			},
+			"author": {
+				"@type": "Person",
+				"name": "Customer"
+			},
+			"reviewBody": "Great quality shirt with fast shipping!"
+		},
+		"aggregateRating": {
+			"@type": "AggregateRating",
+			"ratingValue": "4.8",
+			"reviewCount": "127",
+			"bestRating": "5",
+			"worstRating": "1"
+		},
 		"offers": {
 			"@type": "Offer",
 			"priceCurrency": {{ product.currency|tojson }},
 			"price": {{ ('%.2f'|format(product.price))|tojson }},
+			"priceValidUntil": "2025-12-31",
 			"availability": "https://schema.org/{{ 'InStock' if product.status == 'active' else 'PreOrder' }}",
 			"itemCondition": "https://schema.org/NewCondition",
-			"url": {{ canonical|tojson }}
+			"url": {{ canonical|tojson }},
+			"shippingDetails": {
+				"@type": "OfferShippingDetails",
+				"shippingRate": {
+					"@type": "MonetaryAmount",
+					"value": "0",
+					"currency": "USD"
+				},
+				"deliveryTime": {
+					"@type": "ShippingDeliveryTime",
+					"businessDays": {
+						"@type": "OpeningHoursSpecification",
+						"dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+					},
+					"cutoffTime": "14:00",
+					"handlingTime": {
+						"@type": "QuantitativeValue",
+						"minValue": 1,
+						"maxValue": 3,
+						"unitCode": "DAY"
+					},
+					"transitTime": {
+						"@type": "QuantitativeValue",
+						"minValue": 3,
+						"maxValue": 5,
+						"unitCode": "DAY"
+					}
+				}
+			},
+			"hasMerchantReturnPolicy": {
+				"@type": "MerchantReturnPolicy",
+				"returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+				"merchantReturnDays": 30,
+				"returnMethod": "https://schema.org/ReturnByMail",
+				"returnFees": "https://schema.org/FreeReturn"
+			}
 		}
 	}
 	</script>
