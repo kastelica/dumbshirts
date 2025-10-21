@@ -59,8 +59,8 @@
       let idx = 0;
       const frames = Array.from(g.querySelectorAll('img[data-frame]'));
       const show = (i)=>{ frames.forEach((im,j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } }); idx=i; };
-      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
-      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); if(!frames.length) return; show((idx+1)%frames.length); });
+      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
+      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx+1)%frames.length); });
     });
   });
 })();
