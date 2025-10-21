@@ -318,6 +318,37 @@ function lookupProductUid(size, color, neck){
 		});
 	})();
 
+	// GA4 add_to_cart tracking on form submit
+	try{
+		const addForm = document.getElementById('add-form');
+		if(addForm){
+			addForm.addEventListener('submit', function(){
+				try{
+					const qty = parseInt((document.querySelector('input[name="quantity"]')?.value)||'1', 10) || 1;
+					const size = document.getElementById('size-select').value;
+					const color = document.getElementById('color-select').value;
+					const neck = document.getElementById('neck-select').value;
+					const salePrice = {{ (((product.price * 95) / 100)|float)|tojson }};
+					if (typeof gtag === 'function') {
+						gtag('event','add_to_cart',{
+							currency: {{ product.currency|tojson }},
+							value: salePrice * qty,
+							items: [{
+								item_id: {{ product.id|tojson }},
+								item_name: {{ product.title|tojson }},
+								item_brand: 'Dumbshirts.store',
+								item_category: 't-shirt',
+								item_variant: size + ' / ' + (color.charAt(0).toUpperCase()+color.slice(1)) + ' / ' + (neck==='crewneck'?'Crewneck':'V‑neck'),
+								price: salePrice,
+								quantity: qty
+							}]
+						});
+					}
+				}catch(e){}
+			});
+		}
+	}catch(e){}
+
 	function updateProductUid(){
 		const size = document.getElementById('size-select').value;
 		const color = document.getElementById('color-select').value;

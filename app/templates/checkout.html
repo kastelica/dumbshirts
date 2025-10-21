@@ -163,7 +163,27 @@ function gtag_report_conversion(url){
 		}
 	} catch(e) { applyFallback(); }
 
-	const stripe = Stripe('{{ publishable_key }}');
+    const stripe = Stripe('{{ publishable_key }}');
+    // GA4 begin_checkout event
+    try{
+        if(typeof gtag === 'function'){
+            const items = ({{ (cart['items']|length)|tojson }} > 0) ? {{ cart['items']|tojson }} : [];
+            const totalVal = parseFloat((document.getElementById('checkout-data')?.dataset.total)||'0');
+            gtag('event','begin_checkout',{
+                currency: '{{ currency }}',
+                value: totalVal,
+                items: items.map(it => ({
+                    item_id: it.product_id,
+                    item_name: it.title,
+                    item_brand: 'Dumbshirts.store',
+                    item_category: 't-shirt',
+                    item_variant: (it.variant_id || ''),
+                    price: it.price,
+                    quantity: it.quantity,
+                }))
+            });
+        }
+    }catch(e){}
 	const appearance = { theme: 'night', variables: { colorPrimary: '#ffffff', colorBackground: '#0b0b0b', colorText: '#e5e7eb', colorDanger: '#ef4444', borderRadius: '6px' } };
 	let elements, paymentElement, clientSecret;
 	const submitBtn = document.getElementById('submit');
