@@ -75,3 +75,63 @@ def render_google_shopping_feed(items):
 
 	xml_bytes = tostring(rss)
 	return Response(xml_bytes, content_type="application/xml")
+
+
+def render_google_promotions_feed(promotions: list) -> Response:
+	"""Render a minimal Google Promotions XML feed.
+
+	This includes core required attributes and supports optional fields when present.
+	"""
+	root = Element("promotions")
+	for p in promotions:
+		promo_el = SubElement(root, "promotion")
+		# Required: promotion_id
+		SubElement(promo_el, "promotion_id").text = str(p.get("promotion_id", ""))
+		# Required: product_applicability
+		SubElement(promo_el, "product_applicability").text = p.get("product_applicability") or ("specific_products" if p.get("product_ids") else "all_products")
+		# Required: offer_type
+		offer_type = p.get("offer_type") or ("generic_code" if p.get("coupon_code") else "no_code")
+		SubElement(promo_el, "offer_type").text = offer_type
+		if offer_type == "generic_code":
+			code = p.get("generic_redemption_code") or p.get("coupon_code") or ""
+			SubElement(promo_el, "generic_redemption_code").text = code
+		# Required: long_title
+		SubElement(promo_el, "long_title").text = p.get("long_title", "")
+		# Required: promotion_effective_dates (expect preformatted or build from dates)
+		ped = p.get("promotion_effective_dates")
+		if not ped:
+			start = (p.get("start_date") or "").strip()
+			end = (p.get("end_date") or start).strip()
+			if start:
+				start_iso = f"{start}T00:00:00+00:00"
+				end_iso = f"{end}T23:59:59+00:00" if end else f"{start}T23:59:59+00:00"
+				ped = f"{start_iso}/{end_iso}"
+		SubElement(promo_el, "promotion_effective_dates").text = ped or ""
+		# Recommended/Required in classic MC: redemption_channel
+		SubElement(promo_el, "redemption_channel").text = p.get("redemption_channel") or "online"
+		# Destinations - default to Shopping_ads and Free_listings if not specified
+		dests = p.get("promotion_destination") or ["Shopping_ads", "Free_listings"]
+		if isinstance(dests, str):
+			dests = [dests]
+		for d in dests:
+			SubElement(promo_el, "promotion_destination").text = d
+		# Product filters (if specific_products)
+		ids_raw = p.get("product_ids") or ""
+		if isinstance(ids_raw, str):
+			parts = [s.strip() for s in ids_raw.split(",") if s.strip()]
+		else:
+			parts = ids_raw or []
+		for pid in parts:
+			# Use item_id as a product filter
+			pf = SubElement(promo_el, "product_filter")
+			SubElement(pf, "item_id").text = str(pid)
+		# Optional: percent_off, promotion_url, audience
+		if p.get("percent_off"):
+			SubElement(promo_el, "percent_off").text = str(p.get("percent_off"))
+		if p.get("promotion_url"):
+			SubElement(promo_el, "promotion_url").text = str(p.get("promotion_url"))
+		if p.get("audience"):
+			SubElement(promo_el, "audience").text = str(p.get("audience"))
+
+	xml_bytes = tostring(root)
+	return Response(xml_bytes, content_type="application/xml")

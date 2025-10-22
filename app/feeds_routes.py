@@ -1,6 +1,8 @@
 from flask import Blueprint, url_for, current_app
 from urllib.parse import urljoin
-from .feeds import render_google_shopping_feed
+from .feeds import render_google_shopping_feed, render_google_promotions_feed
+import os
+import json
 from .models import Product
 from decimal import Decimal
 
@@ -47,3 +49,20 @@ def google_feed():
 		})
 		# Removed monthly subscription items from Shopping feed
 	return render_google_shopping_feed(items)
+
+
+@feeds_bp.get("/feeds/promotions.xml")
+def promotions_feed():
+	# Load promotions file created via admin panel
+	data_dir = os.path.join(os.path.dirname(__file__), "data")
+	path = os.path.join(data_dir, "promotions.json")
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			rows = json.load(f)
+			if not isinstance(rows, list):
+				rows = []
+	except FileNotFoundError:
+		rows = []
+	except Exception:
+		rows = []
+	return render_google_promotions_feed(rows)
