@@ -127,17 +127,15 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		if pdd:
 			SubElement(entry, "g:promotion_display_dates").text = pdd
 
-		# Offer type and value
+		# Offer type: always treat as generic_code promotions with a code
 		percent_off = (p.get("percent_off") or "").strip()
-		code = (p.get("generic_redemption_code") or p.get("coupon_code") or "").strip()
+		code = (p.get("generic_redemption_code") or "").strip()
+		SubElement(entry, "g:offer_type").text = "generic_code"
 		if percent_off:
-			SubElement(entry, "g:offer_type").text = "percentage_off"
 			SubElement(entry, "g:percentage_off").text = str(percent_off)
-		elif (p.get("offer_type") or "").strip():
-			SubElement(entry, "g:offer_type").text = p.get("offer_type").strip()
 		# Coupon code (generic code for all customers)
 		if code:
-			SubElement(entry, "g:coupon_code").text = code
+			SubElement(entry, "g:generic_redemption_code").text = code
 
 		# Destinations
 		dests = p.get("promotion_destination") or ["Shopping_ads", "Free_listings"]

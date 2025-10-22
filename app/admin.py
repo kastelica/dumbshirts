@@ -936,7 +936,7 @@ def add_promotion():
 	entry = {
 		"promotion_id": promo_id,
 		"long_title": (request.form.get("long_title") or "").strip(),
-		"coupon_code": (request.form.get("coupon_code") or "").strip(),
+		"generic_redemption_code": (request.form.get("generic_redemption_code") or "").strip(),
 		"percent_off": (request.form.get("percent_off") or "").strip(),
 		"start_date": (request.form.get("start_date") or "").strip(),
 		"end_date": (request.form.get("end_date") or "").strip(),
@@ -999,7 +999,6 @@ def edit_promotion_submit(promotion_id: str):
 	# Update fields from form
 	updated = dict(promotions[idx])
 	updated["long_title"] = (request.form.get("long_title") or "").strip()
-	updated["coupon_code"] = (request.form.get("coupon_code") or "").strip()
 	updated["percent_off"] = (request.form.get("percent_off") or "").strip()
 	updated["start_date"] = (request.form.get("start_date") or "").strip()
 	updated["end_date"] = (request.form.get("end_date") or "").strip()
