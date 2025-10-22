@@ -932,7 +932,10 @@ def add_promotion():
 		"percent_off": (request.form.get("percent_off") or "").strip(),
 		"start_date": (request.form.get("start_date") or "").strip(),
 		"end_date": (request.form.get("end_date") or "").strip(),
+		"display_start_date": (request.form.get("display_start_date") or "").strip(),
+		"display_end_date": (request.form.get("display_end_date") or "").strip(),
 		"product_ids": (request.form.get("product_ids") or "").strip(),
+		"promotion_url": (request.form.get("promotion_url") or "").strip(),
 	}
 	# Upsert by promotion_id
 	existing = None
@@ -957,6 +960,60 @@ def delete_promotion(promotion_id: str):
 	promotions = [p for p in promotions if str(p.get("promotion_id")) != str(promotion_id)]
 	_save_json_list(path, promotions)
 	flash("Promotion deleted", "success")
+	return redirect(url_for("admin.manage_promotions"))
+
+
+@admin_bp.get("/feeds/promotions/<string:promotion_id>/edit")
+@login_required
+def edit_promotion_page(promotion_id: str):
+	path = _data_path("promotions.json")
+	promotions = _load_json_list(path)
+	row = next((p for p in promotions if str(p.get("promotion_id")) == str(promotion_id)), None)
+	if not row:
+		flash("Promotion not found", "error")
+		return redirect(url_for("admin.manage_promotions"))
+	return render_template("admin_promotion_edit.html", promotion=row)
+
+
+@admin_bp.post("/feeds/promotions/<string:promotion_id>/edit")
+@login_required
+def edit_promotion_submit(promotion_id: str):
+	path = _data_path("promotions.json")
+	promotions = _load_json_list(path)
+	idx = None
+	for i, p in enumerate(promotions):
+		if str(p.get("promotion_id")) == str(promotion_id):
+			idx = i
+			break
+	if idx is None:
+		flash("Promotion not found", "error")
+		return redirect(url_for("admin.manage_promotions"))
+	# Update fields from form
+	updated = dict(promotions[idx])
+	updated["long_title"] = (request.form.get("long_title") or "").strip()
+	updated["coupon_code"] = (request.form.get("coupon_code") or "").strip()
+	updated["percent_off"] = (request.form.get("percent_off") or "").strip()
+	updated["start_date"] = (request.form.get("start_date") or "").strip()
+	updated["end_date"] = (request.form.get("end_date") or "").strip()
+	updated["display_start_date"] = (request.form.get("display_start_date") or "").strip()
+	updated["display_end_date"] = (request.form.get("display_end_date") or "").strip()
+	updated["product_ids"] = (request.form.get("product_ids") or "").strip()
+	updated["promotion_url"] = (request.form.get("promotion_url") or "").strip()
+	# Offer type override (optional)
+	if request.form.get("offer_type"):
+		updated["offer_type"] = request.form.get("offer_type").strip()
+	if request.form.get("generic_redemption_code"):
+		updated["generic_redemption_code"] = request.form.get("generic_redemption_code").strip()
+	# Destinations (comma-separated)
+	dests_raw = (request.form.get("promotion_destination") or "").strip()
+	if dests_raw:
+		updated["promotion_destination"] = [s.strip() for s in dests_raw.split(",") if s.strip()]
+	# Redemption channel
+	if request.form.get("redemption_channel"):
+		updated["redemption_channel"] = request.form.get("redemption_channel").strip()
+	promotions[idx] = updated
+	_save_json_list(path, promotions)
+	flash("Promotion updated", "success")
 	return redirect(url_for("admin.manage_promotions"))
 
 

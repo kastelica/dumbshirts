@@ -107,6 +107,17 @@ def render_google_promotions_feed(promotions: list) -> Response:
 				end_iso = f"{end}T23:59:59+00:00" if end else f"{start}T23:59:59+00:00"
 				ped = f"{start_iso}/{end_iso}"
 		SubElement(promo_el, "promotion_effective_dates").text = ped or ""
+		# Optional: promotion_display_dates
+		pdd = p.get("promotion_display_dates")
+		if not pdd:
+			ds = (p.get("display_start_date") or "").strip()
+			de = (p.get("display_end_date") or ds).strip()
+			if ds:
+				ds_iso = f"{ds}T00:00:00+00:00"
+				de_iso = f"{de}T23:59:59+00:00" if de else f"{ds}T23:59:59+00:00"
+				pdd = f"{ds_iso}/{de_iso}"
+		if pdd:
+			SubElement(promo_el, "promotion_display_dates").text = pdd
 		# Recommended/Required in classic MC: redemption_channel
 		SubElement(promo_el, "redemption_channel").text = p.get("redemption_channel") or "online"
 		# Destinations - default to Shopping_ads and Free_listings if not specified
