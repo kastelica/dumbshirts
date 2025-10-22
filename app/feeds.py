@@ -73,8 +73,8 @@ def render_google_shopping_feed(items):
 			subscription_cost_text = f"{period}:{period_length}:{amount_value} {currency}"
 			SubElement(it, "g:subscription_cost").text = subscription_cost_text
 
-	xml_bytes = tostring(rss)
-	return Response(xml_bytes, content_type="application/xml")
+	xml_bytes = tostring(rss, encoding="utf-8", xml_declaration=True)
+	return Response(xml_bytes, content_type="application/xml; charset=utf-8")
 
 
 def render_google_promotions_feed(promotions: list) -> Response:
@@ -144,5 +144,5 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		if p.get("audience"):
 			SubElement(promo_el, "audience").text = str(p.get("audience"))
 
-	xml_bytes = tostring(root)
-	return Response(xml_bytes, content_type="application/xml")
+	xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
+	return Response(xml_bytes, content_type="application/xml; charset=utf-8")
