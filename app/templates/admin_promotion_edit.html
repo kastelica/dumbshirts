@@ -4,6 +4,10 @@
 
 <form method="post" action="{{ url_for('admin.edit_promotion_submit', promotion_id=promotion.promotion_id) }}" class="space-y-3 border border-gray-800 rounded p-4 bg-gray-900">
 	<div>
+		<label class="block text-sm text-gray-300 mb-1">Promotion ID</label>
+		<input name="promotion_id" value="{{ promotion.promotion_id }}" pattern="[A-Za-z0-9_-]{1,50}" title="Only letters, numbers, dashes, underscores (max 50)." class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+	</div>
+	<div>
 		<label class="block text-sm text-gray-300 mb-1">Long Title</label>
 		<input name="long_title" value="{{ promotion.long_title }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
 	</div>

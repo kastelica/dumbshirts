@@ -9,7 +9,7 @@
 	<form method="post" action="{{ url_for('admin.add_promotion') }}" class="space-y-3">
 		<div>
 			<label class="block text-sm text-gray-300 mb-1">Promotion ID (optional, for update)</label>
-			<input name="promotion_id" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="PROMO-2025-10" />
+			<input name="promotion_id" pattern="[A-Za-z0-9_-]{1,50}" title="Only letters, numbers, dashes, underscores (max 50)." class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="promo_2025_10" />
 		</div>
 		<div>
 			<label class="block text-sm text-gray-300 mb-1">Long Title</label>

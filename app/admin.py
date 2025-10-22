@@ -893,6 +893,18 @@ def _data_path(name: str) -> str:
 	return os.path.join(_data_dir(), name)
 
 
+def _normalize_promotion_id(raw: str) -> str:
+	"""Allow only A–Z, a–z, 0–9, dash and underscore; convert spaces to underscore and trim to 50 chars."""
+	if not raw:
+		return ""
+	builder = []
+	for ch in raw.strip():
+		c = "_" if ch == " " else ch
+		if c.isalnum() or c in ("-", "_"):
+			builder.append(c)
+	return "".join(builder)[:50]
+
+
 def _load_json_list(path: str) -> list:
 	try:
 		with open(path, "r", encoding="utf-8") as f:
@@ -932,7 +944,8 @@ def add_promotion():
 	path = _data_path("promotions.json")
 	promotions = _load_json_list(path)
 	# Gather fields (keep schema minimal and flexible)
-	promo_id = (request.form.get("promotion_id") or "").strip() or f"PROMO-{int(datetime.utcnow().timestamp())}"
+	raw_id = (request.form.get("promotion_id") or "").strip()
+	promo_id = _normalize_promotion_id(raw_id) or f"PROMO-{int(datetime.utcnow().timestamp())}"
 	entry = {
 		"promotion_id": promo_id,
 		"long_title": (request.form.get("long_title") or "").strip(),
@@ -998,6 +1011,11 @@ def edit_promotion_submit(promotion_id: str):
 		return redirect(url_for("admin.manage_promotions"))
 	# Update fields from form
 	updated = dict(promotions[idx])
+	# Allow changing ID with normalization; otherwise keep existing
+	if request.form.get("promotion_id"):
+		new_id = _normalize_promotion_id(request.form.get("promotion_id"))
+		if new_id:
+			updated["promotion_id"] = new_id
 	updated["long_title"] = (request.form.get("long_title") or "").strip()
 	updated["percent_off"] = (request.form.get("percent_off") or "").strip()
 	updated["start_date"] = (request.form.get("start_date") or "").strip()
