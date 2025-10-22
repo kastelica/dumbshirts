@@ -127,14 +127,18 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		if pdd:
 			SubElement(entry, "g:promotion_display_dates").text = pdd
 
-		# Offer type mapping
+		# Offer type and value
 		percent_off = (p.get("percent_off") or "").strip()
+		code = (p.get("generic_redemption_code") or p.get("coupon_code") or "").strip()
+		if code:
+			SubElement(entry, "g:offer_type").text = "generic_code"
+			SubElement(entry, "g:redemption_code_type").text = "GENERIC_CODE"
+			SubElement(entry, "g:generic_redemption_code").text = code
+		else:
+			SubElement(entry, "g:offer_type").text = "no_code"
 		if percent_off:
-			SubElement(entry, "g:offer_type").text = "percentage_off"
-			SubElement(entry, "g:percentage_off").text = str(percent_off)
-		elif (p.get("offer_type") or "").strip():
-			# passthrough for explicit values like free_shipping
-			SubElement(entry, "g:offer_type").text = p.get("offer_type").strip()
+			SubElement(entry, "g:coupon_value_type").text = "percent_off"
+			SubElement(entry, "g:percent_off").text = str(percent_off)
 
 		# Destinations
 		dests = p.get("promotion_destination") or ["Shopping_ads", "Free_listings"]
@@ -147,10 +151,7 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		SubElement(entry, "g:product_applicability").text = p.get("product_applicability") or ("specific_products" if p.get("product_ids") else "all_products")
 		SubElement(entry, "g:redemption_channel").text = p.get("redemption_channel") or "online"
 
-		# Coupon code
-		code = (p.get("generic_redemption_code") or p.get("coupon_code") or "").strip()
-		if code:
-			SubElement(entry, "g:coupon_code").text = code
+		# (generic code handled above)
 
 		# Product filters
 		ids_raw = p.get("product_ids") or ""
