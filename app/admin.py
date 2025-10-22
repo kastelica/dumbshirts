@@ -13,7 +13,7 @@ import os
 from werkzeug.utils import secure_filename
 import threading
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -915,7 +915,15 @@ def _save_json_list(path: str, rows: list) -> None:
 def manage_promotions():
 	path = _data_path("promotions.json")
 	promotions = _load_json_list(path)
-	return render_template("admin_promotions.html", promotions=promotions)
+	# Default dates: start in 2 days, end in ~1 month; display starts tomorrow
+	today = datetime.utcnow().date()
+	defaults = {
+		"start_date": (today + timedelta(days=2)).isoformat(),
+		"end_date": (today + timedelta(days=30)).isoformat(),
+		"display_start_date": (today + timedelta(days=1)).isoformat(),
+		"display_end_date": (today + timedelta(days=30)).isoformat(),
+	}
+	return render_template("admin_promotions.html", promotions=promotions, defaults=defaults)
 
 
 @admin_bp.post("/feeds/promotions/add")

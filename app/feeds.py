@@ -130,15 +130,14 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		# Offer type and value
 		percent_off = (p.get("percent_off") or "").strip()
 		code = (p.get("generic_redemption_code") or p.get("coupon_code") or "").strip()
-		if code:
-			SubElement(entry, "g:offer_type").text = "generic_code"
-			SubElement(entry, "g:redemption_code_type").text = "GENERIC_CODE"
-			SubElement(entry, "g:generic_redemption_code").text = code
-		else:
-			SubElement(entry, "g:offer_type").text = "no_code"
 		if percent_off:
-			SubElement(entry, "g:coupon_value_type").text = "percent_off"
-			SubElement(entry, "g:percent_off").text = str(percent_off)
+			SubElement(entry, "g:offer_type").text = "percentage_off"
+			SubElement(entry, "g:percentage_off").text = str(percent_off)
+		elif (p.get("offer_type") or "").strip():
+			SubElement(entry, "g:offer_type").text = p.get("offer_type").strip()
+		# Coupon code (generic code for all customers)
+		if code:
+			SubElement(entry, "g:coupon_code").text = code
 
 		# Destinations
 		dests = p.get("promotion_destination") or ["Shopping_ads", "Free_listings"]
@@ -153,15 +152,14 @@ def render_google_promotions_feed(promotions: list) -> Response:
 
 		# (generic code handled above)
 
-		# Product filters
+		# Product targeting: use repeated g:product_id elements
 		ids_raw = p.get("product_ids") or ""
 		if isinstance(ids_raw, str):
 			parts = [s.strip() for s in ids_raw.split(",") if s.strip()]
 		else:
 			parts = ids_raw or []
 		for pid in parts:
-			pf = SubElement(entry, "g:product_filter")
-			SubElement(pf, "g:item_id").text = str(pid)
+			SubElement(entry, "g:product_id").text = str(pid)
 
 		# Optional: promotion URL, audience
 		if p.get("promotion_url"):
