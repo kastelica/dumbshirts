@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Google Shopping Promotions</h1>
+
+<div class="border border-gray-800 rounded p-4 bg-gray-900">
+	<h2 class="text-xl font-semibold mb-3">Add / Update Promotion</h2>
+	<form method="post" action="{{ url_for('admin.add_promotion') }}" class="space-y-3">
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Promotion ID (optional, for update)</label>
+			<input name="promotion_id" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="PROMO-2025-10" />
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Long Title</label>
+			<input name="long_title" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="10% off all tees" />
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Coupon Code</label>
+				<input name="coupon_code" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="SAVE10" />
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Percent Off</label>
+				<input name="percent_off" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="10" />
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Product IDs (comma-separated)</label>
+				<input name="product_ids" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="1,2,3" />
+			</div>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Start Date (YYYY-MM-DD)</label>
+				<input name="start_date" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="2025-10-22" />
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">End Date (YYYY-MM-DD)</label>
+				<input name="end_date" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="2025-12-31" />
+			</div>
+		</div>
+		<button class="bg-white text-black rounded px-4 py-2">Save Promotion</button>
+	</form>
+</div>
+
+<h2 class="text-xl font-semibold mt-6 mb-2">Existing Promotions</h2>
+<div class="overflow-x-auto">
+	<table class="min-w-full text-left text-sm">
+		<thead>
+			<tr class="border-b border-gray-800 text-gray-300">
+				<th class="py-2 pr-4">ID</th>
+				<th class="py-2 pr-4">Title</th>
+				<th class="py-2 pr-4">Code</th>
+				<th class="py-2 pr-4">% Off</th>
+				<th class="py-2 pr-4">Start</th>
+				<th class="py-2 pr-4">End</th>
+				<th class="py-2 pr-4">Products</th>
+				<th class="py-2 pr-4">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for p in promotions %}
+			<tr class="border-b border-gray-900">
+				<td class="py-2 pr-4">{{ p.promotion_id }}</td>
+				<td class="py-2 pr-4">{{ p.long_title }}</td>
+				<td class="py-2 pr-4">{{ p.coupon_code }}</td>
+				<td class="py-2 pr-4">{{ p.percent_off }}</td>
+				<td class="py-2 pr-4">{{ p.start_date }}</td>
+				<td class="py-2 pr-4">{{ p.end_date }}</td>
+				<td class="py-2 pr-4">{{ p.product_ids }}</td>
+				<td class="py-2 pr-4">
+					<form method="post" action="{{ url_for('admin.delete_promotion', promotion_id=p.promotion_id) }}">
+						<button class="bg-black text-white border border-gray-700 rounded px-3 py-1">Delete</button>
+					</form>
+				</td>
+			</tr>
+			{% else %}
+			<tr>
+				<td class="py-2 pr-4 text-gray-400" colspan="8">No promotions yet.</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</div>
+{% endblock %}
+
+

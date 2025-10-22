@@ -12,6 +12,8 @@ from .phrasegen import generate_candidates_from_title, memeify_term
 import os
 from werkzeug.utils import secure_filename
 import threading
+import json
+from datetime import datetime
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -873,3 +875,139 @@ def gelato_action():
 		error = str(e)
 
 	return jsonify({"ok": error is None, "error": error, "result": result})
+
+
+# -----------------------------
+# Admin: Google Shopping Feeds
+# -----------------------------
+
+def _data_dir() -> str:
+	return os.path.join(os.path.dirname(__file__), "data")
+
+
+def _ensure_data_dir() -> None:
+	os.makedirs(_data_dir(), exist_ok=True)
+
+
+def _data_path(name: str) -> str:
+	return os.path.join(_data_dir(), name)
+
+
+def _load_json_list(path: str) -> list:
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f)
+			return data if isinstance(data, list) else []
+	except FileNotFoundError:
+		return []
+	except Exception:
+		return []
+
+
+def _save_json_list(path: str, rows: list) -> None:
+	_ensure_data_dir()
+	with open(path, "w", encoding="utf-8") as f:
+		json.dump(rows, f, ensure_ascii=False, indent=2)
+
+
+@admin_bp.get("/feeds/promotions")
+@login_required
+def manage_promotions():
+	path = _data_path("promotions.json")
+	promotions = _load_json_list(path)
+	return render_template("admin_promotions.html", promotions=promotions)
+
+
+@admin_bp.post("/feeds/promotions/add")
+@login_required
+def add_promotion():
+	path = _data_path("promotions.json")
+	promotions = _load_json_list(path)
+	# Gather fields (keep schema minimal and flexible)
+	promo_id = (request.form.get("promotion_id") or "").strip() or f"PROMO-{int(datetime.utcnow().timestamp())}"
+	entry = {
+		"promotion_id": promo_id,
+		"long_title": (request.form.get("long_title") or "").strip(),
+		"coupon_code": (request.form.get("coupon_code") or "").strip(),
+		"percent_off": (request.form.get("percent_off") or "").strip(),
+		"start_date": (request.form.get("start_date") or "").strip(),
+		"end_date": (request.form.get("end_date") or "").strip(),
+		"product_ids": (request.form.get("product_ids") or "").strip(),
+	}
+	# Upsert by promotion_id
+	existing = None
+	for i, p in enumerate(promotions):
+		if str(p.get("promotion_id")) == entry["promotion_id"]:
+			existing = i
+			break
+	if existing is None:
+		promotions.append(entry)
+	else:
+		promotions[existing] = entry
+	_save_json_list(path, promotions)
+	flash("Promotion saved", "success")
+	return redirect(url_for("admin.manage_promotions"))
+
+
+@admin_bp.post("/feeds/promotions/<string:promotion_id>/delete")
+@login_required
+def delete_promotion(promotion_id: str):
+	path = _data_path("promotions.json")
+	promotions = _load_json_list(path)
+	promotions = [p for p in promotions if str(p.get("promotion_id")) != str(promotion_id)]
+	_save_json_list(path, promotions)
+	flash("Promotion deleted", "success")
+	return redirect(url_for("admin.manage_promotions"))
+
+
+@admin_bp.get("/feeds/reviews")
+@login_required
+def manage_reviews():
+	path = _data_path("reviews.json")
+	reviews = _load_json_list(path)
+	# Sort newest first by created_at if present
+	try:
+		reviews.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+	except Exception:
+		pass
+	products = Product.query.order_by(Product.created_at.desc()).all()
+	return render_template("admin_reviews.html", reviews=reviews, products=products)
+
+
+@admin_bp.post("/feeds/reviews/add")
+@login_required
+def add_review():
+	path = _data_path("reviews.json")
+	reviews = _load_json_list(path)
+	try:
+		rating_val = int((request.form.get("rating") or "").strip() or "5")
+		if rating_val < 1 or rating_val > 5:
+			rating_val = 5
+	except Exception:
+		rating_val = 5
+	review_id = f"R-{int(datetime.utcnow().timestamp())}"
+	entry = {
+		"review_id": review_id,
+		"product_id": (request.form.get("product_id") or "").strip(),
+		"title": (request.form.get("title") or "").strip(),
+		"content": (request.form.get("content") or "").strip(),
+		"reviewer_name": (request.form.get("reviewer_name") or "").strip(),
+		"review_url": (request.form.get("review_url") or "").strip(),
+		"rating": rating_val,
+		"created_at": datetime.utcnow().isoformat() + "Z",
+	}
+	reviews.append(entry)
+	_save_json_list(path, reviews)
+	flash("Review added", "success")
+	return redirect(url_for("admin.manage_reviews"))
+
+
+@admin_bp.post("/feeds/reviews/<string:review_id>/delete")
+@login_required
+def delete_review(review_id: str):
+	path = _data_path("reviews.json")
+	reviews = _load_json_list(path)
+	reviews = [r for r in reviews if str(r.get("review_id")) != str(review_id)]
+	_save_json_list(path, reviews)
+	flash("Review deleted", "success")
+	return redirect(url_for("admin.manage_reviews"))
