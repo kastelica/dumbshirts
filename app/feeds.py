@@ -83,6 +83,8 @@ def render_google_promotions_feed(promotions: list) -> Response:
 	This includes core required attributes and supports optional fields when present.
 	"""
 	root = Element("promotions")
+	# Use configurable timezone offset (e.g., -08:00) to match Merchant Center expectations
+	tz_offset = str(current_app.config.get("PROMOTION_TZ_OFFSET", "-08:00"))
 	for p in promotions:
 		promo_el = SubElement(root, "promotion")
 		# Required: promotion_id
@@ -103,8 +105,8 @@ def render_google_promotions_feed(promotions: list) -> Response:
 			start = (p.get("start_date") or "").strip()
 			end = (p.get("end_date") or start).strip()
 			if start:
-				start_iso = f"{start}T00:00:00+00:00"
-				end_iso = f"{end}T23:59:59+00:00" if end else f"{start}T23:59:59+00:00"
+				start_iso = f"{start}T00:00:00{tz_offset}"
+				end_iso = f"{end}T23:59:59{tz_offset}" if end else f"{start}T23:59:59{tz_offset}"
 				ped = f"{start_iso}/{end_iso}"
 		SubElement(promo_el, "promotion_effective_dates").text = ped or ""
 		# Optional: promotion_display_dates
@@ -113,8 +115,8 @@ def render_google_promotions_feed(promotions: list) -> Response:
 			ds = (p.get("display_start_date") or "").strip()
 			de = (p.get("display_end_date") or ds).strip()
 			if ds:
-				ds_iso = f"{ds}T00:00:00+00:00"
-				de_iso = f"{de}T23:59:59+00:00" if de else f"{ds}T23:59:59+00:00"
+				ds_iso = f"{ds}T00:00:00{tz_offset}"
+				de_iso = f"{de}T23:59:59{tz_offset}" if de else f"{ds}T23:59:59{tz_offset}"
 				pdd = f"{ds_iso}/{de_iso}"
 		if pdd:
 			SubElement(promo_el, "promotion_display_dates").text = pdd
@@ -139,6 +141,8 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		# Optional: percent_off, promotion_url, audience
 		if p.get("percent_off"):
 			SubElement(promo_el, "percent_off").text = str(p.get("percent_off"))
+			# Align with delimited feed semantics
+			SubElement(promo_el, "coupon_value_type").text = "percent_off"
 		if p.get("promotion_url"):
 			SubElement(promo_el, "promotion_url").text = str(p.get("promotion_url"))
 		if p.get("audience"):
