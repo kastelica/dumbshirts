@@ -22,7 +22,7 @@ class BaseConfig:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     # Cloudinary
     CLOUDINARY_URL = os.getenv("CLOUDINARY_URL", "")
-    FORMSPREE_ENDPOINT = os.getenv("FORMSPREE_ENDPOINT", "")
+    FORMSPREE_ENDPOINT = os.getenv("FORMSPREE_ENDPOINT", "xblznjbn")
     # Auto mode controls
     AUTO_MODE = os.getenv("AUTO_MODE", "false").lower() == "true"
     AUTO_MODE_GENERATE_IMAGES = os.getenv("AUTO_MODE_GENERATE_IMAGES", "false").lower() == "true"

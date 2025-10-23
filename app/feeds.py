@@ -50,6 +50,8 @@ def render_google_shopping_feed(items):
 		color = item.get("color")
 		if color:
 			SubElement(it, "g:color").text = color
+		# Material (constant for tees)
+		SubElement(it, "g:material").text = "100% cotton (preshrunk)"
 		gender = item.get("gender")
 		if gender:
 			SubElement(it, "g:gender").text = gender
