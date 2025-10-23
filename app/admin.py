@@ -1360,7 +1360,6 @@ def add_promotion():
 		"end_date": (request.form.get("end_date") or "").strip(),
 		"display_start_date": (request.form.get("display_start_date") or "").strip(),
 		"display_end_date": (request.form.get("display_end_date") or "").strip(),
-		"product_ids": (request.form.get("product_ids") or "").strip(),
 		"promotion_url": (request.form.get("promotion_url") or "").strip(),
 	}
 	# Upsert by promotion_id
@@ -1427,7 +1426,7 @@ def edit_promotion_submit(promotion_id: str):
 	updated["end_date"] = (request.form.get("end_date") or "").strip()
 	updated["display_start_date"] = (request.form.get("display_start_date") or "").strip()
 	updated["display_end_date"] = (request.form.get("display_end_date") or "").strip()
-	updated["product_ids"] = (request.form.get("product_ids") or "").strip()
+	# Product IDs removed; promotions apply to all products
 	updated["promotion_url"] = (request.form.get("promotion_url") or "").strip()
 	# Offer type override (optional)
 	if request.form.get("offer_type"):

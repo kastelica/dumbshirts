@@ -145,20 +145,11 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		for d in dests:
 			SubElement(entry, "g:promotion_destination").text = d
 
-		# Applicability and redemption channel
-		SubElement(entry, "g:product_applicability").text = p.get("product_applicability") or ("specific_products" if p.get("product_ids") else "all_products")
+		# Applicability (always all products) and redemption channel
+		SubElement(entry, "g:product_applicability").text = "all_products"
 		SubElement(entry, "g:redemption_channel").text = p.get("redemption_channel") or "online"
 
-		# (generic code handled above)
-
-		# Product targeting: use repeated g:product_id elements
-		ids_raw = p.get("product_ids") or ""
-		if isinstance(ids_raw, str):
-			parts = [s.strip() for s in ids_raw.split(",") if s.strip()]
-		else:
-			parts = ids_raw or []
-		for pid in parts:
-			SubElement(entry, "g:product_id").text = str(pid)
+		# (generic code handled above); no product-level filtering for promotions
 
 		# Optional: promotion URL, audience
 		if p.get("promotion_url"):
