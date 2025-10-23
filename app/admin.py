@@ -431,6 +431,9 @@ def toggle_auto_mode():
 		# Respect checkboxes
 		skip_images = (request.form.get("skip_images") == "1")
 		continuous = (request.form.get("continuous") == "1")
+		# Persist choices so UI can reflect state
+		current_app.config["AUTO_MODE_SKIP_IMAGES"] = skip_images
+		current_app.config["AUTO_MODE_CONTINUOUS"] = continuous
 		def _run(app_ctx):
 			with app_ctx:
 				try:
@@ -472,6 +475,8 @@ def auto_mode_status():
 		"messages": ordered,
 		"seq": seq,
 		"last_message": last_message,
+		"skip_images": bool(current_app.config.get("AUTO_MODE_SKIP_IMAGES", False)),
+		"continuous": bool(current_app.config.get("AUTO_MODE_CONTINUOUS", False)),
 	})
 
 @admin_bp.post("/trends/<int:trend_id>/create-tshirt")
@@ -659,11 +664,15 @@ def products_list():
 	products = Product.query.order_by(Product.created_at.desc()).all()
 	msgs, _ = _get_progress_state()
 	enabled = bool(current_app.config.get("AUTO_MODE", False))
+	skip_images = bool(current_app.config.get("AUTO_MODE_SKIP_IMAGES", False))
+	continuous = bool(current_app.config.get("AUTO_MODE_CONTINUOUS", False))
 	return render_template(
 		"admin_products.html",
 		products=products,
 		auto_mode_progress=list(reversed(msgs[-10:])),
 		auto_mode_enabled=enabled,
+		auto_mode_skip_images=skip_images,
+		auto_mode_continuous=continuous,
 	)
 
 

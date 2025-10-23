@@ -9,11 +9,11 @@
         </form>
         <form method="post" action="{{ url_for('admin.toggle_auto_mode') }}" class="flex items-center gap-2" id="autoModeForm">
             <label class="text-sm flex items-center gap-2">
-                <input type="checkbox" name="skip_images" value="1" class="h-4 w-4">
+                <input type="checkbox" name="skip_images" value="1" class="h-4 w-4" {% if auto_mode_skip_images %}checked{% endif %}>
                 <span>Skip image generation</span>
             </label>
             <label class="text-sm flex items-center gap-2">
-                <input type="checkbox" name="continuous" value="1" class="h-4 w-4">
+                <input type="checkbox" name="continuous" value="1" class="h-4 w-4" {% if auto_mode_continuous %}checked{% endif %}>
                 <span>Continuous (limit 2)</span>
             </label>
             <button class="bg-gray-800 text-white px-4 py-2 rounded">Toggle Auto Mode</button>
@@ -42,6 +42,7 @@
                 setTimeout(poll, 100);
             });
         }
+        var lastSeq = 0;
         function poll(){
             fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(d){
                 try {
@@ -54,13 +55,15 @@
                         li.textContent = line;
                         ul.appendChild(li);
                     });
-                    // If a product was imported, reload table area
-                    if ((d.last_message || '').indexOf('Imported') === 0 || (d.last_message || '').indexOf('Draft product') === 0) {
-                        // Soft reload: reload the page to show new product row
-                        // Keep it gentle: small debounce
-                        if (!window.__autoReloadScheduled) {
-                            window.__autoReloadScheduled = true;
-                            setTimeout(function(){ location.reload(); }, 1200);
+                    // Refresh table when sequence advances and shows a successful creation
+                    if (d.seq && d.seq !== lastSeq) {
+                        lastSeq = d.seq;
+                        var lm = (d.last_message || '');
+                        if (lm.indexOf("Draft product") === 0) {
+                            if (!window.__autoReloadScheduled) {
+                                window.__autoReloadScheduled = true;
+                                setTimeout(function(){ location.reload(); }, 1200);
+                            }
                         }
                     }
                 } catch (e) {}
