@@ -30,6 +30,52 @@ def _get_progress_state():
 	return current_app.config["AUTO_MODE_PROGRESS"], current_app.config["AUTO_MODE_LOCK"]
 
 
+def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
+	"""Composite the design PNG onto a blank white t-shirt image and return PNG bytes.
+
+	Respects config BLANK_TEE_URL; falls back to /static/uploads/2600.png if available.
+	"""
+	try:
+		from io import BytesIO as _BytesIO
+		from PIL import Image as _Image
+		import requests as _req
+		# Load base tee image
+		base_url = (current_app.config.get("BLANK_TEE_URL") or "").strip()
+		base_bytes = None
+		if base_url and (base_url.startswith("http://") or base_url.startswith("https://")):
+			resp = _req.get(base_url, timeout=10)
+			resp.raise_for_status()
+			base_bytes = resp.content
+		else:
+			fallback_path = os.path.join(os.path.dirname(__file__), "static", "uploads", "2600.png")
+			if os.path.exists(fallback_path):
+				with open(fallback_path, "rb") as f:
+					base_bytes = f.read()
+			else:
+				return None
+		base_img = _Image.open(_BytesIO(base_bytes)).convert("RGBA")
+		design_img = _Image.open(_BytesIO(design_png_bytes)).convert("RGBA")
+		bw, bh = base_img.size
+		# Target box ~35% of base width and height; keep aspect
+		max_w = int(bw * 0.35)
+		max_h = int(bh * 0.35)
+		dw, dh = design_img.size
+		scale = min(max_w / max(dw, 1), max_h / max(dh, 1))
+		sw, sh = max(1, int(dw * scale)), max(1, int(dh * scale))
+		design_resized = design_img.resize((sw, sh), _Image.LANCZOS)
+		# Center placement
+		x = (bw - sw) // 2
+		y = (bh - sh) // 2
+		composite = base_img.copy()
+		composite.alpha_composite(design_resized, dest=(x, y))
+		buf = _BytesIO()
+		composite.save(buf, format="PNG")
+		return buf.getvalue()
+	except Exception as _e:
+		current_app.logger.warning(f"[auto-mode] mockup compose failed: {_e}")
+		return None
+
+
 def _progress_add(msg: str) -> None:
 	msgs, lock = _get_progress_state()
 	try:
@@ -319,6 +365,7 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 
 		# Step 3: Generate AI image and upload (Cloudinary if configured; else local)
 		final_image_url = None
+		final_mockup_url = None
 		if not generate_images:
 			_progress_add("Image generation skipped by request")
 		elif api_key:
@@ -335,21 +382,39 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				res_i = client2.images.generate(model="gpt-image-1-mini", prompt=img_prompt, size="1024x1024")
 				b64_data = res_i.data[0].b64_json
 				img_bytes = _b64d(b64_data)
+				# Compose mockup on blank tee
+				mock_bytes = _compose_design_on_blank_tee(img_bytes)
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
 					public_id = slugify(title_out or picked_phrase or "design")
-					res_up = cu.upload(img_bytes, folder="products", public_id=public_id, overwrite=True, resource_type="image")
-					secure_url = res_up.get("secure_url") or res_up.get("url")
-					final_image_url = secure_url
+					# Upload raw design
+					res_up_design = cu.upload(img_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+					final_image_url = res_up_design.get("secure_url") or res_up_design.get("url")
+					# Upload mockup if available; otherwise use raw design for preview
+					if mock_bytes:
+						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+						final_mockup_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
+					else:
+						final_mockup_url = final_image_url
 				else:
 					fname = f"auto_{int(_time())}.png"
 					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
 					os.makedirs(upload_dir, exist_ok=True)
-					path = os.path.join(upload_dir, fname)
-					with open(path, "wb") as f:
+					# Save raw design
+					path_design = os.path.join(upload_dir, fname)
+					with open(path_design, "wb") as f:
 						f.write(img_bytes)
 					final_image_url = f"/static/uploads/{fname}"
+					# Save mockup
+					if mock_bytes:
+						fname2 = f"auto_mockup_{int(_time())}.png"
+						path_mock = os.path.join(upload_dir, fname2)
+						with open(path_mock, "wb") as f2:
+							f2.write(mock_bytes)
+						final_mockup_url = f"/static/uploads/{fname2}"
+					else:
+						final_mockup_url = final_image_url
 				i_msg = "AI image generated"
 				if messages is not None:
 					messages.append(i_msg)
@@ -369,9 +434,12 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 
 		# Step 4: Create design and product
 		design = Design(type="image", text=picked_phrase, approved=True)
+		# preview_url should be the mockup; extra image 1 the raw design; image_url keep raw as canonical
+		if final_mockup_url:
+			design.preview_url = final_mockup_url
 		if final_image_url:
-			design.preview_url = final_image_url
 			design.image_url = final_image_url
+			design.extra_image1_url = final_image_url
 		db.session.add(design)
 		db.session.flush()
 
