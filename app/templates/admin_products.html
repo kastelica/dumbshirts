@@ -16,66 +16,20 @@
                 <input type="checkbox" name="continuous" value="1" class="h-4 w-4" {% if auto_mode_continuous %}checked{% endif %}>
                 <span>Continuous (limit 2)</span>
             </label>
-            <button class="bg-gray-800 text-white px-4 py-2 rounded">Toggle Auto Mode</button>
+            <button class="bg-gray-800 text-white px-4 py-2 rounded">{{ 'Auto OFF' if auto_mode_enabled else 'Auto ON' }}</button>
         </form>
     </div>
  </div>
-<div class="mb-4 p-3 border border-gray-800 rounded bg-gray-900" id="autoModePanel" style="display: none;" data-enabled="{{ '1' if auto_mode_enabled else '0' }}" data-count="{{ (auto_mode_progress|length) if auto_mode_progress else 0 }}">
+{% if auto_mode_enabled %}
+<div class="mb-4 p-3 border border-gray-800 rounded bg-gray-900" id="autoModePanel">
     <div class="text-sm text-gray-400 mb-2">Auto Mode Progress</div>
     <ul class="text-sm space-y-1">
         {% for line in auto_mode_progress or [] %}
         <li class="text-gray-200">{{ line }}</li>
         {% endfor %}
     </ul>
-    <script>
-    (function(){
-        // Show panel only when auto-mode is enabled or after a click
-        var panel = document.getElementById('autoModePanel');
-        var enabled = (panel.getAttribute('data-enabled') === '1');
-        var initialCount = parseInt(panel.getAttribute('data-count') || '0', 10);
-        if (enabled || initialCount > 0) { panel.style.display = ''; }
-        var form = document.getElementById('autoModeForm');
-        if (form) {
-            form.addEventListener('submit', function(){
-                // Immediately show the panel and kick off an immediate poll
-                panel.style.display = '';
-                setTimeout(poll, 100);
-            });
-        }
-        var lastSeq = 0;
-        function poll(){
-            fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(d){
-                try {
-                    if (!panel) return;
-                    var ul = panel.querySelector('ul');
-                    ul.innerHTML = '';
-                    (d.messages || []).forEach(function(line){
-                        var li = document.createElement('li');
-                        li.className = 'text-gray-200';
-                        li.textContent = line;
-                        ul.appendChild(li);
-                    });
-                    // Refresh table when sequence advances and shows a successful creation
-                    if (d.seq && d.seq !== lastSeq) {
-                        lastSeq = d.seq;
-                        var lm = (d.last_message || '');
-                        if (lm.indexOf("Draft product") === 0) {
-                            if (!window.__autoReloadScheduled) {
-                                window.__autoReloadScheduled = true;
-                                setTimeout(function(){ location.reload(); }, 1200);
-                            }
-                        }
-                    }
-                } catch (e) {}
-            }).catch(function(){ /* ignore */ });
-        }
-        // Poll every 3s
-        setInterval(poll, 3000);
-        // Trigger immediate poll so panel updates right after click
-        poll();
-    })();
-    </script>
 </div>
+{% endif %}
 <table class="w-full text-left text-sm">
 	<thead class="text-gray-400">
 		<tr>

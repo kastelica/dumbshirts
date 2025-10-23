@@ -426,6 +426,10 @@ def toggle_auto_mode():
 	current_app.config["AUTO_MODE"] = new_state
 	if new_state:
 		# Kick work to background to avoid router 30s timeout
+		# Reset progress for a clean session
+		msgs, lock = _get_progress_state()
+		with lock:
+			msgs.clear()
 		_progress_add("Auto mode starting…")
 		flash("Auto mode ON. Working in background…", "success")
 		# Respect checkboxes
