@@ -182,6 +182,191 @@ def _auto_import_trends(limit: int = 1, generate_images: bool = False, messages:
 	return created
 
 
+def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "US") -> int:
+	"""Fetch a fresh trend from SerpAPI, de-dupe against DB, generate AI copy + image, and create a draft product.
+
+	Returns number of products created (0 or 1). Writes progress to logger and optional messages list.
+	"""
+	created = 0
+	try:
+		phrases, debug = fetch_trending_phrases_any(geo=geo, limit=10)
+		current_app.logger.info(f"[auto-mode] fetched {len(phrases)} phrases via {debug.get('source') if isinstance(debug, dict) else 'unknown'}")
+		if messages is not None:
+			messages.append(f"Fetched {len(phrases)} trends from source: {debug.get('source', 'unknown') if isinstance(debug, dict) else 'unknown'}")
+		picked_phrase = None
+		picked_norm = None
+		for phrase in phrases:
+			norm = normalize_trend_term(phrase)
+			if not norm:
+				continue
+			if Trend.query.filter_by(normalized=norm).first():
+				current_app.logger.info(f"[auto-mode] skip duplicate trend '{phrase}' -> '{norm}'")
+				continue
+			picked_phrase = phrase
+			picked_norm = norm
+			break
+		if not picked_phrase:
+			if messages is not None:
+				messages.append("No new trends to add (all were duplicates).")
+			return 0
+
+		# Create Trend row
+		slug = slugify(picked_phrase) or slugify(picked_norm) or "trend"
+		base = slug
+		idx = 2
+		while Trend.query.filter_by(slug=slug).first():
+			slug = f"{base}-{idx}"
+			idx += 1
+		t = Trend(
+			term=picked_phrase,
+			normalized=picked_norm,
+			slug=slug,
+			source=(debug.get("source") if isinstance(debug, dict) else None),
+			status="new",
+		)
+		db.session.add(t)
+		db.session.flush()
+		current_app.logger.info(f"[auto-mode] created Trend {t.id}:{t.normalized}")
+		if messages is not None:
+			messages.append(f"New trend: {picked_phrase}")
+
+		# Generate AI product copy (title, description, price)
+		title_out = picked_phrase.strip()
+		desc_out = f"Shirt inspired by '{picked_phrase}'."
+		from decimal import Decimal as _D
+		base_cost = _D("18.00")
+		markup_percent = _D(str(current_app.config.get("MARKUP_PERCENT", 35)))
+		price_out = (base_cost * (_D(1) + markup_percent / _D(100))).quantize(_D("0.01"))
+		api_key = current_app.config.get("OPENAI_API_KEY", "").strip()
+		if api_key:
+			try:
+				import os as _os
+				_os.environ["OPENAI_API_KEY"] = api_key
+				from openai import OpenAI as _OpenAI
+				client = _OpenAI().with_options(timeout=60.0)
+				prompt = (
+					"You are an e-commerce copywriter for a print-on-demand apparel store. "
+					"Given a trend, create concise product copy. Respond ONLY as strict JSON with keys: "
+					"title (<=60 chars), description (2 sentences, no emojis/hashtags), price (USD float)."
+				)
+				messages_chat = [
+					{"role": "system", "content": prompt},
+					{"role": "user", "content": f"Trend: {picked_phrase}"},
+				]
+				resp = client.chat.completions.create(
+					model="gpt-4o-mini",
+					messages=messages_chat,
+					response_format={"type": "json_object"},
+				)
+				content = (resp.choices[0].message.content or "{}").strip()
+				import json as _json
+				obj = _json.loads(content)
+				title_out = (obj.get("title") or title_out).strip()[:60]
+				desc_out = (obj.get("description") or desc_out).strip()
+				try:
+					p_val = _D(str(obj.get("price")))
+					if _D("10.00") <= p_val <= _D("60.00"):
+						price_out = p_val.quantize(_D("0.01"))
+				except Exception:
+					pass
+				current_app.logger.info("[auto-mode] AI copy generated")
+				if messages is not None:
+					messages.append("AI copy generated")
+			except Exception as e_ai:
+				current_app.logger.warning(f"[auto-mode] AI copy generation failed: {e_ai}")
+				if messages is not None:
+					messages.append("AI copy failed; using defaults")
+		else:
+			if messages is not None:
+				messages.append("OPENAI_API_KEY not set; using default title/description/price")
+
+		# Generate AI image and upload (Cloudinary if configured; else local)
+		final_image_url = None
+		if api_key:
+			try:
+				from base64 import b64decode as _b64d
+				from time import time as _time
+				from openai import OpenAI as _OpenAI2
+				client2 = _OpenAI2().with_options(timeout=60.0)
+				img_prompt = (
+					f"Minimal bold graphic for a T-shirt inspired by '{picked_phrase}'. "
+					"Solid colors only, no gradients, simple icon or bold typography, "
+					"transparent background PNG, centered composition."
+				)
+				res_i = client2.images.generate(model="gpt-image-1-mini", prompt=img_prompt, size="1024x1024")
+				b64_data = res_i.data[0].b64_json
+				img_bytes = _b64d(b64_data)
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					public_id = slugify(title_out or picked_phrase or "design")
+					res_up = cu.upload(img_bytes, folder="products", public_id=public_id, overwrite=True, resource_type="image")
+					secure_url = res_up.get("secure_url") or res_up.get("url")
+					final_image_url = secure_url
+				else:
+					fname = f"auto_{int(_time())}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img_bytes)
+					final_image_url = f"/static/uploads/{fname}"
+				i_msg = "AI image generated"
+				if messages is not None:
+					messages.append(i_msg)
+				current_app.logger.info(f"[auto-mode] {i_msg}")
+			except Exception as e_img:
+				current_app.logger.warning(f"[auto-mode] AI image generation failed: {e_img}")
+				if messages is not None:
+					messages.append("AI image failed; proceeding without image")
+
+		# Create design and product
+		design = Design(type="image", text=picked_phrase, approved=True)
+		if final_image_url:
+			design.preview_url = final_image_url
+			design.image_url = final_image_url
+		db.session.add(design)
+		db.session.flush()
+
+		product = _create_product_for_design(design)
+		# Override with AI copy/price
+		if title_out:
+			product.title = title_out
+			new_slug = slugify(title_out)
+			if new_slug and new_slug != product.slug:
+				base = new_slug
+				slug2 = base
+				idx2 = 2
+				from .models import Product as _Product
+				while _Product.query.filter(_Product.id != product.id, _Product.slug == slug2).first():
+					slug2 = f"{base}-{idx2}"
+					idx2 += 1
+				product.slug = slug2
+		product.description = desc_out
+		product.price = price_out
+		
+		# Ensure at least one good variant
+		_ensure_single_variant(product)
+
+		# Link product <-> trend
+		product.trends.append(t)
+		db.session.commit()
+		created = 1
+		if messages is not None:
+			messages.append(f"Draft product '{product.title}' created.")
+		current_app.logger.info(f"[auto-mode] linked trend {t.id} -> product {product.id}")
+	except Exception as e_all:
+		current_app.logger.warning(f"[auto-mode] flow failed: {e_all}")
+		if messages is not None:
+			messages.append(f"Auto-mode failed: {e_all}")
+		# Best-effort rollback of partial transaction
+		try:
+			db.session.rollback()
+		except Exception:
+			pass
+	return created
+
+
 @admin_bp.post("/auto-mode/toggle")
 @login_required
 def toggle_auto_mode():
@@ -191,7 +376,8 @@ def toggle_auto_mode():
 	created = 0
 	if new_state:
 		steps = []
-		created = _auto_import_trends(limit=1, generate_images=current_app.config.get("AUTO_MODE_GENERATE_IMAGES", False), messages=steps)
+		# New flow: fetch from SerpAPI, de-dupe, AI copy+image, create draft
+		created = _auto_mode_generate_from_serpapi(messages=steps, geo="US")
 		flash("Auto mode ON.", "success")
 		for m in steps:
 			flash(m, "info")
