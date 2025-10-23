@@ -30,19 +30,33 @@ def _get_progress_state():
 	return current_app.config["AUTO_MODE_PROGRESS"], current_app.config["AUTO_MODE_LOCK"]
 
 
+def _progress_add(msg: str) -> None:
+	msgs, lock = _get_progress_state()
+	try:
+		with lock:
+			# keep last 100 entries
+			stamp = datetime.utcnow().strftime("%H:%M:%S")
+			msgs.append(f"[{stamp}] {msg}")
+			if len(msgs) > 100:
+				del msgs[:-100]
+	except Exception:
+		pass
+
+
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 	"""Composite the design PNG onto a blank white t-shirt image and return PNG bytes.
 
-	Respects config BLANK_TEE_URL; falls back to /static/uploads/2600.png if available.
+	Uses BLANK_TEE_URL from config if set; otherwise falls back to
+	`https://dumbshirts.store/static/uploads/2600.png` and finally to local `/static/uploads/2600.png`.
 	"""
 	try:
 		from io import BytesIO as _BytesIO
 		from PIL import Image as _Image
 		import requests as _req
 		# Load base tee image
-		base_url = (current_app.config.get("BLANK_TEE_URL") or "").strip()
+		base_url = (current_app.config.get("BLANK_TEE_URL") or "").strip() or "https://dumbshirts.store/static/uploads/2600.png"
 		base_bytes = None
-		if base_url and (base_url.startswith("http://") or base_url.startswith("https://")):
+		if base_url.startswith("http://") or base_url.startswith("https://"):
 			resp = _req.get(base_url, timeout=10)
 			resp.raise_for_status()
 			base_bytes = resp.content
@@ -56,14 +70,14 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		base_img = _Image.open(_BytesIO(base_bytes)).convert("RGBA")
 		design_img = _Image.open(_BytesIO(design_png_bytes)).convert("RGBA")
 		bw, bh = base_img.size
-		# Target box ~35% of base width and height; keep aspect
+		# Target box ~35% of base width/height while preserving aspect ratio
 		max_w = int(bw * 0.35)
 		max_h = int(bh * 0.35)
 		dw, dh = design_img.size
 		scale = min(max_w / max(dw, 1), max_h / max(dh, 1))
 		sw, sh = max(1, int(dw * scale)), max(1, int(dh * scale))
 		design_resized = design_img.resize((sw, sh), _Image.LANCZOS)
-		# Center placement
+		# Center placement on chest
 		x = (bw - sw) // 2
 		y = (bh - sh) // 2
 		composite = base_img.copy()
@@ -74,19 +88,6 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 	except Exception as _e:
 		current_app.logger.warning(f"[auto-mode] mockup compose failed: {_e}")
 		return None
-
-
-def _progress_add(msg: str) -> None:
-	msgs, lock = _get_progress_state()
-	try:
-		with lock:
-			# keep last 100 entries
-			stamp = datetime.utcnow().strftime("%H:%M:%S")
-			msgs.append(f"[{stamp}] {msg}")
-			if len(msgs) > 100:
-				del msgs[:-100]
-	except Exception:
-		pass
 
 
 @admin_bp.get("/login")
@@ -365,7 +366,6 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 
 		# Step 3: Generate AI image and upload (Cloudinary if configured; else local)
 		final_image_url = None
-		final_mockup_url = None
 		if not generate_images:
 			_progress_add("Image generation skipped by request")
 		elif api_key:
@@ -382,39 +382,37 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				res_i = client2.images.generate(model="gpt-image-1-mini", prompt=img_prompt, size="1024x1024")
 				b64_data = res_i.data[0].b64_json
 				img_bytes = _b64d(b64_data)
-				# Compose mockup on blank tee
-				mock_bytes = _compose_design_on_blank_tee(img_bytes)
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
 					public_id = slugify(title_out or picked_phrase or "design")
-					# Upload raw design
 					res_up_design = cu.upload(img_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
-					final_image_url = res_up_design.get("secure_url") or res_up_design.get("url")
-					# Upload mockup if available; otherwise use raw design for preview
+					secure_design = res_up_design.get("secure_url") or res_up_design.get("url")
+					# Compose mockup and upload as secondary
+					mock_bytes = _compose_design_on_blank_tee(img_bytes)
+					secure_mock = None
 					if mock_bytes:
 						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
-						final_mockup_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
-					else:
-						final_mockup_url = final_image_url
+						secure_mock = res_up_mock.get("secure_url") or res_up_mock.get("url")
+					final_image_url = secure_design
+					final_mockup_url = secure_mock or secure_design
 				else:
 					fname = f"auto_{int(_time())}.png"
 					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
 					os.makedirs(upload_dir, exist_ok=True)
-					# Save raw design
 					path_design = os.path.join(upload_dir, fname)
 					with open(path_design, "wb") as f:
 						f.write(img_bytes)
 					final_image_url = f"/static/uploads/{fname}"
-					# Save mockup
+					# Save mockup if we can compose
+					mock_bytes = _compose_design_on_blank_tee(img_bytes)
+					final_mockup_url = None
 					if mock_bytes:
 						fname2 = f"auto_mockup_{int(_time())}.png"
 						path_mock = os.path.join(upload_dir, fname2)
 						with open(path_mock, "wb") as f2:
 							f2.write(mock_bytes)
 						final_mockup_url = f"/static/uploads/{fname2}"
-					else:
-						final_mockup_url = final_image_url
 				i_msg = "AI image generated"
 				if messages is not None:
 					messages.append(i_msg)
@@ -434,12 +432,13 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 
 		# Step 4: Create design and product
 		design = Design(type="image", text=picked_phrase, approved=True)
-		# preview_url should be the mockup; extra image 1 the raw design; image_url keep raw as canonical
-		if final_mockup_url:
-			design.preview_url = final_mockup_url
 		if final_image_url:
 			design.image_url = final_image_url
-			design.extra_image1_url = final_image_url
+			# Use mockup if present for preview; else use design
+			try:
+				design.preview_url = final_mockup_url or final_image_url
+			except NameError:
+				design.preview_url = final_image_url
 		db.session.add(design)
 		db.session.flush()
 
@@ -991,28 +990,29 @@ def edit_product_submit(product_id: int):
 	uploaded = False
 	# Handle image upload
 	if image_file and image_file.filename:
-		# Ensure we have bytes for composition
+		# Read bytes once to compose mockup and upload
 		file_bytes = image_file.read()
 		try:
 			image_file.stream.seek(0)
 		except Exception:
 			pass
-		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 		mock_bytes = _compose_design_on_blank_tee(file_bytes) if file_bytes else None
+		# Upload to Cloudinary if configured; fallback to local
+		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 		if cloud_url:
 			import cloudinary.uploader as cu
 			public_id = slugify(p.title or "design") or "design"
 			# Upload raw design
 			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
-			# Upload mockup or fallback to design
+			# Upload mockup if composed; otherwise reuse design
 			if mock_bytes:
 				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
 				mock_url = res_mock.get("secure_url") or res_mock.get("url")
 			else:
 				mock_url = design_url
-			p.design.preview_url = mock_url
 			p.design.image_url = design_url
+			p.design.preview_url = mock_url
 			p.design.extra_image1_url = design_url
 		else:
 			fname = secure_filename(image_file.filename)
@@ -1031,8 +1031,8 @@ def edit_product_submit(product_id: int):
 				mock_url = f"/static/uploads/{fname2}"
 			else:
 				mock_url = design_url
-			p.design.preview_url = mock_url
 			p.design.image_url = design_url
+			p.design.preview_url = mock_url
 			p.design.extra_image1_url = design_url
 		uploaded = True
 
@@ -1111,45 +1111,43 @@ def generate_openai_image(product_id: int):
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
-					# Upload bytes directly
-					res_up = cu.upload(img, folder="products", public_id=slug_base, overwrite=True, resource_type="image")
-					secure_url = res_up.get("secure_url") or res_up.get("url")
-					final_url = secure_url
+					# Upload bytes directly (design)
+					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
+					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
+					# Compose mockup
+					mock_bytes = _compose_design_on_blank_tee(img)
+					if mock_bytes:
+						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
+						final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
+					else:
+						final_url = design_url
 				else:
 					fname = f"{slug_base}_{int(_time.time())}.png"
 					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
 					os.makedirs(upload_dir, exist_ok=True)
-					path = os.path.join(upload_dir, fname)
-					with open(path, "wb") as f:
+					path_design = os.path.join(upload_dir, fname)
+					with open(path_design, "wb") as f:
 						f.write(img)
-					final_url = f"/static/uploads/{fname}"
-					if p2:
-						if not p2.design:
-							d = Design(type="image", text=p2.title, approved=True)
-							db.session.add(d)
-							db.session.flush()
-							p2.design = d
-						# Compose mockup for preview
-						mock_bytes = _compose_design_on_blank_tee(img)
-						final_preview_url = final_url
-						cloud_url2 = current_app.config.get("CLOUDINARY_URL", "").strip()
-						if mock_bytes:
-							if cloud_url2:
-								import cloudinary.uploader as cu2
-								res_mock = cu2.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
-								final_preview_url = res_mock.get("secure_url") or res_mock.get("url")
-							else:
-								fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
-								upload_dir2 = os.path.join(os.path.dirname(__file__), "static", "uploads")
-								os.makedirs(upload_dir2, exist_ok=True)
-								path_m = os.path.join(upload_dir2, fname_m)
-								with open(path_m, "wb") as fm:
-									fm.write(mock_bytes)
-								final_preview_url = f"/static/uploads/{fname_m}"
-						p2.design.preview_url = final_preview_url
-						p2.design.image_url = final_url
-						p2.design.extra_image1_url = final_url
-						db.session.commit()
+					design_url = f"/static/uploads/{fname}"
+					mock_bytes = _compose_design_on_blank_tee(img)
+					if mock_bytes:
+						fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
+						path_m = os.path.join(upload_dir, fname_m)
+						with open(path_m, "wb") as fm:
+							fm.write(mock_bytes)
+						final_url = f"/static/uploads/{fname_m}"
+					else:
+						final_url = design_url
+				if p2:
+					if not p2.design:
+						d = Design(type="image", text=p2.title, approved=True)
+						db.session.add(d)
+						db.session.flush()
+						p2.design = d
+					p2.design.preview_url = final_url
+					p2.design.image_url = design_url
+					p2.design.extra_image1_url = design_url
+					db.session.commit()
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
 				current_app.logger.warning(f"generate-image failed: {e_all}")
