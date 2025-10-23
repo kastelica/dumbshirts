@@ -428,16 +428,29 @@ def toggle_auto_mode():
 		# Kick work to background to avoid router 30s timeout
 		_progress_add("Auto mode starting…")
 		flash("Auto mode ON. Working in background…", "success")
-		# Respect checkbox to skip image generation
+		# Respect checkboxes
 		skip_images = (request.form.get("skip_images") == "1")
+		continuous = (request.form.get("continuous") == "1")
 		def _run(app_ctx):
 			with app_ctx:
 				try:
-					steps = []
-					created = _auto_mode_generate_from_serpapi(messages=steps, geo="US", generate_images=(not skip_images))
-					for m in steps:
-						_progress_add(m)
-					_progress_add(f"Imported {created} product(s).")
+					from time import sleep as _sleep
+					iterations = 2 if continuous else 1
+					_progress_add(f"Mode: {'continuous' if continuous else 'single'} ({iterations} run(s))")
+					total_created = 0
+					for i in range(iterations):
+						steps = []
+						created = _auto_mode_generate_from_serpapi(messages=steps, geo="US", generate_images=(not skip_images))
+						for m in steps:
+							_progress_add(m)
+						total_created += created
+						_progress_add(f"Run {i+1}/{iterations} imported {created} product(s).")
+						# If nothing created, don't delay too long; break early
+						if created == 0 and not continuous:
+							break
+						if i < iterations - 1:
+							_sleep(1.0)
+					_progress_add(f"Imported {total_created} product(s) total.")
 				except Exception as e_bg:
 					_progress_add(f"Auto mode failed: {e_bg}")
 		thr = threading.Thread(target=_run, args=(current_app.app_context(),), daemon=True)
@@ -451,9 +464,14 @@ def toggle_auto_mode():
 @login_required
 def auto_mode_status():
 	msgs, _ = _get_progress_state()
+	ordered = list(reversed(msgs[-50:]))
+	seq = len(msgs)
+	last_message = ordered[0] if ordered else ""
 	return jsonify({
 		"enabled": bool(current_app.config.get("AUTO_MODE", False)),
-		"messages": list(reversed(msgs[-50:])),
+		"messages": ordered,
+		"seq": seq,
+		"last_message": last_message,
 	})
 
 @admin_bp.post("/trends/<int:trend_id>/create-tshirt")
