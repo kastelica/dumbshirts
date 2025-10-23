@@ -214,8 +214,8 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 	"""
 	created = 0
 	try:
-		# Step 1: Fetch phrases (network I/O)
-		phrases, debug = fetch_trending_phrases_any(geo=geo, limit=10)
+		# Step 1: Fetch phrases (network I/O). Ask for more at once to reduce extra calls
+		phrases, debug = fetch_trending_phrases_any(geo=geo, limit=30)
 		current_app.logger.info(f"[auto-mode] fetched {len(phrases)} phrases via {debug.get('source') if isinstance(debug, dict) else 'unknown'}")
 		msg0 = f"Fetched {len(phrases)} trends from source: {debug.get('source', 'unknown') if isinstance(debug, dict) else 'unknown'}"
 		if messages is not None:

@@ -28,6 +28,31 @@
         <li class="text-gray-200">{{ line }}</li>
         {% endfor %}
     </ul>
+    <button id="refreshProgress" class="mt-2 text-xs underline">Refresh status</button>
+    <script>
+    (function(){
+        var panel = document.getElementById('autoModePanel');
+        var btn = document.getElementById('refreshProgress');
+        function refresh(){
+            fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(d){
+                try {
+                    if (!panel) return;
+                    var ul = panel.querySelector('ul');
+                    ul.innerHTML = '';
+                    (d.messages || []).forEach(function(line){
+                        var li = document.createElement('li');
+                        li.className = 'text-gray-200';
+                        li.textContent = line;
+                        ul.appendChild(li);
+                    });
+                } catch (e) {}
+            }).catch(function(){ /* ignore */ });
+        }
+        if (btn) {
+            btn.addEventListener('click', function(e){ e.preventDefault(); refresh(); });
+        }
+    })();
+    </script>
 </div>
 {% endif %}
 <table class="w-full text-left text-sm">

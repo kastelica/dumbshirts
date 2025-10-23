@@ -24,7 +24,11 @@ def fetch_serpapi_trending_phrases_debug(geo: str = "US", limit: int = 10) -> Tu
 		dbg["error"] = "missing_api_key"
 		return [], dbg
 
-	seeds = ["meme", "funny", "tshirt", "hoodie", "gift"]
+	# Use a broader seed list to increase unique candidates per single SerpAPI call batch
+	seeds = [
+		"meme", "funny", "tshirt", "hoodie", "gift",
+		"viral", "trend", "pop culture", "internet", "slang",
+	]
 	phrases: List[str] = []
 	seen = set()
 	for seed in seeds:
