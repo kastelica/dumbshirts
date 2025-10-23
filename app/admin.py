@@ -77,9 +77,11 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		scale = min(max_w / max(dw, 1), max_h / max(dh, 1))
 		sw, sh = max(1, int(dw * scale)), max(1, int(dh * scale))
 		design_resized = design_img.resize((sw, sh), _Image.LANCZOS)
-		# Center placement on chest
+		# Center placement on chest, then shift up by ~5% of shirt height
 		x = (bw - sw) // 2
-		y = (bh - sh) // 2
+		y = (bh - sh) // 2 - int(bh * 0.05)
+		if y < 0:
+			y = 0
 		composite = base_img.copy()
 		composite.alpha_composite(design_resized, dest=(x, y))
 		buf = _BytesIO()
