@@ -640,7 +640,13 @@ def create_product_from_design(design_id: int):
 def products_list():
 	products = Product.query.order_by(Product.created_at.desc()).all()
 	msgs, _ = _get_progress_state()
-	return render_template("admin_products.html", products=products, auto_mode_progress=list(reversed(msgs[-10:])))
+	enabled = bool(current_app.config.get("AUTO_MODE", False))
+	return render_template(
+		"admin_products.html",
+		products=products,
+		auto_mode_progress=list(reversed(msgs[-10:])),
+		auto_mode_enabled=enabled,
+	)
 
 
 @admin_bp.post("/products/<int:product_id>/toggle")
