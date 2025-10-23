@@ -14,6 +14,24 @@
         </form>
     </div>
  </div>
+{% if auto_mode_progress %}
+<div class="mb-4 p-3 border border-gray-800 rounded bg-gray-900">
+    <div class="text-sm text-gray-400 mb-2">Auto Mode Progress</div>
+    <ul class="text-sm space-y-1">
+        {% for line in auto_mode_progress %}
+        <li class="text-gray-200">{{ line }}</li>
+        {% endfor %}
+    </ul>
+    <button id="refreshProgress" class="mt-2 text-xs underline">Refresh</button>
+    <script>
+    document.getElementById('refreshProgress').addEventListener('click', function() {
+        fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(){
+            location.reload();
+        }).catch(function(){ location.reload(); });
+    });
+    </script>
+</div>
+{% endif %}
 <table class="w-full text-left text-sm">
 	<thead class="text-gray-400">
 		<tr>

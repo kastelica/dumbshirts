@@ -18,6 +18,31 @@ from datetime import datetime, timedelta
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
+# --------------
+# Auto-mode state
+# --------------
+def _get_progress_state():
+	"""Return (messages_list, lock). Initializes if missing."""
+	if "AUTO_MODE_PROGRESS" not in current_app.config:
+		current_app.config["AUTO_MODE_PROGRESS"] = []
+	if "AUTO_MODE_LOCK" not in current_app.config:
+		current_app.config["AUTO_MODE_LOCK"] = threading.Lock()
+	return current_app.config["AUTO_MODE_PROGRESS"], current_app.config["AUTO_MODE_LOCK"]
+
+
+def _progress_add(msg: str) -> None:
+	msgs, lock = _get_progress_state()
+	try:
+		with lock:
+			# keep last 100 entries
+			stamp = datetime.utcnow().strftime("%H:%M:%S")
+			msgs.append(f"[{stamp}] {msg}")
+			if len(msgs) > 100:
+				del msgs[:-100]
+	except Exception:
+		pass
+
+
 @admin_bp.get("/login")
 def login_page():
 	return render_template("admin_login.html")
@@ -189,10 +214,13 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 	"""
 	created = 0
 	try:
+		# Step 1: Fetch phrases (network I/O)
 		phrases, debug = fetch_trending_phrases_any(geo=geo, limit=10)
 		current_app.logger.info(f"[auto-mode] fetched {len(phrases)} phrases via {debug.get('source') if isinstance(debug, dict) else 'unknown'}")
+		msg0 = f"Fetched {len(phrases)} trends from source: {debug.get('source', 'unknown') if isinstance(debug, dict) else 'unknown'}"
 		if messages is not None:
-			messages.append(f"Fetched {len(phrases)} trends from source: {debug.get('source', 'unknown') if isinstance(debug, dict) else 'unknown'}")
+			messages.append(msg0)
+		_progress_add(msg0)
 		picked_phrase = None
 		picked_norm = None
 		for phrase in phrases:
@@ -201,6 +229,7 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				continue
 			if Trend.query.filter_by(normalized=norm).first():
 				current_app.logger.info(f"[auto-mode] skip duplicate trend '{phrase}' -> '{norm}'")
+				_progress_add(f"Skip duplicate: {phrase}")
 				continue
 			picked_phrase = phrase
 			picked_norm = norm
@@ -227,10 +256,12 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 		db.session.add(t)
 		db.session.flush()
 		current_app.logger.info(f"[auto-mode] created Trend {t.id}:{t.normalized}")
+		msg1 = f"New trend: {picked_phrase}"
 		if messages is not None:
-			messages.append(f"New trend: {picked_phrase}")
+			messages.append(msg1)
+		_progress_add(msg1)
 
-		# Generate AI product copy (title, description, price)
+		# Step 2: Generate AI product copy (title, description, price)
 		title_out = picked_phrase.strip()
 		desc_out = f"Shirt inspired by '{picked_phrase}'."
 		from decimal import Decimal as _D
@@ -270,17 +301,23 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				except Exception:
 					pass
 				current_app.logger.info("[auto-mode] AI copy generated")
+				msg2 = "AI copy generated"
 				if messages is not None:
-					messages.append("AI copy generated")
+					messages.append(msg2)
+				_progress_add(msg2)
 			except Exception as e_ai:
 				current_app.logger.warning(f"[auto-mode] AI copy generation failed: {e_ai}")
+				msg2b = "AI copy failed; using defaults"
 				if messages is not None:
-					messages.append("AI copy failed; using defaults")
+					messages.append(msg2b)
+				_progress_add(msg2b)
 		else:
+			msg2c = "OPENAI_API_KEY not set; using default title/description/price"
 			if messages is not None:
-				messages.append("OPENAI_API_KEY not set; using default title/description/price")
+				messages.append(msg2c)
+			_progress_add(msg2c)
 
-		# Generate AI image and upload (Cloudinary if configured; else local)
+		# Step 3: Generate AI image and upload (Cloudinary if configured; else local)
 		final_image_url = None
 		if api_key:
 			try:
@@ -315,12 +352,15 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				if messages is not None:
 					messages.append(i_msg)
 				current_app.logger.info(f"[auto-mode] {i_msg}")
+				_progress_add(i_msg)
 			except Exception as e_img:
 				current_app.logger.warning(f"[auto-mode] AI image generation failed: {e_img}")
+				msg3b = "AI image failed; proceeding without image"
 				if messages is not None:
-					messages.append("AI image failed; proceeding without image")
+					messages.append(msg3b)
+				_progress_add(msg3b)
 
-		# Create design and product
+		# Step 4: Create design and product
 		design = Design(type="image", text=picked_phrase, approved=True)
 		if final_image_url:
 			design.preview_url = final_image_url
@@ -345,20 +385,24 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 		product.description = desc_out
 		product.price = price_out
 		
-		# Ensure at least one good variant
+		# Step 5: Ensure at least one good variant
 		_ensure_single_variant(product)
 
-		# Link product <-> trend
+		# Step 6: Link product <-> trend
 		product.trends.append(t)
 		db.session.commit()
 		created = 1
+		msg4 = f"Draft product '{product.title}' created."
 		if messages is not None:
-			messages.append(f"Draft product '{product.title}' created.")
+			messages.append(msg4)
+		_progress_add(msg4)
 		current_app.logger.info(f"[auto-mode] linked trend {t.id} -> product {product.id}")
 	except Exception as e_all:
 		current_app.logger.warning(f"[auto-mode] flow failed: {e_all}")
+		msgF = f"Auto-mode failed: {e_all}"
 		if messages is not None:
-			messages.append(f"Auto-mode failed: {e_all}")
+			messages.append(msgF)
+		_progress_add(msgF)
 		# Best-effort rollback of partial transaction
 		try:
 			db.session.rollback()
@@ -373,18 +417,35 @@ def toggle_auto_mode():
 	current = bool(current_app.config.get("AUTO_MODE", False))
 	new_state = not current
 	current_app.config["AUTO_MODE"] = new_state
-	created = 0
 	if new_state:
-		steps = []
-		# New flow: fetch from SerpAPI, de-dupe, AI copy+image, create draft
-		created = _auto_mode_generate_from_serpapi(messages=steps, geo="US")
-		flash("Auto mode ON.", "success")
-		for m in steps:
-			flash(m, "info")
-		flash(f"Imported {created} product(s).", "success")
+		# Kick work to background to avoid router 30s timeout
+		_progress_add("Auto mode starting…")
+		flash("Auto mode ON. Working in background…", "success")
+		def _run(app_ctx):
+			with app_ctx:
+				try:
+					steps = []
+					created = _auto_mode_generate_from_serpapi(messages=steps, geo="US")
+					for m in steps:
+						_progress_add(m)
+					_progress_add(f"Imported {created} product(s).")
+				except Exception as e_bg:
+					_progress_add(f"Auto mode failed: {e_bg}")
+		thr = threading.Thread(target=_run, args=(current_app.app_context(),), daemon=True)
+		thr.start()
 	else:
 		flash("Auto mode OFF.", "success")
 	return redirect(url_for("admin.products_list"))
+
+
+@admin_bp.get("/auto-mode/status")
+@login_required
+def auto_mode_status():
+	msgs, _ = _get_progress_state()
+	return jsonify({
+		"enabled": bool(current_app.config.get("AUTO_MODE", False)),
+		"messages": list(reversed(msgs[-50:])),
+	})
 
 @admin_bp.post("/trends/<int:trend_id>/create-tshirt")
 @login_required
@@ -569,7 +630,8 @@ def create_product_from_design(design_id: int):
 @login_required
 def products_list():
 	products = Product.query.order_by(Product.created_at.desc()).all()
-	return render_template("admin_products.html", products=products)
+	msgs, _ = _get_progress_state()
+	return render_template("admin_products.html", products=products, auto_mode_progress=list(reversed(msgs[-10:])))
 
 
 @admin_bp.post("/products/<int:product_id>/toggle")
