@@ -991,24 +991,49 @@ def edit_product_submit(product_id: int):
 	uploaded = False
 	# Handle image upload
 	if image_file and image_file.filename:
-		# Upload to Cloudinary if configured; fallback to local
+		# Ensure we have bytes for composition
+		file_bytes = image_file.read()
+		try:
+			image_file.stream.seek(0)
+		except Exception:
+			pass
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		mock_bytes = _compose_design_on_blank_tee(file_bytes) if file_bytes else None
 		if cloud_url:
 			import cloudinary.uploader as cu
-			public_id = slugify(p.title or "design")
-			res = cu.upload(image_file, folder="products", public_id=public_id, overwrite=True, resource_type="image")
-			secure_url = res.get("secure_url") or res.get("url")
-			p.design.preview_url = secure_url
-			p.design.image_url = secure_url
+			public_id = slugify(p.title or "design") or "design"
+			# Upload raw design
+			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+			design_url = res_design.get("secure_url") or res_design.get("url")
+			# Upload mockup or fallback to design
+			if mock_bytes:
+				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+				mock_url = res_mock.get("secure_url") or res_mock.get("url")
+			else:
+				mock_url = design_url
+			p.design.preview_url = mock_url
+			p.design.image_url = design_url
+			p.design.extra_image1_url = design_url
 		else:
 			fname = secure_filename(image_file.filename)
 			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
 			os.makedirs(upload_dir, exist_ok=True)
-			path = os.path.join(upload_dir, fname)
-			image_file.save(path)
-			# Public URL
-			p.design.preview_url = f"/static/uploads/{fname}"
-			p.design.image_url = f"/static/uploads/{fname}"
+			path_design = os.path.join(upload_dir, fname)
+			with open(path_design, "wb") as f:
+				f.write(file_bytes)
+			design_url = f"/static/uploads/{fname}"
+			# Save mockup if composed
+			if mock_bytes:
+				fname2 = f"mockup_{secure_filename(os.path.splitext(fname)[0])}.png"
+				path_mock = os.path.join(upload_dir, fname2)
+				with open(path_mock, "wb") as f2:
+					f2.write(mock_bytes)
+				mock_url = f"/static/uploads/{fname2}"
+			else:
+				mock_url = design_url
+			p.design.preview_url = mock_url
+			p.design.image_url = design_url
+			p.design.extra_image1_url = design_url
 		uploaded = True
 
 	# Handle extra images upload
@@ -1098,15 +1123,33 @@ def generate_openai_image(product_id: int):
 					with open(path, "wb") as f:
 						f.write(img)
 					final_url = f"/static/uploads/{fname}"
-				if p2:
-					if not p2.design:
-						d = Design(type="image", text=p2.title, approved=True)
-						db.session.add(d)
-						db.session.flush()
-						p2.design = d
-					p2.design.preview_url = final_url
-					p2.design.image_url = final_url
-					db.session.commit()
+					if p2:
+						if not p2.design:
+							d = Design(type="image", text=p2.title, approved=True)
+							db.session.add(d)
+							db.session.flush()
+							p2.design = d
+						# Compose mockup for preview
+						mock_bytes = _compose_design_on_blank_tee(img)
+						final_preview_url = final_url
+						cloud_url2 = current_app.config.get("CLOUDINARY_URL", "").strip()
+						if mock_bytes:
+							if cloud_url2:
+								import cloudinary.uploader as cu2
+								res_mock = cu2.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
+								final_preview_url = res_mock.get("secure_url") or res_mock.get("url")
+							else:
+								fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
+								upload_dir2 = os.path.join(os.path.dirname(__file__), "static", "uploads")
+								os.makedirs(upload_dir2, exist_ok=True)
+								path_m = os.path.join(upload_dir2, fname_m)
+								with open(path_m, "wb") as fm:
+									fm.write(mock_bytes)
+								final_preview_url = f"/static/uploads/{fname_m}"
+						p2.design.preview_url = final_preview_url
+						p2.design.image_url = final_url
+						p2.design.extra_image1_url = final_url
+						db.session.commit()
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
 				current_app.logger.warning(f"generate-image failed: {e_all}")

@@ -13,16 +13,19 @@
 	<div>
 		<label class="block text-sm mb-1">Design image</label>
 		<div class="flex items-start gap-4">
-			<div class="w-32 h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
-				{% if product.design and product.design.preview_url %}
-				<img id="design-preview" src="{{ product.design.preview_url }}" alt="Preview" class="w-full h-full object-cover" />
-				{% else %}
-				<img id="design-preview" src="" alt="Preview" class="w-full h-full object-cover hidden" />
-				<span id="design-empty" class="text-gray-600 text-xs">No image</span>
-				{% endif %}
-			</div>
+            <div class="w-48 h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+                {% set blanktee = (config.BLANK_TEE_URL if config.BLANK_TEE_URL else url_for('static', filename='uploads/2600.png')) %}
+                <div class="relative w-full h-full">
+                    <img id="tee-base" src="{{ blanktee }}" alt="Tee" class="absolute inset-0 w-full h-full object-contain" />
+                    {% if product.design and product.design.preview_url %}
+                    <img id="design-preview" src="{{ product.design.preview_url }}" alt="Preview" class="absolute inset-0 w-full h-full object-contain" />
+                    {% else %}
+                    <img id="design-preview" src="" alt="Preview" class="absolute inset-0 w-full h-full object-contain hidden" />
+                    {% endif %}
+                </div>
+            </div>
 			<div class="space-y-2">
-				<input type="file" name="image" accept="image/*" class="block text-sm" />
+                <input id="design-file" type="file" name="image" accept="image/*" class="block text-sm" />
 				<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
 				<p class="text-xs text-gray-400">Upload an image or check "Generate placeholder" to auto-create a simple preview.</p>
 			</div>
@@ -88,10 +91,54 @@
 
 <script>
 (function(){
-	const btn = document.getElementById('ai-generate');
+const btn = document.getElementById('ai-generate');
 	const msg = document.getElementById('ai-msg');
-	const preview = document.getElementById('design-preview');
-	const empty = document.getElementById('design-empty');
+const preview = document.getElementById('design-preview');
+const baseTee = document.getElementById('tee-base');
+const fileInput = document.getElementById('design-file');
+// Client-side mockup preview: draw uploaded file onto a canvas over the tee, then set as preview
+async function composePreview(file){
+    if(!file || !baseTee) return;
+    const teeImg = await loadImg(baseTee.src);
+    const fileUrl = URL.createObjectURL(file);
+    try {
+        const designImg = await loadImg(fileUrl);
+        var canvas = document.createElement('canvas');
+        canvas.width = (teeImg.naturalWidth || 1024);
+        canvas.height = (teeImg.naturalHeight || 1024);
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(teeImg, 0, 0, canvas.width, canvas.height);
+        // fit design into 35% box centered
+        var maxW = Math.floor(canvas.width * 0.35);
+        var maxH = Math.floor(canvas.height * 0.35);
+        var scale = Math.min(maxW / (designImg.naturalWidth || 1), maxH / (designImg.naturalHeight || 1));
+        var sw = Math.max(1, Math.floor((designImg.naturalWidth || 1) * scale));
+        var sh = Math.max(1, Math.floor((designImg.naturalHeight || 1) * scale));
+        var x = Math.floor((canvas.width - sw) / 2);
+        var y = Math.floor((canvas.height - sh) / 2);
+        ctx.drawImage(designImg, x, y, sw, sh);
+        const dataUrl = canvas.toDataURL('image/png');
+        preview.src = dataUrl;
+        preview.classList.remove('hidden');
+    } finally {
+        URL.revokeObjectURL(fileUrl);
+    }
+}
+
+function loadImg(src){
+    return new Promise((resolve, reject)=>{
+        const im = new Image();
+        im.onload = ()=>resolve(im);
+        im.onerror = reject;
+        im.src = src;
+    });
+}
+
+fileInput && fileInput.addEventListener('change', function(){
+    const f = this.files && this.files[0];
+    if (f) { composePreview(f); }
+});
 	// Pricing helpers
 	const baseCost = document.querySelector('input[name="base_cost"]');
 	const priceInput = document.getElementById('price-input');
