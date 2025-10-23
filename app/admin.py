@@ -207,7 +207,7 @@ def _auto_import_trends(limit: int = 1, generate_images: bool = False, messages:
 	return created
 
 
-def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "US") -> int:
+def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "US", generate_images: bool = True) -> int:
 	"""Fetch a fresh trend from SerpAPI, de-dupe against DB, generate AI copy + image, and create a draft product.
 
 	Returns number of products created (0 or 1). Writes progress to logger and optional messages list.
@@ -319,7 +319,9 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 
 		# Step 3: Generate AI image and upload (Cloudinary if configured; else local)
 		final_image_url = None
-		if api_key:
+		if not generate_images:
+			_progress_add("Image generation skipped by request")
+		elif api_key:
 			try:
 				from base64 import b64decode as _b64d
 				from time import time as _time
@@ -359,6 +361,11 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				if messages is not None:
 					messages.append(msg3b)
 				_progress_add(msg3b)
+		else:
+			msg3c = "OPENAI_API_KEY not set; cannot generate image"
+			if messages is not None:
+				messages.append(msg3c)
+			_progress_add(msg3c)
 
 		# Step 4: Create design and product
 		design = Design(type="image", text=picked_phrase, approved=True)
@@ -421,11 +428,13 @@ def toggle_auto_mode():
 		# Kick work to background to avoid router 30s timeout
 		_progress_add("Auto mode starting…")
 		flash("Auto mode ON. Working in background…", "success")
+		# Respect checkbox to skip image generation
+		skip_images = (request.form.get("skip_images") == "1")
 		def _run(app_ctx):
 			with app_ctx:
 				try:
 					steps = []
-					created = _auto_mode_generate_from_serpapi(messages=steps, geo="US")
+					created = _auto_mode_generate_from_serpapi(messages=steps, geo="US", generate_images=(not skip_images))
 					for m in steps:
 						_progress_add(m)
 					_progress_add(f"Imported {created} product(s).")

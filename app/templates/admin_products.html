@@ -9,13 +9,17 @@
         <form method="post" action="{{ url_for('admin.create_blank_product') }}">
             <button class="bg-white text-black px-4 py-2 rounded">Add Product</button>
         </form>
-        <form method="post" action="{{ url_for('admin.toggle_auto_mode') }}">
+        <form method="post" action="{{ url_for('admin.toggle_auto_mode') }}" class="flex items-center gap-2">
+            <label class="text-sm flex items-center gap-2">
+                <input type="checkbox" name="skip_images" value="1" class="h-4 w-4">
+                <span>Skip image generation</span>
+            </label>
             <button class="bg-gray-800 text-white px-4 py-2 rounded">Toggle Auto Mode</button>
         </form>
     </div>
  </div>
 {% if auto_mode_progress %}
-<div class="mb-4 p-3 border border-gray-800 rounded bg-gray-900">
+<div class="mb-4 p-3 border border-gray-800 rounded bg-gray-900" id="autoModePanel">
     <div class="text-sm text-gray-400 mb-2">Auto Mode Progress</div>
     <ul class="text-sm space-y-1">
         {% for line in auto_mode_progress %}
@@ -24,11 +28,32 @@
     </ul>
     <button id="refreshProgress" class="mt-2 text-xs underline">Refresh</button>
     <script>
-    document.getElementById('refreshProgress').addEventListener('click', function() {
-        fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(){
-            location.reload();
-        }).catch(function(){ location.reload(); });
-    });
+    (function(){
+        var btn = document.getElementById('refreshProgress');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                location.reload();
+            });
+        }
+        function poll(){
+            fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(d){
+                try {
+                    var panel = document.getElementById('autoModePanel');
+                    if (!panel) return;
+                    var ul = panel.querySelector('ul');
+                    ul.innerHTML = '';
+                    (d.messages || []).forEach(function(line){
+                        var li = document.createElement('li');
+                        li.className = 'text-gray-200';
+                        li.textContent = line;
+                        ul.appendChild(li);
+                    });
+                } catch (e) {}
+            }).catch(function(){ /* ignore */ });
+        }
+        // Poll every 3s
+        setInterval(poll, 3000);
+    })();
     </script>
 </div>
 {% endif %}
