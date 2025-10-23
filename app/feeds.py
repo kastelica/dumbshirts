@@ -133,7 +133,8 @@ def render_google_promotions_feed(promotions: list) -> Response:
 		SubElement(entry, "g:offer_type").text = "generic_code"
 		if percent_off:
 			SubElement(entry, "g:coupon_value_type").text = "percent_off"
-			SubElement(entry, "g:percentage_off").text = str(percent_off)
+			# Google expects 'percent_off', not 'percentage_off'
+			SubElement(entry, "g:percent_off").text = str(percent_off)
 		# Coupon code (generic code for all customers)
 		if code:
 			SubElement(entry, "g:generic_redemption_code").text = code
