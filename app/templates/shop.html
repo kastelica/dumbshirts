@@ -57,6 +57,26 @@
 				<span class="line-through text-gray-500">${{ '%.2f'|format(p.price) }}</span>
 				<span class="ml-2 text-gray-200">${{ '%.2f'|format((p.price * 95) / 100) }} {{ p.currency }}</span>
 			</div>
+			{# lightweight color selector and add-to-cart #}
+			{% set colors = (p.variants | map(attribute='color') | list) if p.variants else [] %}
+			{% set color_set = colors | select | map('lower') | unique | list %}
+			<div class="mt-3 flex items-center justify-between gap-3">
+				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
+					{% for v in p.variants %}
+					"{{ (v.color or '')|lower }}": {{ v.id }}{% if not loop.last %},{% endif %}
+					{% endfor %}
+				}'>
+					{% for c in color_set[:5] %}
+					<button type="button" class="w-6 h-6 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
+					{% endfor %}
+				</div>
+				<form method="post" action="/cart/add" class="flex items-center gap-2">
+					<input type="hidden" name="product_id" value="{{ p.id }}">
+					<input type="hidden" name="variant_id" value="{{ p.variants[0].id if p.variants else '' }}" class="js-variant-id">
+					<input type="hidden" name="quantity" value="1">
+					<button class="text-xs bg-white text-black px-3 py-1 rounded">Add</button>
+				</form>
+			</div>
 		</div>
 	</a>
 	{% else %}
@@ -77,6 +97,41 @@
       const show = (i)=>{ frames.forEach((im,j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } }); idx=i; };
       g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
       g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx+1)%frames.length); });
+    });
+
+    // Color swatch -> variant and preview tint (same as index)
+    document.querySelectorAll('.group').forEach(function(card){
+      const wrap = card.querySelector('.js-swatch-wrap');
+      if(!wrap) return;
+      let colorMap = {};
+      try { colorMap = JSON.parse(wrap.getAttribute('data-card-color-map')||'{}'); } catch(e){}
+      const inputVariant = card.querySelector('.js-variant-id');
+      const gallery = card.querySelector('.js-card-gallery');
+      let overlay;
+      if(gallery){
+        overlay = document.createElement('div');
+        overlay.className = 'pointer-events-none absolute inset-0 mix-blend-multiply opacity-0 transition-opacity';
+        overlay.style.backgroundColor = 'transparent';
+        gallery.style.position = 'relative';
+        gallery.appendChild(overlay);
+      }
+      wrap.querySelectorAll('[data-color]').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          const c = (btn.getAttribute('data-color')||'').toLowerCase();
+          if(colorMap[c] && inputVariant){ inputVariant.value = colorMap[c]; }
+          if(overlay){
+            let col = 'transparent', op = 0;
+            if(c==='black'){ col = '#000'; op = 0.45; }
+            else if(c==='white'){ col = '#fff'; op = 0; }
+            else if(c==='red'){ col = '#ef4444'; op = 0.25; }
+            else if(c==='blue'){ col = '#3b82f6'; op = 0.25; }
+            else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.25; }
+            overlay.style.backgroundColor = col;
+            overlay.style.opacity = String(op);
+          }
+        });
+      });
     });
   });
 })();

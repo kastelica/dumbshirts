@@ -295,15 +295,15 @@ function lookupProductUid(size, color, neck){
     return MAP[key] || '';
 }
 
-		// Build color swatches (default set for all products)
-		(function buildColorSwatches(){
-			const colors = [
-				{ key: 'white', hex: '#ffffff' },
-				{ key: 'black', hex: '#000000' },
-				{ key: 'grey',  hex: '#9ca3af' },
-				{ key: 'red',   hex: '#ef4444' },
-				{ key: 'blue',  hex: '#3b82f6' },
-			];
+	// Build color swatches (5 common colors)
+	(function buildColorSwatches(){
+		const colors = [
+			{ key: 'white', hex: '#ffffff' },
+			{ key: 'black', hex: '#000000' },
+			{ key: 'heather', hex: '#9ca3af' },
+			{ key: 'red', hex: '#ef4444' },
+			{ key: 'blue', hex: '#3b82f6' },
+		];
 		const wrap = document.getElementById('color-swatches');
 		const hidden = document.getElementById('color-select');
 		if(!wrap || !hidden) return;
@@ -357,22 +357,11 @@ function lookupProductUid(size, color, neck){
 	}catch(e){}
 
 	function updateProductUid(){
-			const size = document.getElementById('size-select').value;
-			const color = document.getElementById('color-select').value;
-			const neck = document.getElementById('neck-select').value;
-	    const uid = lookupProductUid(size, color, neck);
-			document.getElementById('productUidInput').value = uid;
-			// Attempt to select an existing variant for the chosen color; fallback to first
-			try{
-				const variantSelect = document.getElementById('variant-select');
-				let chosen = null;
-				Array.from(variantSelect.options).forEach(opt=>{
-					if(opt.textContent && opt.textContent.toLowerCase().includes(` ${color} `)){
-						chosen = opt.value;
-					}
-				});
-				variantSelect.value = chosen || (variantSelect.options[0]?.value||'');
-			}catch(e){}
+		const size = document.getElementById('size-select').value;
+		const color = document.getElementById('color-select').value;
+		const neck = document.getElementById('neck-select').value;
+    const uid = lookupProductUid(size, color, neck);
+		document.getElementById('productUidInput').value = uid;
 	}
 	['size-select','color-select','neck-select'].forEach(id=>{
 		const el = document.getElementById(id);
