@@ -92,6 +92,32 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		return None
 
 
+def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
+	"""Attempt to remove background via Hugging Face Inference API (briaai/RMBG-1.4).
+
+	Reads token from config HUGGINGFACE_TOKEN or env var. Returns processed bytes on
+	success, otherwise None. Non-fatal on failure.
+	"""
+	try:
+		import requests as _req
+		token = (current_app.config.get("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or "").strip()
+		if not token:
+			return None
+		r = _req.post(
+			"https://api-inference.huggingface.co/models/briaai/RMBG-1.4",
+			headers={"Authorization": f"Bearer {token}", "Accept": "image/png"},
+			data=png_bytes,
+			timeout=45,
+		)
+		if r.status_code == 200 and r.content:
+			return r.content
+		current_app.logger.warning(f"[bg-remove] HF response {r.status_code}: {getattr(r, 'text', '')[:120]}")
+		return None
+	except Exception as _e:
+		current_app.logger.warning(f"[bg-remove] HF failed: {_e}")
+		return None
+
+
 @admin_bp.get("/login")
 def login_page():
 	return render_template("admin_login.html")
@@ -384,6 +410,14 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 				res_i = client2.images.generate(model="gpt-image-1-mini", prompt=img_prompt, size="1024x1024")
 				b64_data = res_i.data[0].b64_json
 				img_bytes = _b64d(b64_data)
+				# Try background removal to ensure transparency
+				try:
+					clean_bytes = _remove_bg_hf(img_bytes)
+					if clean_bytes:
+						img_bytes = clean_bytes
+						_progress_add("Background removed via HF")
+				except Exception:
+					pass
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
@@ -994,6 +1028,14 @@ def edit_product_submit(product_id: int):
 	if image_file and image_file.filename:
 		# Read bytes once to compose mockup and upload
 		file_bytes = image_file.read()
+		# Try removing background for uploaded images
+		try:
+			clean = _remove_bg_hf(file_bytes)
+			if clean:
+				file_bytes = clean
+				current_app.logger.info("[bg-remove] Applied on admin upload")
+		except Exception:
+			pass
 		try:
 			image_file.stream.seek(0)
 		except Exception:
@@ -1107,6 +1149,14 @@ def generate_openai_image(product_id: int):
 				res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
 				b64 = res.data[0].b64_json
 				img = b64decode(b64)
+				# Try background removal
+				try:
+					clean = _remove_bg_hf(img)
+					if clean:
+						img = clean
+						current_app.logger.info("[bg-remove] Applied on-demand image")
+				except Exception:
+					pass
 				p2 = Product.query.get(pid)
 				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
 				# Upload to Cloudinary if configured; otherwise save locally
