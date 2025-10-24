@@ -28,6 +28,14 @@ def render_google_shopping_feed(items):
 		img = item.get("image")
 		if img:
 			SubElement(it, "g:image_link").text = img
+		# Additional images (repeat up to 10)
+		adds = item.get("additional_images") or []
+		try:
+			for a in adds[:10]:
+				if a:
+					SubElement(it, "g:additional_image_link").text = a
+		except Exception:
+			pass
 		# Google Shopping category and product type
 		gcat = item.get("google_product_category")
 		if gcat:

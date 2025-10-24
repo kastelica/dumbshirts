@@ -28,6 +28,16 @@ def google_feed():
 			sale = (Decimal(str(p.price)) * Decimal('0.95')).quantize(Decimal('0.01'))
 		except Exception:
 			sale = p.price
+		# Build additional images list (up to 10 allowed; we add up to 2 if present)
+		add_imgs = []
+		try:
+			if p.design and getattr(p.design, 'extra_image1_url', None):
+				add_imgs.append(_absolute_url(p.design.extra_image1_url))
+			if p.design and getattr(p.design, 'extra_image2_url', None):
+				add_imgs.append(_absolute_url(p.design.extra_image2_url))
+		except Exception:
+			pass
+
 		items.append({
 			"id": p.id,
 			"title": p.title,
@@ -37,6 +47,7 @@ def google_feed():
 			"sale_price": f"{sale}",
 			"availability": "in stock",
 			"image": _absolute_url(p.design.preview_url if (p.design and p.design.preview_url) else ""),
+			"additional_images": add_imgs,
 			"brand": "Dumbshirts.store",
 			"age_group": "adult",
 			"color": "white",
@@ -53,20 +64,23 @@ def google_feed():
 
 @feeds_bp.get("/feeds/promotions.xml")
 def promotions_feed():
-    # Read promotions from DB so they persist across deploys
+    # Read promotions from DB so they persist across deploys; fail soft if table missing
     rows = []
-    for p in Promotion.query.order_by(Promotion.created_at.desc()).all():
-        rows.append({
-            "promotion_id": p.promotion_id,
-            "long_title": p.long_title,
-            "percent_off": p.percent_off,
-            "generic_redemption_code": p.generic_redemption_code,
-            "start_date": p.start_date,
-            "end_date": p.end_date,
-            "display_start_date": p.display_start_date,
-            "display_end_date": p.display_end_date,
-            "promotion_url": p.promotion_url,
-            "promotion_destination": (p.promotion_destination.split(',') if p.promotion_destination else ["Shopping_ads", "Free_listings"]),
-            "redemption_channel": p.redemption_channel or "online",
-        })
+    try:
+        for p in Promotion.query.order_by(Promotion.created_at.desc()).all():
+            rows.append({
+                "promotion_id": p.promotion_id,
+                "long_title": p.long_title,
+                "percent_off": p.percent_off,
+                "generic_redemption_code": p.generic_redemption_code,
+                "start_date": p.start_date,
+                "end_date": p.end_date,
+                "display_start_date": p.display_start_date,
+                "display_end_date": p.display_end_date,
+                "promotion_url": p.promotion_url,
+                "promotion_destination": (p.promotion_destination.split(',') if p.promotion_destination else ["Shopping_ads", "Free_listings"]),
+                "redemption_channel": p.redemption_channel or "online",
+            })
+    except Exception as _e:
+        current_app.logger.warning(f"[promotions] feed fallback, table missing: {_e}")
     return render_google_promotions_feed(rows)

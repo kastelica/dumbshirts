@@ -135,9 +135,11 @@
 						{% set _ = imgs.append({'src': product.design.extra_image1_url, 'alt': product.title}) if product.design.extra_image1_url %}
 						{% set _ = imgs.append({'src': product.design.extra_image2_url, 'alt': product.title}) if product.design.extra_image2_url %}
 					{% endif %}
-					{% if imgs %}
-						{% for img in imgs %}
-							<img src="{{ img.src }}" alt="{{ img.alt }}" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
+					{# Filter to only images with a non-empty src #}
+					{% set valid_imgs = imgs | selectattr('src') | list %}
+					{% if valid_imgs %}
+						{% for img in valid_imgs %}
+							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
 						{% endfor %}
 					{% else %}
 						<div class="w-full h-full flex items-center justify-center text-gray-500">No image</div>

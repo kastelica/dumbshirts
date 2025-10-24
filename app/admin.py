@@ -1330,7 +1330,11 @@ def _save_json_list(path: str, rows: list) -> None:
 @admin_bp.get("/feeds/promotions")
 @login_required
 def manage_promotions():
-	rows = Promotion.query.order_by(Promotion.created_at.desc()).all()
+	try:
+		rows = Promotion.query.order_by(Promotion.created_at.desc()).all()
+	except Exception as _e:
+		current_app.logger.warning(f"[promotions] DB not ready or table missing: {_e}")
+		rows = []
 	# Default dates: start in 2 days, end in ~1 month; display starts tomorrow
 	today = datetime.utcnow().date()
 	defaults = {
