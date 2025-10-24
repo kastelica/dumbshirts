@@ -169,23 +169,26 @@ def privacy_page():
 	return render_template("privacy.html")
 @main_bp.get("/order/confirm/<int:order_id>")
 def order_confirm(order_id: int):
-    """Order confirmation page hosting Google Customer Reviews opt-in snippet."""
-    order = Order.query.get_or_404(order_id)
-    addr = order.shipping_address
-    email = (addr.email if addr else "") or ""
-    country = (addr.country if addr and addr.country else "US")
-    est_date = (datetime.utcnow().date() + timedelta(days=7)).isoformat()
-    # Build product GTINs if any (we don't store GTINs; pass empty list for now)
-    products = []
-    return render_template(
-        "order_confirmation.html",
-        order=order,
-        email=email,
-        country=country,
-        est_delivery=est_date,
-        products=products,
-        merchant_id=114634997,
-    )
+	"""Order confirmation page hosting Google Customer Reviews opt-in snippet."""
+	order = Order.query.get_or_404(order_id)
+	addr = order.shipping_address
+	email = (addr.email if addr else "") or ""
+	country = (addr.country if addr and addr.country else "US")
+	est_date = (datetime.utcnow().date() + timedelta(days=7)).isoformat()
+	# Build product GTINs if any (we don't store GTINs; pass empty list for now)
+	products = []
+	# Clear cart after confirmation
+	session["cart"] = {"items": []}
+	session.modified = True
+	return render_template(
+		"order_confirmation.html",
+		order=order,
+		email=email,
+		country=country,
+		est_delivery=est_date,
+		products=products,
+		merchant_id=114634997,
+	)
 
 
 @main_bp.get("/terms")
