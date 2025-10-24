@@ -103,15 +103,18 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 		token = (current_app.config.get("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or "").strip()
 		if not token:
 			return None
-		r = _req.post(
-			"https://api-inference.huggingface.co/models/briaai/RMBG-1.4",
-			headers={"Authorization": f"Bearer {token}", "Accept": "image/png"},
-			data=png_bytes,
-			timeout=45,
-		)
+		# New Inference Providers router (2025+)
+		url_new = "https://router.huggingface.co/hf-inference/models/briaai/RMBG-1.4"
+		r = _req.post(url_new, headers={"Authorization": f"Bearer {token}", "Accept": "image/png"}, data=png_bytes, timeout=45)
 		if r.status_code == 200 and r.content:
 			return r.content
-		current_app.logger.warning(f"[bg-remove] HF response {r.status_code}: {getattr(r, 'text', '')[:120]}")
+		# Fallback to legacy endpoint until fully retired
+		url_old = "https://api-inference.huggingface.co/models/briaai/RMBG-1.4"
+		r2 = _req.post(url_old, headers={"Authorization": f"Bearer {token}", "Accept": "image/png"}, data=png_bytes, timeout=45)
+		if r2.status_code == 200 and r2.content:
+			current_app.logger.info("[bg-remove] used legacy HF endpoint; consider upgrading base URL")
+			return r2.content
+		current_app.logger.warning(f"[bg-remove] HF responses new={r.status_code} old={r2.status_code}")
 		return None
 	except Exception as _e:
 		current_app.logger.warning(f"[bg-remove] HF failed: {_e}")
