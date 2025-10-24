@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmation | Dumbshirts.store{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-2">Thank you for your order!</h1>
+<p class="text-gray-300 mb-6">Order <span class="font-mono">#{{ order.id }}</span> has been received. A confirmation email has been sent to {{ email or 'your inbox' }}.</p>
+
+<div class="bg-gray-900 border border-gray-800 rounded p-4 mb-6">
+	<h2 class="text-lg font-semibold mb-3">Summary</h2>
+	<ul class="text-sm text-gray-300 space-y-1">
+		<li><strong>Status:</strong> {{ order.status }}</li>
+		<li><strong>Total:</strong> {{ '%.2f'|format(order.total_amount) }} {{ order.currency }}</li>
+		<li><strong>Estimated delivery:</strong> {{ est_delivery }}</li>
+	</ul>
+</div>
+
+<script src="https://apis.google.com/js/platform.js?onload=renderOptIn" async defer></script>
+<script>
+window.renderOptIn = function() {
+  window.gapi.load('surveyoptin', function() {
+    window.gapi.surveyoptin.render({
+      "merchant_id": {{ merchant_id }},
+      "order_id": {{ (order.stripe_payment_intent_id or ('ORDER-' ~ order.id))|tojson }},
+      "email": {{ (email or '')|tojson }},
+      "delivery_country": {{ (country or 'US')|tojson }},
+      "estimated_delivery_date": {{ est_delivery|tojson }},
+      "products": {{ (products or [])|tojson }}
+    });
+  });
+}
+</script>
+
+<div class="mt-6">
+	<a href="{{ url_for('main.index') }}" class="bg-white text-black px-4 py-2 rounded">Continue Shopping</a>
+</div>
+{% endblock %}
+

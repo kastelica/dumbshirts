@@ -201,7 +201,7 @@ def create_payment_intent():
 		pi = stripe.PaymentIntent.create(amount=total_cents, currency=currency, automatic_payment_methods={"enabled": True})
 		order.stripe_payment_intent_id = pi.id
 		db.session.commit()
-		return jsonify({"clientSecret": pi.client_secret})
+		return jsonify({"clientSecret": pi.client_secret, "orderId": order.id})
 	except Exception as e:
 		current_app.logger.exception("create-payment-intent failed")
 		# Rollback any partial transaction
@@ -282,6 +282,7 @@ def stripe_webhook():
 		except Exception:
 			order.status = "failed"
 			db.session.commit()
+			# Even if Gelato fails, redirect user to confirmation
 			return ("gelato order failed", 200)
 
 	# Handle subscription renewals: create Gelato order after successful invoice payment
@@ -358,4 +359,5 @@ def stripe_webhook():
 		except Exception:
 			pass
 
+	# On success events, we can't redirect here. The client side should poll and navigate.
 	return ("", 200)
