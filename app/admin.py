@@ -473,6 +473,8 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 		design = Design(type="image", text=picked_phrase, approved=True)
 		if final_image_url:
 			design.image_url = final_image_url
+			# Keep the transparent/raw design as the first extra image for galleries
+			design.extra_image1_url = final_image_url
 			# Use mockup if present for preview; else use design
 			try:
 				design.preview_url = final_mockup_url or final_image_url
