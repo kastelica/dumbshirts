@@ -185,13 +185,36 @@ function gtag_report_conversion(url){
         }
     }catch(e){}
 	const appearance = { theme: 'night', variables: { colorPrimary: '#ffffff', colorBackground: '#0b0b0b', colorText: '#e5e7eb', colorDanger: '#ef4444', borderRadius: '6px' } };
-	let elements, paymentElement, clientSecret;
+	let elements, paymentElement, clientSecret, orderId;
 	const submitBtn = document.getElementById('submit');
 	const msg = document.getElementById('payment-message');
 	function getChosen(){ try { return selectedShip ? JSON.parse(selectedShip) : { uid: 'free_3_5', price: 0 }; } catch(e){ return { uid: 'free_3_5', price: 0 }; } }
 	function currentTotal(){ const c = getChosen(); const s = parseFloat(c.price || 0); return (amount + (isNaN(s)?0:s)); }
 	function updatePayLabel(){ if(submitBtn){ submitBtn.textContent = 'Pay $' + currentTotal().toFixed(2); } }
+
+	function validateFields(){
+		const email = document.getElementById('email').value.trim();
+		const first = document.getElementById('firstName').value.trim();
+		const last = document.getElementById('lastName').value.trim();
+		const a1 = document.getElementById('addr1').value.trim();
+		const city = document.getElementById('city').value.trim();
+		const state = document.getElementById('state').value.trim();
+		const pc = document.getElementById('postCode').value.trim();
+		const country = (document.getElementById('country').value.trim() || 'US');
+		const emailOk = /.+@.+\..+/.test(email);
+		if(!emailOk){ msg.textContent='Please enter a valid email.'; document.getElementById('email').focus(); return false; }
+		if(!first){ msg.textContent='Please enter your first name.'; document.getElementById('firstName').focus(); return false; }
+		if(!last){ msg.textContent='Please enter your last name.'; document.getElementById('lastName').focus(); return false; }
+		if(!a1){ msg.textContent='Please enter your address.'; document.getElementById('addr1').focus(); return false; }
+		if(!city){ msg.textContent='Please enter your city.'; document.getElementById('city').focus(); return false; }
+		if(!state){ msg.textContent='Please enter your state.'; document.getElementById('state').focus(); return false; }
+		if(!pc){ msg.textContent='Please enter your postal code.'; document.getElementById('postCode').focus(); return false; }
+		if(!country){ msg.textContent='Please enter your country.'; document.getElementById('country').focus(); return false; }
+		msg.textContent='';
+		return true;
+	}
 	async function createOrUpdatePI(){
+		if(!validateFields()) return false;
 		const c = getChosen();
 		const resp = await fetch('/api/create-payment-intent', {
 			method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -214,6 +237,7 @@ function gtag_report_conversion(url){
 		const data = await resp.json();
 		if(!resp.ok){ msg.textContent = (data && data.error) ? data.error : 'Failed to start payment'; return false; }
 		clientSecret = data.clientSecret;
+		orderId = data.orderId;
 		if(paymentElement){ try { paymentElement.unmount(); } catch(e){} }
 		elements = stripe.elements({ clientSecret, appearance });
 		paymentElement = elements.create('payment');
@@ -221,15 +245,19 @@ function gtag_report_conversion(url){
 		return true;
 	}
 	updatePayLabel();
-	await createOrUpdatePI();
+	// Delay PI creation until fields are valid or shipping changes/submit
 	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); }
 	submitBtn.addEventListener('click', async (e) => {
 		e.preventDefault(); msg.textContent=''; setLoading(true);
+		if(!clientSecret){ const ok = await createOrUpdatePI(); if(!ok){ setLoading(false); return; } }
 		const email = document.getElementById('email').value.trim();
 		const {error, paymentIntent} = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
 		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
-		if (paymentIntent && paymentIntent.status === 'succeeded') { msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!'; try{ gtag_report_conversion(); }catch(e){} }
-		else { msg.textContent = 'Payment processed.'; }
+		if (paymentIntent && paymentIntent.status === 'succeeded') {
+			msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!';
+			try{ gtag_report_conversion(); }catch(e){}
+			if(orderId){ window.location = `/order/confirm/${orderId}`; return; }
+		} else { msg.textContent = 'Payment processed.'; }
 		setLoading(false);
 	});
 
