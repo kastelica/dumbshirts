@@ -128,6 +128,7 @@
           overlay.style.backgroundColor = 'transparent';
           overlay.style.mixBlendMode = 'color';
           box.style.position = 'relative';
+          box.style.isolation = 'isolate';
           box.appendChild(overlay);
           try{ console.log('[card-init] overlay added', { cardTitle: (card.querySelector('.font-semibold')||{}).textContent?.trim() }); }catch(e){}
         }
@@ -142,17 +143,16 @@
           if(colorMap[c] && inputVariant){ inputVariant.value = colorMap[c]; }
           // tint overlay for black/white/red/blue/gray
           if(overlay){
-            let col = 'transparent', op = 0;
-            if(c==='black'){ col = '#111111'; op = 0.8; }
-            else if(c==='white'){ col = '#ffffff'; op = 0; }
-            else if(c==='red'){ col = '#ef4444'; op = 0.6; }
-            else if(c==='blue'){ col = '#3b82f6'; op = 0.6; }
-            else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.5; }
+            let col = 'transparent', op = 0, blend = 'color';
+            if(c==='black'){ col = '#111111'; op = 0.7; blend = 'multiply'; }
+            else if(c==='white'){ col = '#ffffff'; op = 0; blend = 'normal'; }
+            else if(c==='red'){ col = '#ef4444'; op = 0.55; blend = 'multiply'; }
+            else if(c==='blue'){ col = '#3b82f6'; op = 0.55; blend = 'multiply'; }
+            else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.4; blend = 'multiply'; }
             overlay.style.backgroundColor = col;
             overlay.style.opacity = String(op);
-            // fallback: try multiply if color blend ineffective
-            overlay.style.mixBlendMode = (op > 0 ? 'color' : 'normal');
-            try{ console.log('[swatch-click]', { color:c, col, op, variant: inputVariant?.value, blend: overlay.style.mixBlendMode }); }catch(e){}
+            overlay.style.mixBlendMode = blend;
+            try{ console.log('[swatch-click]', { color:c, col, op, variant: inputVariant?.value, blend }); }catch(e){}
           }
         });
       });
