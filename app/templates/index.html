@@ -124,7 +124,7 @@
         box = gallery.querySelector('.aspect-square');
         if(box){
           overlay = document.createElement('div');
-          overlay.className = 'pointer-events-none absolute inset-0 mix-blend-multiply opacity-0 transition-opacity z-0';
+          overlay.className = 'pointer-events-none absolute inset-0 opacity-0 transition-opacity z-10 mix-blend-color';
           overlay.style.backgroundColor = 'transparent';
           box.style.position = 'relative';
           box.appendChild(overlay);
@@ -141,11 +141,11 @@
           // tint overlay for black/white/red/blue/gray
           if(overlay){
             let col = 'transparent', op = 0;
-            if(c==='black'){ col = '#000000'; op = 0.45; }
+            if(c==='black'){ col = '#111111'; op = 0.8; }
             else if(c==='white'){ col = '#ffffff'; op = 0; }
-            else if(c==='red'){ col = '#ef4444'; op = 0.25; }
-            else if(c==='blue'){ col = '#3b82f6'; op = 0.25; }
-            else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.25; }
+            else if(c==='red'){ col = '#ef4444'; op = 0.6; }
+            else if(c==='blue'){ col = '#3b82f6'; op = 0.6; }
+            else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.5; }
             overlay.style.backgroundColor = col;
             overlay.style.opacity = String(op);
           }
