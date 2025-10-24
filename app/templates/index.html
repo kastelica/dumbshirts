@@ -123,6 +123,16 @@
       if(gallery){
         box = gallery.querySelector('.aspect-square');
         if(box){
+          // Insert base tee image behind everything so tint applies to it only
+          let baseTee = box.querySelector('img.__basetee');
+          if(!baseTee){
+            baseTee = document.createElement('img');
+            baseTee.src = '/static/uploads/2600.png';
+            baseTee.alt = 'tee';
+            baseTee.className = '__basetee absolute inset-0 w-full h-full object-contain z-0';
+            baseTee.style.pointerEvents = 'none';
+            box.prepend(baseTee);
+          }
           overlay = document.createElement('div');
           overlay.className = 'pointer-events-none absolute inset-0 opacity-0 transition-opacity z-10';
           overlay.style.backgroundColor = 'transparent';
@@ -130,6 +140,11 @@
           box.style.position = 'relative';
           box.style.isolation = 'isolate';
           box.appendChild(overlay);
+          // ensure product image stays above the overlay
+          box.querySelectorAll('img[data-frame]').forEach(function(im){
+            im.style.position = 'relative';
+            im.style.zIndex = 20;
+          });
           try{ console.log('[card-init] overlay added', { cardTitle: (card.querySelector('.font-semibold')||{}).textContent?.trim() }); }catch(e){}
         }
       }
