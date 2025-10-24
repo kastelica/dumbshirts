@@ -3,7 +3,7 @@ from urllib.parse import urljoin
 from .feeds import render_google_shopping_feed, render_google_promotions_feed
 import os
 import json
-from .models import Product
+from .models import Product, Promotion
 from decimal import Decimal
 
 feeds_bp = Blueprint("feeds", __name__)
@@ -53,16 +53,20 @@ def google_feed():
 
 @feeds_bp.get("/feeds/promotions.xml")
 def promotions_feed():
-	# Load promotions file created via admin panel
-	data_dir = os.path.join(os.path.dirname(__file__), "data")
-	path = os.path.join(data_dir, "promotions.json")
-	try:
-		with open(path, "r", encoding="utf-8") as f:
-			rows = json.load(f)
-			if not isinstance(rows, list):
-				rows = []
-	except FileNotFoundError:
-		rows = []
-	except Exception:
-		rows = []
-	return render_google_promotions_feed(rows)
+    # Read promotions from DB so they persist across deploys
+    rows = []
+    for p in Promotion.query.order_by(Promotion.created_at.desc()).all():
+        rows.append({
+            "promotion_id": p.promotion_id,
+            "long_title": p.long_title,
+            "percent_off": p.percent_off,
+            "generic_redemption_code": p.generic_redemption_code,
+            "start_date": p.start_date,
+            "end_date": p.end_date,
+            "display_start_date": p.display_start_date,
+            "display_end_date": p.display_end_date,
+            "promotion_url": p.promotion_url,
+            "promotion_destination": (p.promotion_destination.split(',') if p.promotion_destination else ["Shopping_ads", "Free_listings"]),
+            "redemption_channel": p.redemption_channel or "online",
+        })
+    return render_google_promotions_feed(rows)

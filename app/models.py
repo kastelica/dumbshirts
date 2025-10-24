@@ -144,3 +144,20 @@ class OrderItem(db.Model, TimestampMixin):
 	quantity = db.Column(db.Integer, nullable=False, default=1)
 	unit_price = db.Column(db.Numeric(10, 2), nullable=False, default=0)
 	product_uid = db.Column(db.String(160))  # cached Gelato productUid used
+
+
+class Promotion(db.Model, TimestampMixin):
+	id = db.Column(db.Integer, primary_key=True)
+	# External-facing ID used in feeds
+	promotion_id = db.Column(db.String(80), unique=True, index=True, nullable=False)
+	long_title = db.Column(db.String(255))
+	generic_redemption_code = db.Column(db.String(120))
+	percent_off = db.Column(db.String(10))
+	start_date = db.Column(db.String(20))
+	end_date = db.Column(db.String(20))
+	display_start_date = db.Column(db.String(20))
+	display_end_date = db.Column(db.String(20))
+	promotion_url = db.Column(db.String(500))
+	# Optional: destinations and channel
+	promotion_destination = db.Column(db.String(255))  # comma-separated list
+	redemption_channel = db.Column(db.String(40))

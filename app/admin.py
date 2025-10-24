@@ -2,7 +2,7 @@ from decimal import Decimal
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required
 from .extensions import db
-from .models import Admin, Design, Product, Category, Variant, Trend
+from .models import Admin, Design, Product, Category, Variant, Trend, Promotion
 from .trends import fetch_trending_phrases_any
 from .trends_store import load_cache, save_cache
 from .gelato_client import GelatoClient
@@ -1330,8 +1330,7 @@ def _save_json_list(path: str, rows: list) -> None:
 @admin_bp.get("/feeds/promotions")
 @login_required
 def manage_promotions():
-	path = _data_path("promotions.json")
-	promotions = _load_json_list(path)
+	rows = Promotion.query.order_by(Promotion.created_at.desc()).all()
 	# Default dates: start in 2 days, end in ~1 month; display starts tomorrow
 	today = datetime.utcnow().date()
 	defaults = {
@@ -1340,39 +1339,28 @@ def manage_promotions():
 		"display_start_date": (today + timedelta(days=1)).isoformat(),
 		"display_end_date": (today + timedelta(days=30)).isoformat(),
 	}
-	return render_template("admin_promotions.html", promotions=promotions, defaults=defaults)
+	return render_template("admin_promotions.html", promotions=rows, defaults=defaults)
 
 
 @admin_bp.post("/feeds/promotions/add")
 @login_required
 def add_promotion():
-	path = _data_path("promotions.json")
-	promotions = _load_json_list(path)
-	# Gather fields (keep schema minimal and flexible)
+	# Gather fields (persist to DB)
 	raw_id = (request.form.get("promotion_id") or "").strip()
 	promo_id = _normalize_promotion_id(raw_id) or f"PROMO-{int(datetime.utcnow().timestamp())}"
-	entry = {
-		"promotion_id": promo_id,
-		"long_title": (request.form.get("long_title") or "").strip(),
-		"generic_redemption_code": (request.form.get("generic_redemption_code") or "").strip(),
-		"percent_off": (request.form.get("percent_off") or "").strip(),
-		"start_date": (request.form.get("start_date") or "").strip(),
-		"end_date": (request.form.get("end_date") or "").strip(),
-		"display_start_date": (request.form.get("display_start_date") or "").strip(),
-		"display_end_date": (request.form.get("display_end_date") or "").strip(),
-		"promotion_url": (request.form.get("promotion_url") or "").strip(),
-	}
-	# Upsert by promotion_id
-	existing = None
-	for i, p in enumerate(promotions):
-		if str(p.get("promotion_id")) == entry["promotion_id"]:
-			existing = i
-			break
-	if existing is None:
-		promotions.append(entry)
-	else:
-		promotions[existing] = entry
-	_save_json_list(path, promotions)
+	row = Promotion.query.filter_by(promotion_id=promo_id).first()
+	if not row:
+		row = Promotion(promotion_id=promo_id)
+		db.session.add(row)
+	row.long_title = (request.form.get("long_title") or "").strip()
+	row.generic_redemption_code = (request.form.get("generic_redemption_code") or "").strip()
+	row.percent_off = (request.form.get("percent_off") or "").strip()
+	row.start_date = (request.form.get("start_date") or "").strip()
+	row.end_date = (request.form.get("end_date") or "").strip()
+	row.display_start_date = (request.form.get("display_start_date") or "").strip()
+	row.display_end_date = (request.form.get("display_end_date") or "").strip()
+	row.promotion_url = (request.form.get("promotion_url") or "").strip()
+	db.session.commit()
 	flash("Promotion saved", "success")
 	return redirect(url_for("admin.manage_promotions"))
 
@@ -1380,10 +1368,10 @@ def add_promotion():
 @admin_bp.post("/feeds/promotions/<string:promotion_id>/delete")
 @login_required
 def delete_promotion(promotion_id: str):
-	path = _data_path("promotions.json")
-	promotions = _load_json_list(path)
-	promotions = [p for p in promotions if str(p.get("promotion_id")) != str(promotion_id)]
-	_save_json_list(path, promotions)
+	row = Promotion.query.filter_by(promotion_id=str(promotion_id)).first()
+	if row:
+		db.session.delete(row)
+		db.session.commit()
 	flash("Promotion deleted", "success")
 	return redirect(url_for("admin.manage_promotions"))
 
@@ -1391,9 +1379,7 @@ def delete_promotion(promotion_id: str):
 @admin_bp.get("/feeds/promotions/<string:promotion_id>/edit")
 @login_required
 def edit_promotion_page(promotion_id: str):
-	path = _data_path("promotions.json")
-	promotions = _load_json_list(path)
-	row = next((p for p in promotions if str(p.get("promotion_id")) == str(promotion_id)), None)
+	row = Promotion.query.filter_by(promotion_id=str(promotion_id)).first()
 	if not row:
 		flash("Promotion not found", "error")
 		return redirect(url_for("admin.manage_promotions"))
@@ -1403,45 +1389,30 @@ def edit_promotion_page(promotion_id: str):
 @admin_bp.post("/feeds/promotions/<string:promotion_id>/edit")
 @login_required
 def edit_promotion_submit(promotion_id: str):
-	path = _data_path("promotions.json")
-	promotions = _load_json_list(path)
-	idx = None
-	for i, p in enumerate(promotions):
-		if str(p.get("promotion_id")) == str(promotion_id):
-			idx = i
-			break
-	if idx is None:
+	row = Promotion.query.filter_by(promotion_id=str(promotion_id)).first()
+	if not row:
 		flash("Promotion not found", "error")
 		return redirect(url_for("admin.manage_promotions"))
-	# Update fields from form
-	updated = dict(promotions[idx])
 	# Allow changing ID with normalization; otherwise keep existing
 	if request.form.get("promotion_id"):
 		new_id = _normalize_promotion_id(request.form.get("promotion_id"))
 		if new_id:
-			updated["promotion_id"] = new_id
-	updated["long_title"] = (request.form.get("long_title") or "").strip()
-	updated["percent_off"] = (request.form.get("percent_off") or "").strip()
-	updated["start_date"] = (request.form.get("start_date") or "").strip()
-	updated["end_date"] = (request.form.get("end_date") or "").strip()
-	updated["display_start_date"] = (request.form.get("display_start_date") or "").strip()
-	updated["display_end_date"] = (request.form.get("display_end_date") or "").strip()
-	# Product IDs removed; promotions apply to all products
-	updated["promotion_url"] = (request.form.get("promotion_url") or "").strip()
-	# Offer type override (optional)
-	if request.form.get("offer_type"):
-		updated["offer_type"] = request.form.get("offer_type").strip()
-	if request.form.get("generic_redemption_code"):
-		updated["generic_redemption_code"] = request.form.get("generic_redemption_code").strip()
+			row.promotion_id = new_id
+	row.long_title = (request.form.get("long_title") or "").strip()
+	row.percent_off = (request.form.get("percent_off") or "").strip()
+	row.start_date = (request.form.get("start_date") or "").strip()
+	row.end_date = (request.form.get("end_date") or "").strip()
+	row.display_start_date = (request.form.get("display_start_date") or "").strip()
+	row.display_end_date = (request.form.get("display_end_date") or "").strip()
+	row.promotion_url = (request.form.get("promotion_url") or "").strip()
 	# Destinations (comma-separated)
 	dests_raw = (request.form.get("promotion_destination") or "").strip()
 	if dests_raw:
-		updated["promotion_destination"] = [s.strip() for s in dests_raw.split(",") if s.strip()]
+		row.promotion_destination = ",".join([s.strip() for s in dests_raw.split(",") if s.strip()])
 	# Redemption channel
 	if request.form.get("redemption_channel"):
-		updated["redemption_channel"] = request.form.get("redemption_channel").strip()
-	promotions[idx] = updated
-	_save_json_list(path, promotions)
+		row.redemption_channel = request.form.get("redemption_channel").strip()
+	db.session.commit()
 	flash("Promotion updated", "success")
 	return redirect(url_for("admin.manage_promotions"))
 
