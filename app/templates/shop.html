@@ -67,7 +67,7 @@
 					{% endfor %}
 				}'>
 					{% for c in color_set[:5] %}
-					<button type="button" class="w-6 h-6 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
+					<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
 					{% endfor %}
 				</div>
 				<form method="post" action="/cart/add" class="flex items-center gap-2">
