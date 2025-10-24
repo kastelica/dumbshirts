@@ -134,17 +134,12 @@
             box.prepend(baseTee);
           }
           overlay = document.createElement('div');
-          overlay.className = 'pointer-events-none absolute inset-0 opacity-0 transition-opacity z-10';
+          overlay.className = 'pointer-events-none absolute inset-0 opacity-0 transition-opacity z-30';
           overlay.style.backgroundColor = 'transparent';
           overlay.style.mixBlendMode = 'color';
           box.style.position = 'relative';
           box.style.isolation = 'isolate';
           box.appendChild(overlay);
-          // ensure product image stays above the overlay
-          box.querySelectorAll('img[data-frame]').forEach(function(im){
-            im.style.position = 'relative';
-            im.style.zIndex = 20;
-          });
           try{ console.log('[card-init] overlay added', { cardTitle: (card.querySelector('.font-semibold')||{}).textContent?.trim() }); }catch(e){}
         }
       }
