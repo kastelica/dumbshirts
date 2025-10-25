@@ -514,22 +514,33 @@ function lookupProductUid(size, color, neck){
 		});
 	}
 
-	// Simple gallery controls
-	document.querySelectorAll('.js-gallery').forEach(g => {
-		let idx = 0;
-		const frames = Array.from(g.querySelectorAll('img[data-frame]'));
-		// Ensure first render state
-		frames.forEach((im, j)=>{ if(j===0){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } });
-		const mock = g.querySelector('#mockup-wrap');
-		const show = (i)=>{
-			frames.forEach((im, j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } });
-			// Only show the live mockup overlay on frame 0; hide for other frames
-			if(mock){ if(i===0){ mock.classList.remove('hidden'); } else { mock.classList.add('hidden'); } }
-			idx = i;
-		};
-		g.querySelector('[data-action="prev"]')?.addEventListener('click', ()=>{ if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
-		g.querySelector('[data-action="next"]')?.addEventListener('click', ()=>{ if(!frames.length) return; show((idx+1)%frames.length); });
-	});
+    // Simple gallery controls (overlay as its own step)
+    document.querySelectorAll('.js-gallery').forEach(g => {
+        // idx = -1 => overlay (mockup), 0..N-1 => image frames
+        let idx = -1;
+        const frames = Array.from(g.querySelectorAll('img[data-frame]'));
+        const mock = g.querySelector('#mockup-wrap');
+        const render = () => {
+            frames.forEach(im => im.classList.add('hidden'));
+            if(mock){ mock.classList.add('hidden'); }
+            if(idx === -1){ if(mock){ mock.classList.remove('hidden'); } }
+            else if(frames[idx]){ frames[idx].classList.remove('hidden'); }
+        };
+        const prev = g.querySelector('[data-action="prev"]');
+        const next = g.querySelector('[data-action="next"]');
+        prev?.addEventListener('click', () => {
+            if(!frames.length) return;
+            if(idx === -1) idx = frames.length - 1; else idx -= 1;
+            render();
+        });
+        next?.addEventListener('click', () => {
+            if(!frames.length) return;
+            if(idx === frames.length - 1) idx = -1; else idx += 1;
+            render();
+        });
+        // Initial state: overlay only
+        render();
+    });
 })();
 </script>
 <script>
