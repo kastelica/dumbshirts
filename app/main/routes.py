@@ -283,7 +283,7 @@ def checkout():
 						"price": float(sale_price),
 						"currency": product.currency,
 						"quantity": qty,
-						"image": ((product.design.image_url or product.design.preview_url) if product.design else ""),
+						"image": ((product.design.image_url) if product.design else ""),
 						"product_uid": ((variant.gelato_sku) if variant else ""),
 						"color": ((str(color_raw).lower()) if color_raw else ((variant.color) if variant else "")),
 						"size": ((str(size_raw).upper()) if size_raw else ((variant.size) if variant else "")),
