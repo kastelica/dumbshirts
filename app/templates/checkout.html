@@ -18,11 +18,20 @@
 		{% for it in cart['items'] %}
 		<li class="flex items-center justify-between">
 			<span class="flex items-center gap-3">
-				<div class="w-10 h-10 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+				<div class="w-10 h-10 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
+					{% set color_key = (it.color or 'white')|lower %}
+					{% set base_map = {
+						'white':'/static/uploads/whitetshirt.png',
+						'black':'/static/uploads/blacktshirt.png',
+						'heather':'/static/uploads/heathertshirt.png',
+						'gray':'/static/uploads/heathertshirt.png',
+						'grey':'/static/uploads/heathertshirt.png',
+						'blue':'/static/uploads/bluetshirt.png',
+						'red':'/static/uploads/redtshirt.png'
+					} %}
+					<img src="{{ base_map.get(color_key, base_map.get('white')) }}" alt="{{ it.title }} base" class="absolute inset-0 w-full h-full object-contain" />
 					{% if it.image %}
-					<img src="{{ it.image }}" alt="{{ it.title }}" class="w-full h-full object-cover" />
-					{% else %}
-					<span class="text-gray-600 text-xs">No</span>
+					<img src="{{ it.image }}" alt="{{ it.title }} design" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
 					{% endif %}
 				</div>
 			<span>

@@ -53,7 +53,7 @@ def add_to_cart():
 		"price": float((product.price * Decimal("95")) / Decimal("100")),
 		"currency": product.currency,
 		"quantity": qty,
-		"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
+		"image": ((product.design.image_url or product.design.preview_url) if product.design else ""),
 		"product_uid": (variant.gelato_sku or ""),
 		"color": (color_from_form or (variant.color or "")),
 		"size": (size_from_form or (variant.size or "")),
