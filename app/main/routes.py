@@ -346,6 +346,13 @@ def contact_page():
             to = (current_app.config.get('ADMIN_EMAIL') or os.getenv('ADMIN_EMAIL') or 'email@dumbshirts.store').strip()
             html = render_simple_email('New contact message', [f'From: {name} <{email}>', '', msg])
             send_email_via_sendgrid(to, 'Contact form message', html)
+            # Send an acknowledgement to the user as well
+            if email:
+                ack_html = render_simple_email('We received your message', [
+                    'Thanks for reaching out to Dumbshirts.',
+                    'We will get back to you shortly.',
+                ])
+                send_email_via_sendgrid(email, 'Thanks — we received your message', ack_html)
         except Exception:
             pass
         return render_template('contact.html', sent=True)
