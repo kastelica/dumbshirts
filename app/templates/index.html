@@ -27,13 +27,8 @@
 <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
 	{% for p in products %}
 	<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors">
-		<div class="relative js-card-gallery" data-design="{{ (p.design.image_url or p.design.preview_url or '') }}">
-			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden relative">
-				{# Overlay mockup for color + design #}
-				<div class="absolute inset-0 pointer-events-none z-10">
-					<img class="w-full h-full object-contain mockup-card-base" alt="tee base" />
-					<img class="absolute mockup-card-design" alt="design overlay" style="width:35%; left:32%; top:26%;" />
-				</div>
+		<div class="relative js-card-gallery">
+			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
 				{% if p.design and p.design.preview_url %}
 					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" data-frame />
 					{% if p.design.extra_image1_url %}
@@ -57,12 +52,9 @@
 						<div class="text-gray-200 bg-gray-800 rounded px-2 py-1 inline-block mt-1">${{ '%.2f'|format((p.price * 95) / 100) }}</div>
 					</div>
 				</div>
-			{# lightweight color selector and add-to-cart; fallback to common colors if variants trimmed #}
+			{# lightweight color selector and add-to-cart #}
 			{% set colors = (p.variants | map(attribute='color') | list) if p.variants else [] %}
 			{% set color_set = colors | select | map('lower') | unique | list %}
-			{% if color_set|length < 2 %}
-				{% set color_set = ['white','black','heather','blue','red','grey'] %}
-			{% endif %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
 					{% for v in p.variants %}
@@ -70,8 +62,8 @@
 					{% endfor %}
 				}'>
 					{% for c in color_set[:5] %}
-				<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
-				{% endfor %}
+					<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
+					{% endfor %}
 				</div>
 				<form method="post" action="/cart/add" class="flex items-center gap-2">
 					<input type="hidden" name="product_id" value="{{ p.id }}">
@@ -115,22 +107,6 @@
       const inputVariant = card.querySelector('.js-variant-id');
       const gallery = card.querySelector('.js-card-gallery');
       const frame = gallery ? gallery.querySelector('img[data-frame]') : null;
-      const baseImg = gallery ? gallery.querySelector('.mockup-card-base') : null;
-      const designImg = gallery ? gallery.querySelector('.mockup-card-design') : null;
-      if(designImg){
-        const d = gallery.getAttribute('data-design') || '';
-        if(d){ designImg.src = d; }
-      }
-      // Optional: swap base tee image for preview when color selected
-      const BASES = {
-        black: '/static/uploads/blacktshirt.png',
-        white: '/static/uploads/whitetshirt.png',
-        blue:  '/static/uploads/bluetshirt.png',
-        red:   '/static/uploads/redtshirt.png',
-        heather:'/static/uploads/greytshirt.png',
-        gray:  '/static/uploads/greytshirt.png',
-        grey:  '/static/uploads/greytshirt.png'
-      };
       // overlay layer
       let overlay;
       if(gallery){
@@ -155,11 +131,6 @@
             else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.25; }
             overlay.style.backgroundColor = col;
             overlay.style.opacity = String(op);
-          }
-          // swap preview to color-specific base png when available (use overlay base layer)
-          if(baseImg && BASES[c]){
-            baseImg.onerror = function(){ this.onerror = null; this.src = BASES.white; };
-            baseImg.src = BASES[c];
           }
         });
       });

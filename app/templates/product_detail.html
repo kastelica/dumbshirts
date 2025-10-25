@@ -144,7 +144,7 @@
 					{% set valid_imgs = imgs | selectattr('src') | list %}
 					{% if valid_imgs %}
 						{% for img in valid_imgs %}
-							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" class="w-full h-full object-cover hidden" data-frame="{{ loop.index0 }}">
+							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
 						{% endfor %}
 					{% else %}
 						<div class="w-full h-full flex items-center justify-center text-gray-500">No image</div>
@@ -348,13 +348,11 @@ function lookupProductUid(size, color, neck){
 			base.onerror = function(){ this.onerror = null; this.src = MOCKUP_BASES.white; };
 			base.src = MOCKUP_BASES[color] || MOCKUP_BASES.white;
 		}
-		// Set design overlay only once on first run
-		if(design && !design.getAttribute('data-src-set')){
-			try{
-				const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
-				if(raw){ design.src = raw; design.setAttribute('data-src-set','1'); }
-			}catch(e){}
-		}
+		// Choose best design image from template context
+		try{
+			const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
+			if(design && raw){ design.src = raw; }
+		}catch(e){}
 	}
 
 	// Build color swatches (5 common colors)
