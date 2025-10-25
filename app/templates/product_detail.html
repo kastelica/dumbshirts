@@ -202,7 +202,8 @@
 					<div>
 						<label class="block text-sm mb-1">Color</label>
 						<div id="color-swatches" class="grid grid-cols-5 gap-2"></div>
-						<input type="hidden" id="color-select" value="white">
+				<input type="hidden" id="color-select" value="white">
+				<input type="hidden" name="color" id="color-field" value="white">
 					</div>
 					<div>
 						<label class="block text-sm mb-1">Neck</label>
@@ -350,6 +351,18 @@
 	// Fetch Gelato product attributes for the current variant's productUid if present
     const variantSelect = document.getElementById('variant-select');
 
+    // Variant color mappings for syncing selection -> variant id
+    const COLOR_TO_VARIANT_ID = {
+        {% for v in product.variants %}
+        {{ ((v.color or '')|lower)|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    const VARIANT_ID_TO_COLOR = {
+        {% for v in product.variants %}
+        {{ (v.id|string)|tojson }}: {{ ((v.color or '')|lower)|tojson }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
 // Hardcoded mapping from selection -> exact Gelato productUid (edit as needed)
 function lookupProductUid(size, color, neck){
     const MAP = {
@@ -406,6 +419,8 @@ function lookupProductUid(size, color, neck){
         if(qpColor){
             const colorHidden = document.getElementById('color-select');
             if(colorHidden){ colorHidden.value = qpColor; }
+            const colorField = document.getElementById('color-field');
+            if(colorField){ colorField.value = qpColor; }
         }
         if(qpVid){
             const variantSel = document.getElementById('variant-select');
@@ -434,6 +449,8 @@ function lookupProductUid(size, color, neck){
 			b.setAttribute('aria-label', c.key);
 			b.addEventListener('click', () => {
 				hidden.value = c.key;
+				const colorField = document.getElementById('color-field');
+				if(colorField){ colorField.value = c.key; }
 				Array.from(wrap.children).forEach(el => el.classList.remove('ring-2','ring-white'));
 				b.classList.add('ring-2','ring-white');
 				updateProductUid();
@@ -480,6 +497,17 @@ function lookupProductUid(size, color, neck){
 		const neck = document.getElementById('neck-select').value;
     const uid = lookupProductUid(size, color, neck);
 		document.getElementById('productUidInput').value = uid;
+		// If matching variant for color exists, sync hidden variant select so cart stores correct variant/color
+		try{
+			const map = COLOR_TO_VARIANT_ID || {};
+			const vid = map[color.toLowerCase()] || '';
+			if(vid && variantSelect){ variantSelect.value = String(vid); }
+		}catch(e){}
+		// sync hidden color field for POST
+		try{
+			const cf = document.getElementById('color-field');
+			if(cf){ cf.value = color; }
+		}catch(e){}
 		updateMockup();
 	}
 	['size-select','color-select','neck-select'].forEach(id=>{

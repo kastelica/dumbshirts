@@ -241,6 +241,7 @@ def checkout():
 		pid_raw = request.args.get("product_id") or request.args.get("item_id")
 		qty_raw = request.args.get("quantity") or request.args.get("qty") or "1"
 		vid_raw = request.args.get("variant_id") or request.args.get("vid")
+		color_raw = request.args.get("color")
 		if pid_raw:
 			pid = int(str(pid_raw))
 			qty = max(1, min(10, int(str(qty_raw))))
@@ -277,7 +278,7 @@ def checkout():
 						"quantity": qty,
 						"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
 						"product_uid": ((variant.gelato_sku) if variant else ""),
-						"color": ((variant.color) if variant else ""),
+						"color": ((str(color_raw).lower()) if color_raw else ((variant.color) if variant else "")),
 					})
 				session["cart"] = cart
 				session.modified = True

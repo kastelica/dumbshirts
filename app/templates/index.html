@@ -73,6 +73,7 @@
 				<form method="post" action="/cart/add" class="flex items-center gap-2">
 					<input type="hidden" name="product_id" value="{{ p.id }}">
 					<input type="hidden" name="variant_id" value="{{ p.variants[0].id if p.variants else '' }}" class="js-variant-id">
+					<input type="hidden" name="color" value="white" class="js-color-val">
 					<input type="hidden" name="quantity" value="1">
 					<button class="text-xs bg-white text-black px-3 py-1 rounded">Add</button>
 				</form>
@@ -117,6 +118,7 @@
       let colorMap = {};
       try { colorMap = JSON.parse(wrap.getAttribute('data-card-color-map')||'{}'); } catch(e){}
       const inputVariant = card.querySelector('.js-variant-id');
+      const inputColor = card.querySelector('.js-color-val');
       const gallery = card.querySelector('.js-card-gallery');
       const mock = gallery?.querySelector('.mockup-wrap');
       const base = gallery?.querySelector('.mockup-base');
@@ -140,6 +142,7 @@
           e.preventDefault();
           const c = (btn.getAttribute('data-color')||'').toLowerCase();
           if(colorMap[c] && inputVariant){ inputVariant.value = colorMap[c]; }
+          if(inputColor){ inputColor.value = c; }
           // show mockup overlay for this card
           if(mock && base){
             base.onerror = function(){ this.onerror=null; this.src = BASES.white; };
