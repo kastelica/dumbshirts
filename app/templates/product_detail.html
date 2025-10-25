@@ -159,7 +159,7 @@
 					{% set valid_imgs = imgs | selectattr('src') | list %}
 					{% if valid_imgs %}
 						{% for img in valid_imgs %}
-							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" loading="lazy" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
+							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame="{{ loop.index0 }}">
 						{% endfor %}
 					{% else %}
 						<div class="w-full h-full flex items-center justify-center text-gray-500">No image</div>
@@ -518,6 +518,8 @@ function lookupProductUid(size, color, neck){
 	document.querySelectorAll('.js-gallery').forEach(g => {
 		let idx = 0;
 		const frames = Array.from(g.querySelectorAll('img[data-frame]'));
+		// Ensure first render state
+		frames.forEach((im, j)=>{ if(j===0){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } });
 		const mock = g.querySelector('#mockup-wrap');
 		const show = (i)=>{
 			frames.forEach((im, j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } });
