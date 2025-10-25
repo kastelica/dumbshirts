@@ -30,12 +30,12 @@
 		<div class="relative js-card-gallery">
 			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
 				{% if p.design and p.design.preview_url %}
-					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" class="w-full h-full object-cover" data-frame />
+					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover" data-frame />
 					{% if p.design.extra_image1_url %}
-					<img src="{{ p.design.extra_image1_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame />
+					<img src="{{ p.design.extra_image1_url }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame />
 					{% endif %}
 					{% if p.design.extra_image2_url %}
-					<img src="{{ p.design.extra_image2_url }}" alt="{{ p.title }}" class="w-full h-full object-cover hidden" data-frame />
+					<img src="{{ p.design.extra_image2_url }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame />
 					{% endif %}
 				{% else %}
 					<span class="text-gray-600 text-sm">No image</span>
@@ -53,8 +53,8 @@
 					</div>
 				</div>
 			{# lightweight color selector and add-to-cart #}
-			{% set colors = (p.variants | map(attribute='color') | list) if p.variants else [] %}
-			{% set color_set = colors | select | map('lower') | unique | list %}
+			{# Show the same fixed swatch set as product_detail (visual preview); variant mapping used if available #}
+			{% set color_set = ['white','black','heather','red','blue'] %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
 					{% for v in p.variants %}

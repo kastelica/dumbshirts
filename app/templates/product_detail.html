@@ -145,16 +145,21 @@
 						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
 						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
 					</div>
-					{% set imgs = images or [] %}
+					{# Build optimized gallery: 1) design-only 2) brand image #}
+					{% set imgs = [] %}
+					{% set design_only = (product.design.image_url or product.design.preview_url) if product.design else '' %}
+					{% if design_only %}{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}{% endif %}
+					{% set brand_img = '/static/uploads/brand.png' %}
+					{% set _ = imgs.append({'src': brand_img, 'alt': 'Dumbshirts'}) %}
+					{# Extra images if present #}
 					{% if product.design and (product.design.extra_image1_url or product.design.extra_image2_url) %}
 						{% set _ = imgs.append({'src': product.design.extra_image1_url, 'alt': product.title}) if product.design.extra_image1_url %}
 						{% set _ = imgs.append({'src': product.design.extra_image2_url, 'alt': product.title}) if product.design.extra_image2_url %}
 					{% endif %}
-					{# Filter to only images with a non-empty src #}
 					{% set valid_imgs = imgs | selectattr('src') | list %}
 					{% if valid_imgs %}
 						{% for img in valid_imgs %}
-							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
+							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" loading="lazy" class="w-full h-full object-cover {% if not loop.first %}hidden{% endif %}" data-frame="{{ loop.index0 }}">
 						{% endfor %}
 					{% else %}
 						<div class="w-full h-full flex items-center justify-center text-gray-500">No image</div>
@@ -385,6 +390,11 @@ function lookupProductUid(size, color, neck){
 		try{
 			const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
 			if(design && raw){ design.src = raw; }
+		}catch(e){}
+		// Also set the first gallery frame to match the composited view lazily
+		try{
+			const frame0 = document.querySelector('img[data-frame="0"]');
+			if(frame0 && base){ frame0.loading = 'eager'; }
 		}catch(e){}
 	}
 
