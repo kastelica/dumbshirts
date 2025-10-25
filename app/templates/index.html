@@ -28,6 +28,11 @@
 	{% for p in products %}
 	<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors">
 		<div class="relative js-card-gallery">
+			{# Live mockup overlay for card: tee base + design overlay #}
+			<div class="absolute inset-0 z-10 pointer-events-none mockup-wrap">
+				<img alt="Tee base" class="w-full h-full object-contain mockup-base" />
+				<img alt="Design overlay" class="absolute object-contain mockup-design" style="width:35%; left:32%; top:26%;" />
+			</div>
 			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
 				{% if p.design and p.design.preview_url %}
 					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover" data-frame />
@@ -88,17 +93,24 @@
 (function(){
   document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.js-card-gallery').forEach(g => {
-      let idx = 0;
+      // idx = -1 => overlay (mockup), 0..N-1 => image frames
+      let idx = -1;
       const frames = Array.from(g.querySelectorAll('img[data-frame]'));
-      if(!frames.length) return;
-      // ensure the first frame is visible
-      frames.forEach((im, j)=>{ if(j===0){ im.classList.remove('hidden'); } });
-      const show = (i)=>{ frames.forEach((im,j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } }); idx=i; };
-      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
-      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; show((idx+1)%frames.length); });
+      const mock = g.querySelector('.mockup-wrap');
+      // initialize: hide all
+      const render = ()=>{
+        frames.forEach(im=>im.classList.add('hidden'));
+        if(mock) mock.classList.add('hidden');
+        if(idx === -1){ if(mock) mock.classList.remove('hidden'); }
+        else if(frames[idx]){ frames[idx].classList.remove('hidden'); }
+      };
+      // controls
+      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; if(idx===-1) idx=frames.length-1; else idx -= 1; render(); });
+      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; if(idx===frames.length-1) idx=-1; else idx += 1; render(); });
+      render();
     });
 
-    // Simple color swatch -> variant mapping and preview tint
+    // Simple color swatch -> variant mapping and mockup overlay like product_detail
     document.querySelectorAll('.group').forEach(function(card){
       const wrap = card.querySelector('.js-swatch-wrap');
       if(!wrap) return;
@@ -106,31 +118,37 @@
       try { colorMap = JSON.parse(wrap.getAttribute('data-card-color-map')||'{}'); } catch(e){}
       const inputVariant = card.querySelector('.js-variant-id');
       const gallery = card.querySelector('.js-card-gallery');
-      const frame = gallery ? gallery.querySelector('img[data-frame]') : null;
-      // overlay layer
-      let overlay;
-      if(gallery){
-        overlay = document.createElement('div');
-        overlay.className = 'pointer-events-none absolute inset-0 mix-blend-multiply opacity-0 transition-opacity';
-        overlay.style.backgroundColor = 'transparent';
-        gallery.style.position = 'relative';
-        gallery.appendChild(overlay);
-      }
+      const mock = gallery?.querySelector('.mockup-wrap');
+      const base = gallery?.querySelector('.mockup-base');
+      const design = gallery?.querySelector('.mockup-design');
+      const BASES = {
+        white: '/static/uploads/whitetshirt.png',
+        black: '/static/uploads/blacktshirt.png',
+        heather: '/static/uploads/heathertshirt.png',
+        red: '/static/uploads/redtshirt.png',
+        blue: '/static/uploads/bluetshirt.png'
+      };
+      // initialize design overlay if available from first frame
+      try{
+        const firstDesign = gallery?.querySelector('img[data-frame]')?.getAttribute('src') || '';
+        if(design && firstDesign){ design.src = firstDesign; }
+      }catch(e){}
+      // default tee base
+      if(base){ base.onerror = function(){ this.onerror=null; this.src = BASES.white; }; base.src = BASES.white; }
       wrap.querySelectorAll('[data-color]').forEach(function(btn){
         btn.addEventListener('click', function(e){
           e.preventDefault();
           const c = (btn.getAttribute('data-color')||'').toLowerCase();
           if(colorMap[c] && inputVariant){ inputVariant.value = colorMap[c]; }
-          // tint overlay for black/white/red/blue/gray
-          if(overlay){
-            let col = 'transparent', op = 0;
-            if(c==='black'){ col = '#000'; op = 0.45; }
-            else if(c==='white'){ col = '#fff'; op = 0; }
-            else if(c==='red'){ col = '#ef4444'; op = 0.25; }
-            else if(c==='blue'){ col = '#3b82f6'; op = 0.25; }
-            else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.25; }
-            overlay.style.backgroundColor = col;
-            overlay.style.opacity = String(op);
+          // show mockup overlay for this card
+          if(mock && base){
+            base.onerror = function(){ this.onerror=null; this.src = BASES.white; };
+            base.src = BASES[c] || BASES.white;
+            mock.classList.remove('hidden');
+          }
+          // hide other frames so overlay is the active view (like product_detail)
+          if(gallery){
+            gallery.querySelectorAll('img[data-frame]')?.forEach(im=>im.classList.add('hidden'));
           }
         });
       });
