@@ -146,7 +146,7 @@ function gtag_report_conversion(url){
     shipSel.innerHTML = '';
     const staticMethods = [
         { uid: 'free_3_6', name: 'Free shipping', price: 0, currency: '{{ currency }}', minDays: 3, maxDays: 6 },
-        { uid: 'express_2_3', name: 'Express (2-3 day)', price: 15.00, currency: '{{ currency }}', minDays: 2, maxDays: 3 },
+        { uid: 'express_2_3', name: 'Express', price: 15.00, currency: '{{ currency }}', minDays: 2, maxDays: 3 },
     ];
     staticMethods.forEach(m => {
         const opt = document.createElement('option');
@@ -271,7 +271,7 @@ function gtag_report_conversion(url){
 		shipSel.innerHTML = '';
 		const fallback = [
 			{ uid: 'free_3_5', name: 'Free shipping (3-5 days)', price: '0.00 USD' },
-			{ uid: 'express_2d', name: 'Express (2 days)', price: '19.99 USD' },
+			{ uid: 'express_2d', name: 'Express', price: '19.99 USD' },
 		];
 		fallback.forEach(m => {
 			const opt = document.createElement('option');
