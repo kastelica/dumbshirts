@@ -100,7 +100,8 @@ def apply_coupon():
 		# Remove coupon if invalid/empty
 		cart.pop("coupon", None)
 	_save_cart(cart)
-	return redirect(url_for("cart.view_cart"))
+	# Return user to the page they came from (checkout or cart)
+	return redirect(request.referrer or url_for("cart.view_cart"))
 
 
 @cart_bp.get("/cart")
