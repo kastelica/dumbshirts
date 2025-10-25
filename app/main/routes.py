@@ -2,6 +2,7 @@ from flask import render_template, current_app, request, abort, session, Respons
 import os
 import json
 import hashlib
+import requests
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
@@ -342,9 +343,10 @@ def contact_page():
         name = (request.form.get('name') or '').strip()
         email = (request.form.get('email') or '').strip()
         msg = (request.form.get('message') or '').strip()
+        subject = (request.form.get('subject') or '').strip()
         try:
             to = (current_app.config.get('ADMIN_EMAIL') or os.getenv('ADMIN_EMAIL') or 'email@dumbshirts.store').strip()
-            html = render_simple_email('New contact message', [f'From: {name} <{email}>', '', msg])
+            html = render_simple_email('New contact message', [f'From: {name} <{email}>', f'Subject: {subject}', '', msg])
             send_email_via_sendgrid(to, 'Contact form message', html)
             # Send an acknowledgement to the user as well
             if email:
@@ -353,6 +355,20 @@ def contact_page():
                     'We will get back to you shortly.',
                 ])
                 send_email_via_sendgrid(email, 'Thanks — we received your message', ack_html)
+            # Forward to Formspree if configured
+            try:
+                fs = (current_app.config.get('FORMSPREE_ENDPOINT') or os.getenv('FORMSPREE_ENDPOINT') or '').strip()
+                if fs:
+                    payload = {
+                        'name': name,
+                        'email': email,
+                        'subject': subject,
+                        'message': msg,
+                    }
+                    headers = {'Accept': 'application/json'}
+                    requests.post(fs, data=payload, headers=headers, timeout=8)
+            except Exception:
+                pass
         except Exception:
             pass
         return render_template('contact.html', sent=True)
