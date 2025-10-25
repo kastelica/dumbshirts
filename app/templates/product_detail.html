@@ -145,12 +145,12 @@
 						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
 						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
 					</div>
-					{# Build optimized gallery: 1) design-only 2) brand image #}
+					{# Build optimized gallery: 1) brand image 2) design-only #}
 					{% set imgs = [] %}
-					{% set design_only = (product.design.image_url or product.design.preview_url) if product.design else '' %}
-					{% if design_only %}{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}{% endif %}
 					{% set brand_img = '/static/uploads/brand.png' %}
 					{% set _ = imgs.append({'src': brand_img, 'alt': 'Dumbshirts'}) %}
+					{% set design_only = (product.design.image_url or product.design.preview_url) if product.design else '' %}
+					{% if design_only %}{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}{% endif %}
 					{# Extra images if present #}
 					{% if product.design and (product.design.extra_image1_url or product.design.extra_image2_url) %}
 						{% set _ = imgs.append({'src': product.design.extra_image1_url, 'alt': product.title}) if product.design.extra_image1_url %}
