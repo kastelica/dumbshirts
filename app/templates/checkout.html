@@ -26,7 +26,7 @@
 		{% endfor %}
 	</ul>
 	<form method="post" action="/cart/apply-coupon" class="mt-3 flex items-center gap-2">
-		<input name="coupon" placeholder="Coupon code" value="{{ (cart.get('coupon') or {}).get('code','') }}" class="flex-1 bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+		<input name="coupon" placeholder="Coupon code" value="{{ (cart.get('coupon') or {}).get('code','') }}" class="w-full md:w-64 bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" />
 		<button class="bg-white text-black px-3 py-2 rounded">Apply</button>
 	</form>
 	<div class="mt-3 space-y-1 text-sm">

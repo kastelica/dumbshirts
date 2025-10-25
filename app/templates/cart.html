@@ -33,19 +33,25 @@
 		</div>
 	</div>
 	{% endfor %}
-    <div class="mt-2 space-y-2">
-        <form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
-            <input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="flex-1 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
-            <button class="bg-white text-black px-3 py-2 rounded">Apply</button>
-        </form>
-        <div class="flex items-center justify-between">
-            <div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
-            <div class="space-x-2">
+	<div class="mt-2 space-y-2">
+		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+			<input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="w-full md:w-64 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+			<button class="bg-white text-black px-3 py-2 rounded">Apply</button>
+		</form>
+		<div class="space-y-1 text-sm">
+			<div class="flex items-center justify-between"><span>Subtotal</span><span>${{ '%.2f'|format(subtotal) }} {{ currency }}</span></div>
+			{% if cart.get('coupon') %}
+			<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format(discount) }} {{ currency }}</span></div>
+			{% endif %}
+		</div>
+		<div class="flex items-center justify-between">
+			<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
+			<div class="space-x-2">
 			<form method="post" action="/cart/clear" class="inline">
 				<button class="underline text-gray-300">Clear</button>
 			</form>
 			<a href="/checkout" class="bg-white text-black px-4 py-2 rounded">Checkout</a>
-            </div>
+			</div>
         </div>
 	</div>
 </div>
@@ -94,19 +100,25 @@
 			{% endfor %}
 		</tbody>
 	</table>
-    <div class="mt-4 space-y-2">
-        <form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
-            <input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="flex-1 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
-            <button class="bg-white text-black px-3 py-2 rounded">Apply</button>
-        </form>
-        <div class="flex items-center justify-between">
-            <div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
-            <div class="space-x-2">
+	<div class="mt-4 space-y-2">
+		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+			<input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="w-full md:w-64 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+			<button class="bg-white text-black px-3 py-2 rounded">Apply</button>
+		</form>
+		<div class="space-y-1 text-sm">
+			<div class="flex items-center justify-between"><span>Subtotal</span><span>${{ '%.2f'|format(subtotal) }} {{ currency }}</span></div>
+			{% if cart.get('coupon') %}
+			<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format(discount) }} {{ currency }}</span></div>
+			{% endif %}
+		</div>
+		<div class="flex items-center justify-between">
+			<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
+			<div class="space-x-2">
 			<form method="post" action="/cart/clear" class="inline">
 				<button class="underline text-gray-300">Clear cart</button>
 			</form>
 			<a href="/checkout" class="bg-white text-black px-4 py-2 rounded">Checkout</a>
-            </div>
+			</div>
         </div>
 	</div>
 </div>
