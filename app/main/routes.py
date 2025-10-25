@@ -263,6 +263,11 @@ def contact_page():
 	return render_template("contact.html")
 
 
+@main_bp.get("/size-guide")
+def size_guide_page():
+    return render_template("size_guide.html")
+
+
 @main_bp.get("/privacy")
 def privacy_page():
 	return render_template("privacy.html")
@@ -329,6 +334,7 @@ def sitemap_xml():
 		("/loyalty", iso_today, "yearly", "0.3"),
 		("/reviews", iso_today, "weekly", "0.5"),
 		("/referrals", iso_today, "yearly", "0.4"),
+		("/size-guide", iso_today, "yearly", "0.3"),
 	]
 	for path, lm, cf, pr in static_pages:
 		add_url(urljoin(base, path), lm, cf, pr)

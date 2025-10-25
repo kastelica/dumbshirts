@@ -204,6 +204,7 @@
 				<div class="flex items-center space-x-3">
 					<button type="submit" class="bg-white text-black px-5 py-2 rounded">Add to cart</button>
 					<button type="submit" id="buy-now-btn" class="bg-gray-800 text-white px-5 py-2 rounded">Buy now</button>
+					<a href="#" id="size-guide-open" class="text-sm underline text-gray-300">Size guide</a>
 				</div>
 			</form>
 
@@ -429,6 +430,47 @@ function lookupProductUid(size, color, neck){
 		if(el){ el.addEventListener('change', updateProductUid); }
 	});
 	updateProductUid();
+	// Size guide modal
+	function byId(id){ return document.getElementById(id); }
+	const sgBtn = byId('size-guide-open');
+	if(sgBtn){
+		sgBtn.addEventListener('click', function(e){ e.preventDefault(); openSizeGuide(); });
+	}
+	function openSizeGuide(){
+		let modal = byId('size-guide-modal');
+		if(!modal){
+			modal = document.createElement('div');
+			modal.id = 'size-guide-modal';
+			modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+			modal.innerHTML = `
+				<div class="absolute inset-0 bg-black/70" data-close></div>
+				<div class="relative bg-gray-900 border border-gray-800 rounded w-11/12 md:w-[600px] max-h-[80vh] overflow-auto">
+					<div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+						<div class="font-semibold">Size Guide</div>
+						<button class="bg-gray-800 text-white px-3 py-1 rounded" data-close>Close</button>
+					</div>
+					<div class="p-4 text-sm text-gray-300">
+						<div class="overflow-x-auto">
+							<table class="w-full text-sm">
+								<thead class="text-left text-gray-400"><tr><th class="px-2 py-2">Size</th><th class="px-2 py-2">Chest (in)</th><th class="px-2 py-2">Length (in)</th></tr></thead>
+								<tbody>
+									<tr class="border-t border-gray-800"><td class="px-2 py-2">S</td><td class="px-2 py-2">34–36</td><td class="px-2 py-2">28</td></tr>
+									<tr class="border-t border-gray-800"><td class="px-2 py-2">M</td><td class="px-2 py-2">38–40</td><td class="px-2 py-2">29</td></tr>
+									<tr class="border-t border-gray-800"><td class="px-2 py-2">L</td><td class="px-2 py-2">42–44</td><td class="px-2 py-2">30</td></tr>
+									<tr class="border-t border-gray-800"><td class="px-2 py-2">XL</td><td class="px-2 py-2">46–48</td><td class="px-2 py-2">31</td></tr>
+								</tbody>
+							</table>
+						</div>
+						<div class="text-xs text-gray-500 mt-3">Tip: Measure a favorite shirt and compare.</div>
+					</div>
+				</div>`;
+			document.body.appendChild(modal);
+		}
+		modal.classList.remove('hidden');
+		modal.querySelectorAll('[data-close]').forEach(el=>{
+			el.addEventListener('click', ()=>{ modal.classList.add('hidden'); });
+		});
+	}
 
 	// Simple gallery controls
 	document.querySelectorAll('.js-gallery').forEach(g => {
