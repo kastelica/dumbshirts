@@ -107,7 +107,8 @@ def reviews_page():
 	"""Public reviews page rendered from stored JSON reviews."""
 	reviews = []
 	try:
-		path = os.path.join(os.path.dirname(__file__), "data", "reviews.json")
+		# Use app/data/reviews.json (two levels up from this file's dir)
+		path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "reviews.json")
 		with open(path, "r", encoding="utf-8") as f:
 			reviews = json.load(f) or []
 	except Exception:
