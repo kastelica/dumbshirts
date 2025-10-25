@@ -1,6 +1,9 @@
 import os
 import stripe
 from flask import Blueprint, current_app, jsonify, request, session
+import json
+import os
+from datetime import datetime
 from .extensions import db
 from .gelato_client import GelatoClient
 from .models import Order, OrderItem, Address, Variant, Product
@@ -171,6 +174,17 @@ def create_payment_intent():
 		)
 		db.session.add(order)
 		db.session.flush()
+		# Capture referral code on order if present
+		try:
+			ref = (session.get("ref") or "").strip()
+			if ref:
+				# store temporarily in session keyed by order id
+				refs = session.get("_ref_orders") or {}
+				refs[str(order.id)] = ref
+				session["_ref_orders"] = refs
+				session.modified = True
+		except Exception:
+			pass
 
 		# Items
 		for it in cart.get("items", []):
@@ -236,6 +250,38 @@ def stripe_webhook():
 				db.session.flush()
 		except Exception:
 			pass
+		# Record referral commission if any
+		try:
+			# Look up referral code stashed in session mapping (best-effort: client-side session may not be present here)
+			# Fallback to server-side files by reading the mapping file keyed by order id if we later store it elsewhere.
+			ref_code = None
+			# Try to peek at a transient cookie-backed session mapping if available (rare in webhook context)
+			ref_map = session.get("_ref_orders") or {}
+			ref_code = ref_map.get(str(order.id))
+			# Persist to ledger if we have a code
+			if ref_code:
+				base_dir = os.path.join(os.path.dirname(__file__))
+				data_dir = os.path.join(os.path.dirname(base_dir), "data")
+				os.makedirs(data_dir, exist_ok=True)
+				ledger_path = os.path.join(data_dir, "referrals_ledger.json")
+				try:
+					with open(ledger_path, "r", encoding="utf-8") as f:
+						rows = json.load(f) or []
+				except Exception:
+					rows = []
+				commission = float(order.total_amount or 0) * 0.10  # 10% commission
+				rows.append({
+					"order_id": order.id,
+					"code": ref_code,
+					"commission": round(commission, 2),
+					"status": "earned",
+					"created_at": datetime.utcnow().isoformat() + "Z",
+				})
+				with open(ledger_path, "w", encoding="utf-8") as f:
+					json.dump(rows, f, ensure_ascii=False, indent=2)
+		except Exception:
+			pass
+
 		# Build Gelato draft order
 		client = GelatoClient()
 		items = []

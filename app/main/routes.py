@@ -1,6 +1,7 @@
 from flask import render_template, current_app, request, abort, session, Response, jsonify
 import os
 import json
+import hashlib
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
@@ -15,6 +16,18 @@ from datetime import timedelta
 def index():
 	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(9).all()
 	return render_template("index.html", products=products)
+
+
+@main_bp.before_app_request
+def capture_referral():
+	"""Capture referral code from ?ref=CODE and stash in session."""
+	try:
+		code = (request.args.get("ref") or "").strip()
+		if code:
+			session["ref"] = code[:50]
+			session.modified = True
+	except Exception:
+		pass
 
 
 @main_bp.get("/shop")
@@ -121,6 +134,69 @@ def reviews_page():
 	# Map product ids to Product rows for linking
 	products = {p.id: p for p in Product.query.filter_by(status="active").all()}
 	return render_template("reviews.html", reviews=reviews, products=products)
+
+
+@main_bp.get("/referrals")
+def referrals_page():
+	"""Simple referrals page to generate a code and show a share link/summary."""
+	# Load existing codes
+	base_dir = os.path.dirname(os.path.dirname(__file__))
+	referrers_path = os.path.join(base_dir, "data", "referrers.json")
+	ledger_path = os.path.join(base_dir, "data", "referrals_ledger.json")
+	referrers = []
+	ledger = []
+	try:
+		with open(referrers_path, "r", encoding="utf-8") as f:
+			referrers = json.load(f) or []
+	except Exception:
+		referrers = []
+	try:
+		with open(ledger_path, "r", encoding="utf-8") as f:
+			ledger = json.load(f) or []
+	except Exception:
+		ledger = []
+	# If session has a code, show its summary
+	my_code = session.get("ref") or ""
+	my_rows = [r for r in ledger if (r.get("code") or "") == my_code] if my_code else []
+	return render_template("referrals.html", referrers=referrers, my_code=my_code, my_rows=my_rows)
+
+
+@main_bp.post("/referrals/create")
+def referrals_create():
+	"""Create or return a referral code for a submitted email."""
+	email = (request.form.get("email") or "").strip().lower()
+	if not email:
+		return render_template("referrals.html", error="Please enter an email to generate your referral code.", referrers=[], my_code="", my_rows=[])
+	# Load current list
+	base_dir = os.path.dirname(os.path.dirname(__file__))
+	referrers_path = os.path.join(base_dir, "data", "referrers.json")
+	try:
+		with open(referrers_path, "r", encoding="utf-8") as f:
+			rows = json.load(f) or []
+	except Exception:
+		rows = []
+	# Check if email already has a code
+	for r in rows:
+		if (r.get("email") or "").lower() == email:
+			code = r.get("code") or ""
+			session["ref"] = code
+			session.modified = True
+			return render_template("referrals.html", created=True, code=code, referrers=rows, my_code=code, my_rows=[])
+	# Generate code from email hash
+	base = email.split("@")[0].replace(" ", "-")[:12]
+	code = f"{base}-{hashlib.md5(email.encode('utf-8')).hexdigest()[:6]}"
+	rows.append({"email": email, "code": code})
+	# Save
+	try:
+		os.makedirs(os.path.join(base_dir, "data"), exist_ok=True)
+		with open(referrers_path, "w", encoding="utf-8") as f:
+			json.dump(rows, f, ensure_ascii=False, indent=2)
+	except Exception:
+		pass
+	# Stash in session
+	session["ref"] = code
+	session.modified = True
+	return render_template("referrals.html", created=True, code=code, referrers=rows, my_code=code, my_rows=[])
 
 
 @main_bp.get("/checkout")
@@ -252,6 +328,7 @@ def sitemap_xml():
 		("/subscribe/monthly-shirt", iso_today, "monthly", "0.6"),
 		("/loyalty", iso_today, "yearly", "0.3"),
 		("/reviews", iso_today, "weekly", "0.5"),
+		("/referrals", iso_today, "yearly", "0.4"),
 	]
 	for path, lm, cf, pr in static_pages:
 		add_url(urljoin(base, path), lm, cf, pr)
