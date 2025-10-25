@@ -34,7 +34,7 @@
 	</div>
 	{% endfor %}
 	<div class="mt-2 space-y-2">
-		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2 md:inline-flex md:w-auto md:ml-auto">
 			<input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="w-full md:w-64 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
 			<button class="bg-white text-black px-3 py-2 rounded">Apply</button>
 		</form>
@@ -101,7 +101,7 @@
 		</tbody>
 	</table>
 	<div class="mt-4 space-y-2">
-		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2 md:inline-flex md:w-auto md:ml-auto">
 			<input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="w-full md:w-64 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
 			<button class="bg-white text-black px-3 py-2 rounded">Apply</button>
 		</form>
