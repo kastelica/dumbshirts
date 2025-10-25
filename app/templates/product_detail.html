@@ -518,8 +518,11 @@ function lookupProductUid(size, color, neck){
 	document.querySelectorAll('.js-gallery').forEach(g => {
 		let idx = 0;
 		const frames = Array.from(g.querySelectorAll('img[data-frame]'));
+		const mock = g.querySelector('#mockup-wrap');
 		const show = (i)=>{
 			frames.forEach((im, j)=>{ if(j===i){ im.classList.remove('hidden'); } else { im.classList.add('hidden'); } });
+			// Only show the live mockup overlay on frame 0; hide for other frames
+			if(mock){ if(i===0){ mock.classList.remove('hidden'); } else { mock.classList.add('hidden'); } }
 			idx = i;
 		};
 		g.querySelector('[data-action="prev"]')?.addEventListener('click', ()=>{ if(!frames.length) return; show((idx-1+frames.length)%frames.length); });
