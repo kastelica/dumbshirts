@@ -107,6 +107,16 @@
       const inputVariant = card.querySelector('.js-variant-id');
       const gallery = card.querySelector('.js-card-gallery');
       const frame = gallery ? gallery.querySelector('img[data-frame]') : null;
+      // Optional: swap base tee image for preview when color selected
+      const BASES = {
+        black: '/static/uploads/blacktshirt.png',
+        white: '/static/uploads/whitetshirt.png',
+        blue:  '/static/uploads/bluetshirt.png',
+        red:   '/static/uploads/redtshirt.png',
+        heather:'/static/uploads/heathertshirt.png',
+        gray:  '/static/uploads/heathertshirt.png',
+        grey:  '/static/uploads/heathertshirt.png'
+      };
       // overlay layer
       let overlay;
       if(gallery){
@@ -131,6 +141,11 @@
             else if(c==='heather' || c==='grey' || c==='gray'){ col = '#9ca3af'; op = 0.25; }
             overlay.style.backgroundColor = col;
             overlay.style.opacity = String(op);
+          }
+          // swap preview to color-specific base png when available
+          if(frame && BASES[c]){
+            frame.onerror = function(){ this.onerror = null; };
+            frame.src = BASES[c];
           }
         });
       });
