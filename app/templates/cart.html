@@ -17,6 +17,9 @@
 			</div>
 			<div class="flex-1">
 				<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium underline">{{ it.title }}</a>
+				{% if it.color %}
+				<div class="text-xs text-gray-400 mt-0.5">Color: {{ it.color }}</div>
+				{% endif %}
 				<div class="text-gray-300 mt-1"><span class="line-through text-gray-500">${{ '%.2f'|format(it.orig_price or it.price) }}</span> <span class="ml-1">${{ '%.2f'|format(it.price) }} {{ it.currency }}</span></div>
 				<div class="mt-2 flex items-center gap-2">
 					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
@@ -81,7 +84,12 @@
 							<span class="text-gray-600 text-xs">No image</span>
 							{% endif %}
 						</div>
-						<span>{{ it.title }}</span>
+						<span>
+							{{ it.title }}
+							{% if it.color %}
+							<div class="text-xs text-gray-400">Color: {{ it.color }}</div>
+							{% endif %}
+						</span>
 					</a>
 				</td>
 				<td class="py-2">

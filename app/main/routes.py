@@ -277,6 +277,7 @@ def checkout():
 						"quantity": qty,
 						"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
 						"product_uid": ((variant.gelato_sku) if variant else ""),
+						"color": ((variant.color) if variant else ""),
 					})
 				session["cart"] = cart
 				session.modified = True

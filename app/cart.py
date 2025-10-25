@@ -48,6 +48,7 @@ def add_to_cart():
 		"quantity": qty,
 		"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
 		"product_uid": (variant.gelato_sku or ""),
+		"color": (variant.color or ""),
 	})
 	_save_cart(cart)
 	return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
