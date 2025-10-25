@@ -249,6 +249,38 @@
 	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white" aria-label="Next product">›</a>
 	{% endif %}
 </div>
+<div class="mt-12" id="reviews">
+	<h2 class="text-2xl font-semibold">Customer Reviews</h2>
+	<div class="mt-4 space-y-4">
+		<div class="bg-gray-900 border border-gray-800 rounded p-4">
+			<div class="flex items-center justify-between">
+				<div class="text-yellow-400" aria-label="5 out of 5 stars">★★★★★</div>
+				<div class="text-xs text-gray-500">Verified purchase</div>
+			</div>
+			<p class="mt-2 text-gray-300">Great quality shirt and super comfy. Printing looks sharp.</p>
+			<div class="mt-2 text-sm text-gray-400">— Alex</div>
+		</div>
+		<div class="bg-gray-900 border border-gray-800 rounded p-4">
+			<div class="flex items-center justify-between">
+				<div class="text-yellow-400" aria-label="5 out of 5 stars">★★★★★</div>
+				<div class="text-xs text-gray-500">Verified purchase</div>
+			</div>
+			<p class="mt-2 text-gray-300">Arrived fast and fits perfectly. Will order again.</p>
+			<div class="mt-2 text-sm text-gray-400">— Sam</div>
+		</div>
+		<div class="bg-gray-900 border border-gray-800 rounded p-4">
+			<div class="flex items-center justify-between">
+				<div class="text-yellow-400" aria-label="4 out of 5 stars">★★★★☆</div>
+				<div class="text-xs text-gray-500">Verified purchase</div>
+			</div>
+			<p class="mt-2 text-gray-300">Nice fabric, color matches the photos.</p>
+			<div class="mt-2 text-sm text-gray-400">— Jordan</div>
+		</div>
+	</div>
+	<div class="mt-4">
+		<a href="/reviews" class="text-sm text-blue-400 hover:underline">Read all reviews</a>
+	</div>
+</div>
 <script>
 (function(){
 	const prev = document.getElementById('edge-prev');
