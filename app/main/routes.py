@@ -264,9 +264,15 @@ def checkout():
 				found = False
 				for it in cart.get("items", []):
 					if variant and it.get("variant_id") == variant.id:
-						it["quantity"] += qty
-						found = True
-						break
+						# only merge if same color/size as well
+						it_color = (it.get("color") or "").strip().lower()
+						it_size = (it.get("size") or "").strip().upper()
+						new_color = (str(color_raw or (variant.color or "")).strip().lower())
+						new_size = (str(size_raw or (variant.size or "")).strip().upper())
+						if it_color == new_color and it_size == new_size:
+							it["quantity"] += qty
+							found = True
+							break
 				if not found:
 					cart.setdefault("items", []).append({
 						"product_id": product.id,

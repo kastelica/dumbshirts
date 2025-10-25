@@ -32,12 +32,17 @@ def add_to_cart():
 		return redirect(request.referrer or url_for("main.index"))
 	product: Product = variant.product
 	cart = _get_cart()
-	# merge if same variant exists
+	# merge only if same variant AND same color/size
+	desired_color = (color_from_form or (variant.color or "")).strip().lower()
+	desired_size = (size_from_form or (variant.size or "")).strip().lower()
 	for it in cart["items"]:
-		if it["variant_id"] == variant.id:
-			it["quantity"] += qty
-			_save_cart(cart)
-			return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
+		if it.get("variant_id") == variant.id:
+			it_color = (it.get("color") or "").strip().lower()
+			it_size = (it.get("size") or "").strip().lower()
+			if it_color == desired_color and it_size == desired_size:
+				it["quantity"] += qty
+				_save_cart(cart)
+				return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
 	cart["items"].append({
 		"product_id": product.id,
 		"variant_id": variant.id,
