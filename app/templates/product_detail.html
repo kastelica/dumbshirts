@@ -129,7 +129,12 @@
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 		<div>
 			<div class="relative js-gallery">
-				<div class="aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
+				<div class="relative aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					{# Live mockup container: base tee by color + design overlay #}
+					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none">
+						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
+						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
+					</div>
 					{% set imgs = images or [] %}
 					{% if product.design and (product.design.extra_image1_url or product.design.extra_image2_url) %}
 						{% set _ = imgs.append({'src': product.design.extra_image1_url, 'alt': product.title}) if product.design.extra_image1_url %}
@@ -394,12 +399,34 @@ function lookupProductUid(size, color, neck){
 		const neck = document.getElementById('neck-select').value;
     const uid = lookupProductUid(size, color, neck);
 		document.getElementById('productUidInput').value = uid;
+		updateMockup();
 	}
 	['size-select','color-select','neck-select'].forEach(id=>{
 		const el = document.getElementById(id);
 		if(el){ el.addEventListener('change', updateProductUid); }
 	});
 	updateProductUid();
+
+	// Mockup logic: swap base tee by color and overlay design
+	const MOCKUP_BASES = {
+		white: '/static/uploads/whitetshirt.png',
+		black: '/static/uploads/blacktshirt.png',
+		heather: '/static/uploads/heathertshirt.png',
+		red: '/static/uploads/redtshirt.png',
+		blue: '/static/uploads/bluetshirt.png'
+	};
+	function updateMockup(){
+		const color = (document.getElementById('color-select')?.value||'white').toLowerCase();
+		const base = document.getElementById('mockup-base');
+		const design = document.getElementById('mockup-design');
+		if(base){ base.src = MOCKUP_BASES[color] || MOCKUP_BASES.white; }
+		// Choose best design image from template context
+		try{
+			const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
+			if(design && raw){ design.src = raw; }
+		}catch(e){}
+	}
+	updateMockup();
 
 	// Simple gallery controls
 	document.querySelectorAll('.js-gallery').forEach(g => {
