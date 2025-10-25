@@ -31,7 +31,7 @@
 			{# Live mockup overlay for card: tee base + design overlay #}
 			<div class="absolute inset-0 z-10 pointer-events-none mockup-wrap">
 				<img alt="Tee base" class="w-full h-full object-contain mockup-base" />
-				<img alt="Design overlay" class="absolute object-contain mockup-design" style="width:35%; left:32%; top:26%;" />
+				<img alt="Design overlay" class="absolute object-contain mockup-design" style="width:35%; left:32%; top:26%;" src="{{ (p.design.image_url or p.design.preview_url) if p.design else '' }}" data-design-src="{{ (p.design.image_url or p.design.preview_url) if p.design else '' }}" />
 			</div>
 			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
 				{% if p.design and p.design.preview_url %}
@@ -128,10 +128,10 @@
         red: '/static/uploads/redtshirt.png',
         blue: '/static/uploads/bluetshirt.png'
       };
-      // initialize design overlay if available from first frame
+      // initialize design overlay from explicit design-only src placed on element
       try{
-        const firstDesign = gallery?.querySelector('img[data-frame]')?.getAttribute('src') || '';
-        if(design && firstDesign){ design.src = firstDesign; }
+        const explicit = design?.getAttribute('data-design-src') || design?.getAttribute('src') || '';
+        if(design && explicit){ design.src = explicit; }
       }catch(e){}
       // default tee base
       if(base){ base.onerror = function(){ this.onerror=null; this.src = BASES.white; }; base.src = BASES.white; }
