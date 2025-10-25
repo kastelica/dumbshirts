@@ -323,6 +323,14 @@ def loyalty_signup():
 			send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
 		except Exception:
 			pass
+		# Notify admin of new signup (best-effort)
+		try:
+			to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+			if to_admin:
+				admin_html = render_simple_email("New loyalty signup", [f"Email: {email}"])
+				send_email_via_sendgrid(to_admin, "New loyalty signup", admin_html)
+		except Exception:
+			pass
 	return render_template("loyalty.html", email=email, points=0, tier="member", perks=[]) 
 
 
