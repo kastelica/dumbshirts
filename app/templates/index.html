@@ -137,6 +137,15 @@
       const inputColor = card.querySelector('.js-color-val');
       const inputSize = card.querySelector('.js-size-val');
       const sizeSelect = card.querySelector('.js-size-select');
+      // Prevent navigation when interacting with size dropdown inside anchor card
+      try{
+        card.addEventListener('click', function(e){
+          const t = e.target;
+          if(t && (t.closest && t.closest('.js-size-select'))){
+            e.preventDefault();
+          }
+        }, true);
+      }catch(_e){}
       const gallery = card.querySelector('.js-card-gallery');
       const mock = gallery?.querySelector('.mockup-wrap');
       const base = gallery?.querySelector('.mockup-base');
