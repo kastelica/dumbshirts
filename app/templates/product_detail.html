@@ -362,6 +362,11 @@
         {{ (v.id|string)|tojson }}: {{ ((v.color or '')|lower)|tojson }}{% if not loop.last %},{% endif %}
         {% endfor %}
     };
+    const SIZE_COLOR_TO_VARIANT_ID = {
+        {% for v in product.variants %}
+        {{ (((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower))|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
 
 // Hardcoded mapping from selection -> exact Gelato productUid (edit as needed)
 function lookupProductUid(size, color, neck){
@@ -415,12 +420,17 @@ function lookupProductUid(size, color, neck){
     try{
         const url = new URL(window.location.href);
         const qpColor = (url.searchParams.get('color')||'').toLowerCase();
+        const qpSize = (url.searchParams.get('size')||'').toUpperCase();
         const qpVid = url.searchParams.get('vid') || url.searchParams.get('variant_id');
         if(qpColor){
             const colorHidden = document.getElementById('color-select');
             if(colorHidden){ colorHidden.value = qpColor; }
             const colorField = document.getElementById('color-field');
             if(colorField){ colorField.value = qpColor; }
+        }
+        if(qpSize){
+            const sizeSel = document.getElementById('size-select');
+            if(sizeSel){ sizeSel.value = qpSize; }
         }
         if(qpVid){
             const variantSel = document.getElementById('variant-select');
@@ -499,8 +509,10 @@ function lookupProductUid(size, color, neck){
 		document.getElementById('productUidInput').value = uid;
 		// If matching variant for color exists, sync hidden variant select so cart stores correct variant/color
 		try{
-			const map = COLOR_TO_VARIANT_ID || {};
-			const vid = map[color.toLowerCase()] || '';
+			const combo = SIZE_COLOR_TO_VARIANT_ID || {};
+			const simple = COLOR_TO_VARIANT_ID || {};
+			const key = `${String(size).toLowerCase()}|${String(color).toLowerCase()}`;
+			const vid = combo[key] || simple[color.toLowerCase()] || '';
 			if(vid && variantSelect){ variantSelect.value = String(vid); }
 		}catch(e){}
 		// sync hidden color field for POST

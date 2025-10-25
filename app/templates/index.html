@@ -65,6 +65,10 @@
 					{% for v in p.variants %}
 					"{{ (v.color or '')|lower }}": {{ v.id }}{% if not loop.last %},{% endif %}
 					{% endfor %}
+				}' data-card-variant-map='{
+					{% for v in p.variants %}
+					"{{ ((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower) }}": {{ v.id }}{% if not loop.last %},{% endif %}
+					{% endfor %}
 				}'>
 					{% for c in color_set[:5] %}
 					<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
@@ -74,9 +78,19 @@
 					<input type="hidden" name="product_id" value="{{ p.id }}">
 					<input type="hidden" name="variant_id" value="{{ p.variants[0].id if p.variants else '' }}" class="js-variant-id">
 					<input type="hidden" name="color" value="white" class="js-color-val">
+					<input type="hidden" name="size" value="L" class="js-size-val">
 					<input type="hidden" name="quantity" value="1">
 					<button class="text-xs bg-white text-black px-3 py-1 rounded">Add</button>
 				</form>
+			</div>
+			<div class="mt-2 flex items-center justify-between gap-3">
+				<div class="text-xs text-gray-400">Size</div>
+				<select class="js-size-select text-xs bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
+					<option value="S">S</option>
+					<option value="M">M</option>
+					<option value="L" selected>L</option>
+					<option value="XL">XL</option>
+				</select>
 			</div>
 		</div>
 	</a>
@@ -117,8 +131,12 @@
       if(!wrap) return;
       let colorMap = {};
       try { colorMap = JSON.parse(wrap.getAttribute('data-card-color-map')||'{}'); } catch(e){}
+      let sizeColorToVid = {};
+      try { sizeColorToVid = JSON.parse(wrap.getAttribute('data-card-variant-map')||'{}'); } catch(e){}
       const inputVariant = card.querySelector('.js-variant-id');
       const inputColor = card.querySelector('.js-color-val');
+      const inputSize = card.querySelector('.js-size-val');
+      const sizeSelect = card.querySelector('.js-size-select');
       const gallery = card.querySelector('.js-card-gallery');
       const mock = gallery?.querySelector('.mockup-wrap');
       const base = gallery?.querySelector('.mockup-base');
@@ -141,7 +159,11 @@
         btn.addEventListener('click', function(e){
           e.preventDefault();
           const c = (btn.getAttribute('data-color')||'').toLowerCase();
-          if(colorMap[c] && inputVariant){ inputVariant.value = colorMap[c]; }
+          // prioritize size+color mapping to variant id
+          const chosenSize = (inputSize?.value||'L').toLowerCase();
+          const comboKey = `${chosenSize}|${c}`;
+          const mapped = sizeColorToVid[comboKey] || colorMap[c];
+          if(mapped && inputVariant){ inputVariant.value = mapped; }
           if(inputColor){ inputColor.value = c; }
           // show mockup overlay for this card
           if(mock && base){
@@ -158,11 +180,30 @@
             const href = card.getAttribute('href') || '';
             const url = new URL(href, window.location.origin);
             url.searchParams.set('color', c);
+            url.searchParams.set('size', (inputSize?.value||'L'));
             const vid = inputVariant?.value || '';
             if(vid){ url.searchParams.set('vid', String(vid)); }
             card.setAttribute('href', url.pathname + url.search);
           }catch(_e){}
         });
+      });
+
+      // size changes should also remap variant using current color
+      sizeSelect?.addEventListener('change', function(){
+        const sz = (sizeSelect.value||'L').toLowerCase();
+        if(inputSize){ inputSize.value = sizeSelect.value; }
+        const c = (inputColor?.value||'white').toLowerCase();
+        const mapped = sizeColorToVid[`${sz}|${c}`] || colorMap[c];
+        if(mapped && inputVariant){ inputVariant.value = mapped; }
+        // update card link params
+        try{
+          const href = card.getAttribute('href') || '';
+          const url = new URL(href, window.location.origin);
+          url.searchParams.set('size', sizeSelect.value);
+          const vid = inputVariant?.value || '';
+          if(vid){ url.searchParams.set('vid', String(vid)); }
+          card.setAttribute('href', url.pathname + url.search);
+        }catch(_e){}
       });
     });
   });

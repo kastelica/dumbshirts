@@ -22,6 +22,7 @@ def _save_cart(cart: dict) -> None:
 def add_to_cart():
 	variant_id = request.form.get("variant_id")
 	color_from_form = (request.form.get("color") or "").strip()
+	size_from_form = (request.form.get("size") or "").strip()
 	qty = int(request.form.get("quantity", "1"))
 	buy_now = request.form.get("buy_now") == "1"
 	if not variant_id:
@@ -50,6 +51,7 @@ def add_to_cart():
 		"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
 		"product_uid": (variant.gelato_sku or ""),
 		"color": (color_from_form or (variant.color or "")),
+		"size": (size_from_form or (variant.size or "")),
 	})
 	_save_cart(cart)
 	return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
