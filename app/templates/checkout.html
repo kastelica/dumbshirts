@@ -282,6 +282,8 @@ function gtag_report_conversion(url){
 		return true;
 	}
 	updatePayLabel();
+    // Show Stripe payment methods on initial load without forcing validation
+    try { await createOrUpdatePI(true); } catch(e) {}
 	// Delay PI creation until fields are valid or shipping changes/submit
 	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); }
 	submitBtn.addEventListener('click', async (e) => {
