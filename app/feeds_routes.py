@@ -1,10 +1,12 @@
 from flask import Blueprint, url_for, current_app
 from urllib.parse import urljoin
 from .feeds import render_google_shopping_feed, render_google_promotions_feed
+from flask import Response
 import os
 import json
 from .models import Product, Promotion
 from decimal import Decimal
+import datetime
 
 feeds_bp = Blueprint("feeds", __name__)
 
@@ -84,3 +86,57 @@ def promotions_feed():
     except Exception as _e:
         current_app.logger.warning(f"[promotions] feed fallback, table missing: {_e}")
     return render_google_promotions_feed(rows)
+
+
+@feeds_bp.get("/feeds/reviews.xml")
+def reviews_feed():
+    """Minimal Google Customer Reviews-style feed (not CRC opt-in; a review feed).
+
+    Emits a simple Atom-like XML with g: namespace fields commonly expected when
+    submitting product reviews to Google Merchant Center (as a start). This is a
+    simplified representation and can be expanded to the full Product Ratings spec.
+    """
+    # Load reviews from data JSON managed via admin
+    try:
+        data_path = os.path.join(os.path.dirname(__file__), "data", "reviews.json")
+        with open(data_path, "r", encoding="utf-8") as f:
+            reviews = json.load(f) or []
+    except Exception:
+        reviews = []
+
+    # Build XML manually with basic structure
+    from xml.etree.ElementTree import Element, SubElement, tostring
+    root = Element("feed", attrib={
+        "xmlns": "http://www.w3.org/2005/Atom",
+        "xmlns:g": "http://base.google.com/ns/1.0",
+    })
+    SubElement(root, "title").text = "Product Reviews"
+    base = current_app.config.get("BASE_URL", "http://localhost:5000").rstrip("/")
+    SubElement(root, "link", attrib={"rel": "self", "href": f"{base}/feeds/reviews.xml"})
+    SubElement(root, "updated").text = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Map products to ensure stable references
+    prods = {p.id: p for p in Product.query.all()}
+
+    for r in reviews:
+        entry = SubElement(root, "entry")
+        # Associate to product by SKU/ID
+        pid = r.get("product_id")
+        p = prods.get(int(pid)) if pid else None
+        # Required-ish fields for ratings ingestion (simplified)
+        SubElement(entry, "g:item_id").text = str(pid or "")
+        SubElement(entry, "g:title").text = str(r.get("title") or "")
+        SubElement(entry, "g:reviewer").text = str(r.get("reviewer_name") or "Customer")
+        SubElement(entry, "g:rating").text = str(r.get("rating") or "5")
+        SubElement(entry, "content").text = str(r.get("content") or "")
+        # Optional fields
+        if p:
+            SubElement(entry, "g:link").text = url_for('main.product_detail', slug=p.slug, _external=True)
+            if getattr(p, 'design', None) and getattr(p.design, 'preview_url', None):
+                SubElement(entry, "g:image_link").text = p.design.preview_url
+        created = r.get("created_at") or ""
+        if created:
+            SubElement(entry, "updated").text = created
+
+    xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
+    return Response(xml_bytes, content_type="application/atom+xml; charset=utf-8")

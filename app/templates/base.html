@@ -25,12 +25,18 @@
 			<a href="/" class="font-extrabold text-xl tracking-tight">Dumbshirts.store</a>
 			<div class="flex items-center gap-3">
 				<button id="menu-toggle" class="md:hidden bg-gray-900 border border-gray-800 text-gray-200 px-3 py-2 rounded" aria-label="Toggle menu">Menu</button>
-				<nav id="site-nav" class="hidden md:flex space-x-4 text-gray-300">
+				<nav id="site-nav" class="hidden md:flex space-x-4 text-gray-300 items-center">
 					<a href="/" class="hover:underline">Home</a>
             <a href="/shop" class="hover:underline">Shop</a>
-            <a href="/subscribe/monthly-shirt" class="hover:underline">Monthly Shirt</a>
 					<a href="/search" class="hover:underline">Search</a>
-					<a href="/loyalty" class="hover:underline">Loyalty</a>
+					<div class="relative group">
+						<button class="hover:underline inline-flex items-center">Extras</button>
+						<div class="absolute right-0 mt-2 hidden group-hover:block bg-gray-900 border border-gray-800 rounded shadow-lg min-w-[200px] py-2 z-20">
+							<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Loyalty</a>
+							<a href="/subscribe/monthly-shirt" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Monthly Shirt</a>
+							<a href="/reviews" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Reviews</a>
+						</div>
+					</div>
 					{% if current_user.is_authenticated %}
 					<span class="text-gray-600 hidden md:inline">|</span>
 					<a href="/admin" class="hover:underline">Admin</a>
@@ -53,8 +59,9 @@
 				<a href="/" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Home</a>
 				<a href="/shop" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Shop</a>
 				<a href="/subscribe/monthly-shirt" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Monthly Shirt</a>
-				<a href="/search" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Search</a>
 				<a href="/loyalty" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Loyalty</a>
+				<a href="/reviews" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Reviews</a>
+				<a href="/search" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Search</a>
 				<a href="/cart" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">
 					<span>Cart</span>
 					{% if cart_count %}

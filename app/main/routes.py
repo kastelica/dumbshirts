@@ -1,4 +1,6 @@
 from flask import render_template, current_app, request, abort, session, Response, jsonify
+import os
+import json
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
@@ -98,6 +100,26 @@ def product_detail(slug: str):
 		prev_slug=(prev_p.slug if prev_p else None),
 		next_slug=(next_p.slug if next_p else None),
 	)
+
+
+@main_bp.get("/reviews")
+def reviews_page():
+	"""Public reviews page rendered from stored JSON reviews."""
+	reviews = []
+	try:
+		path = os.path.join(os.path.dirname(__file__), "data", "reviews.json")
+		with open(path, "r", encoding="utf-8") as f:
+			reviews = json.load(f) or []
+	except Exception:
+		reviews = []
+	# Newest first
+	try:
+		reviews.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+	except Exception:
+		pass
+	# Map product ids to Product rows for linking
+	products = {p.id: p for p in Product.query.filter_by(status="active").all()}
+	return render_template("reviews.html", reviews=reviews, products=products)
 
 
 @main_bp.get("/checkout")
@@ -227,6 +249,8 @@ def sitemap_xml():
 		("/privacy", iso_today, "yearly", "0.2"),
 		("/terms", iso_today, "yearly", "0.2"),
 		("/subscribe/monthly-shirt", iso_today, "monthly", "0.6"),
+		("/loyalty", iso_today, "yearly", "0.3"),
+		("/reviews", iso_today, "weekly", "0.5"),
 	]
 	for path, lm, cf, pr in static_pages:
 		add_url(urljoin(base, path), lm, cf, pr)
