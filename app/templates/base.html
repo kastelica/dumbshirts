@@ -31,10 +31,12 @@
 					<a href="/search" class="hover:underline">Search</a>
 					<div class="relative group">
 						<button class="hover:underline inline-flex items-center">Extras</button>
-						<div class="absolute right-0 mt-2 hidden group-hover:block bg-gray-900 border border-gray-800 rounded shadow-lg min-w-[200px] py-2 z-20">
-							<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Loyalty</a>
-							<a href="/subscribe/monthly-shirt" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Monthly Shirt</a>
-							<a href="/reviews" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Reviews</a>
+						<div class="absolute right-0 top-full pt-2">
+							<div class="bg-gray-900 border border-gray-800 rounded shadow-lg min-w-[200px] py-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+								<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Loyalty</a>
+								<a href="/subscribe/monthly-shirt" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Monthly Shirt</a>
+								<a href="/reviews" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Reviews</a>
+							</div>
 						</div>
 					</div>
 					{% if current_user.is_authenticated %}
