@@ -332,6 +332,29 @@ function lookupProductUid(size, color, neck){
     return MAP[key] || '';
 }
 
+	// Mockup logic: swap base tee by color and overlay design
+	const MOCKUP_BASES = {
+		white: '/static/uploads/whitetshirt.png',
+		black: '/static/uploads/blacktshirt.png',
+		heather: '/static/uploads/heathertshirt.png',
+		red: '/static/uploads/redtshirt.png',
+		blue: '/static/uploads/bluetshirt.png'
+	};
+	function updateMockup(){
+		const color = (document.getElementById('color-select')?.value||'white').toLowerCase();
+		const base = document.getElementById('mockup-base');
+		const design = document.getElementById('mockup-design');
+		if(base){
+			base.onerror = function(){ this.onerror = null; this.src = MOCKUP_BASES.white; };
+			base.src = MOCKUP_BASES[color] || MOCKUP_BASES.white;
+		}
+		// Choose best design image from template context
+		try{
+			const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
+			if(design && raw){ design.src = raw; }
+		}catch(e){}
+	}
+
 	// Build color swatches (5 common colors)
 	(function buildColorSwatches(){
 		const colors = [
@@ -406,27 +429,6 @@ function lookupProductUid(size, color, neck){
 		if(el){ el.addEventListener('change', updateProductUid); }
 	});
 	updateProductUid();
-
-	// Mockup logic: swap base tee by color and overlay design
-	const MOCKUP_BASES = {
-		white: '/static/uploads/whitetshirt.png',
-		black: '/static/uploads/blacktshirt.png',
-		heather: '/static/uploads/heathertshirt.png',
-		red: '/static/uploads/redtshirt.png',
-		blue: '/static/uploads/bluetshirt.png'
-	};
-	function updateMockup(){
-		const color = (document.getElementById('color-select')?.value||'white').toLowerCase();
-		const base = document.getElementById('mockup-base');
-		const design = document.getElementById('mockup-design');
-		if(base){ base.src = MOCKUP_BASES[color] || MOCKUP_BASES.white; }
-		// Choose best design image from template context
-		try{
-			const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
-			if(design && raw){ design.src = raw; }
-		}catch(e){}
-	}
-	updateMockup();
 
 	// Simple gallery controls
 	document.querySelectorAll('.js-gallery').forEach(g => {
