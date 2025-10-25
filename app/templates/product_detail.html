@@ -398,6 +398,21 @@ function lookupProductUid(size, color, neck){
 		}catch(e){}
 	}
 
+    // Preselect color and variant from URL params before building swatches
+    try{
+        const url = new URL(window.location.href);
+        const qpColor = (url.searchParams.get('color')||'').toLowerCase();
+        const qpVid = url.searchParams.get('vid') || url.searchParams.get('variant_id');
+        if(qpColor){
+            const colorHidden = document.getElementById('color-select');
+            if(colorHidden){ colorHidden.value = qpColor; }
+        }
+        if(qpVid){
+            const variantSel = document.getElementById('variant-select');
+            if(variantSel){ variantSel.value = qpVid; }
+        }
+    }catch(e){}
+
 	// Build color swatches (5 common colors)
 	(function buildColorSwatches(){
 		const colors = [

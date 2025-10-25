@@ -150,6 +150,15 @@
           if(gallery){
             gallery.querySelectorAll('img[data-frame]')?.forEach(im=>im.classList.add('hidden'));
           }
+          // update card link to include selected color and variant for product_detail
+          try{
+            const href = card.getAttribute('href') || '';
+            const url = new URL(href, window.location.origin);
+            url.searchParams.set('color', c);
+            const vid = inputVariant?.value || '';
+            if(vid){ url.searchParams.set('vid', String(vid)); }
+            card.setAttribute('href', url.pathname + url.search);
+          }catch(_e){}
         });
       });
     });
