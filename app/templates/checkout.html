@@ -25,9 +25,20 @@
 		</li>
 		{% endfor %}
 	</ul>
-	<div class="mt-3 flex items-center justify-between text-lg">
+	<form method="post" action="/cart/apply-coupon" class="mt-3 flex items-center gap-2">
+		<input name="coupon" placeholder="Coupon code" value="{{ (cart.get('coupon') or {}).get('code','') }}" class="flex-1 bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+		<button class="bg-white text-black px-3 py-2 rounded">Apply</button>
+	</form>
+	<div class="mt-3 space-y-1 text-sm">
+		<div class="flex items-center justify-between"><span>Subtotal</span><span>${{ '%.2f'|format(total_amount) }} {{ currency }}</span></div>
+		{% if cart.get('coupon') %}
+		<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format((total_amount * (cart.get('coupon').get('percent') or 0) / 100.0)) }} {{ currency }}</span></div>
+		{% endif %}
+	</div>
+	<div class="mt-1 flex items-center justify-between text-lg">
 		<span>Total</span>
-		<span>${{ '%.2f'|format(total_amount) }} {{ currency }}</span>
+		{% set co_total = (total_amount - (total_amount * ((cart.get('coupon').get('percent') if cart.get('coupon') else 0) / 100.0))) %}
+		<span>${{ '%.2f'|format(co_total) }} {{ currency }}</span>
 	</div>
 </div>
 {% else %}
@@ -117,6 +128,15 @@ function gtag_report_conversion(url){
 <script>
 (async function() {
 	const amount = parseFloat((document.getElementById('checkout-data')?.dataset.total) || '0'); // major units
+	// Apply coupon on client for display consistency
+	try{
+		const pct = parseFloat('{{ (cart.get("coupon").get("percent") if cart.get("coupon") else 0) }}') || 0;
+		if(pct>0){
+			const disc = (amount * pct) / 100.0;
+			window.__COUPON_PCT__ = pct;
+			window.__COUPON_DISC__ = disc;
+		}
+	}catch(e){}
 	// load shipping methods
 	const shipSel = document.getElementById('ship-select');
 	const shipNote = document.getElementById('ship-note');
@@ -189,7 +209,7 @@ function gtag_report_conversion(url){
 	const submitBtn = document.getElementById('submit');
 	const msg = document.getElementById('payment-message');
 	function getChosen(){ try { return selectedShip ? JSON.parse(selectedShip) : { uid: 'free_3_5', price: 0 }; } catch(e){ return { uid: 'free_3_5', price: 0 }; } }
-	function currentTotal(){ const c = getChosen(); const s = parseFloat(c.price || 0); return (amount + (isNaN(s)?0:s)); }
+	function currentTotal(){ const c = getChosen(); const s = parseFloat(c.price || 0); const base = (window.__COUPON_DISC__? (amount - window.__COUPON_DISC__) : amount); return (base + (isNaN(s)?0:s)); }
 	function updatePayLabel(){ if(submitBtn){ submitBtn.textContent = 'Pay $' + currentTotal().toFixed(2); } }
 
 	function validateFields(){

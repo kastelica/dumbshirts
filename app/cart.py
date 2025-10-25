@@ -84,6 +84,21 @@ def remove_from_cart():
 def clear_cart():
 	cart = _get_cart()
 	cart["items"] = []
+	# Do not clear applied coupon on clear
+	_save_cart(cart)
+	return redirect(url_for("cart.view_cart"))
+
+
+@cart_bp.post("/cart/apply-coupon")
+def apply_coupon():
+	"""Apply a coupon code to the cart (hardcoded: 5off => 5% off)."""
+	code = (request.form.get("coupon") or "").strip().lower()
+	cart = _get_cart()
+	if code == "5off":
+		cart["coupon"] = {"code": code, "percent": 5}
+	else:
+		# Remove coupon if invalid/empty
+		cart.pop("coupon", None)
 	_save_cart(cart)
 	return redirect(url_for("cart.view_cart"))
 
@@ -92,7 +107,15 @@ def clear_cart():
 def view_cart():
 	cart = _get_cart()
 	# compute totals
-	total = Decimal("0.00")
+	subtotal = Decimal("0.00")
 	for it in cart["items"]:
-		total += Decimal(str(it["price"])) * it["quantity"]
-	return render_template("cart.html", cart=cart, total=total, currency="USD")
+		subtotal += Decimal(str(it["price"])) * it["quantity"]
+	discount = Decimal("0.00")
+	coupon = cart.get("coupon") or {}
+	try:
+		pct = Decimal(str(coupon.get("percent", 0)))
+		discount = (subtotal * pct) / Decimal("100") if pct else Decimal("0.00")
+	except Exception:
+		discount = Decimal("0.00")
+	total = (subtotal - discount).quantize(Decimal("0.01"))
+	return render_template("cart.html", cart=cart, subtotal=subtotal, discount=discount, total=total, currency="USD")

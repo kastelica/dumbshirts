@@ -144,6 +144,14 @@ def create_payment_intent():
 		cart = session.get("cart") or {"items": []}
 		data = request.get_json(silent=True) or {}
 		amount_cents = _compute_cart_total(cart)
+		# Apply coupon discount server-side as well (percent off subtotal)
+		try:
+			coupon = cart.get("coupon") or {}
+			pct = float(coupon.get("percent", 0))
+			if pct > 0:
+				amount_cents = int(round(amount_cents * (1 - (pct/100.0))))
+		except Exception:
+			pass
 		currency = current_app.config.get("STORE_CURRENCY", "USD").lower()
 		if amount_cents <= 0:
 			return jsonify({"error": "Cart is empty"}), 400
