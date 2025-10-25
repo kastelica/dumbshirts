@@ -9,6 +9,7 @@ from .gelato_client import GelatoClient
 from .models import Order, OrderItem, Address, Variant, Product
 from urllib.parse import urljoin
 from decimal import Decimal
+from .utils import send_email_via_sendgrid, render_simple_email
 
 stripe_bp = Blueprint("stripe", __name__)
 
@@ -287,6 +288,22 @@ def stripe_webhook():
 				})
 				with open(ledger_path, "w", encoding="utf-8") as f:
 					json.dump(rows, f, ensure_ascii=False, indent=2)
+		except Exception:
+			pass
+
+		# Email customer confirmation (best-effort)
+		try:
+			email_to = order.shipping_address.email if order.shipping_address else ""
+			if email_to:
+				# Build templated HTML
+				from flask import render_template as _rt
+				currency = order.currency or current_app.config.get("STORE_CURRENCY", "USD")
+				subtotal = sum([(oi.unit_price or 0) * (oi.quantity or 1) for oi in order.items])
+				shipping_amount = 0
+				amount_paid = float(order.total_amount or 0)
+				confirm_url = urljoin(current_app.config.get("BASE_URL", ""), f"/order/confirm/{order.id}")
+				html = _rt("email_order_confirmation.html", order=order, items=order.items, subtotal=float(subtotal), shipping=float(shipping_amount), amount_paid=amount_paid, currency=currency, confirm_url=confirm_url)
+				send_email_via_sendgrid(email_to, f"Order #{order.id} confirmed", html)
 		except Exception:
 			pass
 

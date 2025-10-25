@@ -3,7 +3,7 @@
 {% block content %}
 <div class="max-w-3xl mx-auto">
   <h1 class="text-2xl font-semibold mb-4">Customer Reviews</h1>
-  <p class="text-sm text-gray-400 mb-4">We publish a selection of verified product reviews. This page also powers our Google reviews feed.</p>
+  <p class="text-sm text-gray-400 mb-4">Our customers reviews.</p>
 
   <div class="space-y-4">
     {% for r in reviews %}
@@ -28,9 +28,7 @@
     {% endfor %}
   </div>
 
-  <div class="mt-8 text-xs text-gray-500">
-    Google feed: <a class="text-blue-400 hover:underline" href="/feeds/reviews.xml">/feeds/reviews.xml</a>
-  </div>
+  
 </div>
 {% endblock %}
 

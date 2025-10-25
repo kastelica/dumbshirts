@@ -7,6 +7,7 @@ import json
 from .models import Product, Promotion
 from decimal import Decimal
 import datetime
+from flask import url_for, current_app
 
 feeds_bp = Blueprint("feeds", __name__)
 
@@ -40,6 +41,7 @@ def google_feed():
 		except Exception:
 			pass
 
+		checkout_url = url_for('main.checkout', item_id=p.id, _external=True)
 		items.append({
 			"id": p.id,
 			"title": p.title,
@@ -55,6 +57,7 @@ def google_feed():
 			"color": "white",
 			"gender": "unisex",
 			"size": "Large",
+			"checkout_link_template": checkout_url,
 			# Google Shopping
 			"google_product_category": "Apparel & Accessories > Clothing > Shirts & Tops",
 			"product_type": "t-shirt",

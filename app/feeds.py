@@ -43,6 +43,10 @@ def render_google_shopping_feed(items):
 		ptype = item.get("product_type")
 		if ptype:
 			SubElement(it, "g:product_type").text = ptype
+		# Checkout URL (account/product level). Not an official tag; expose for account ingestion or debugging
+		chk = item.get("checkout_link_template")
+		if chk:
+			SubElement(it, "g:checkout_link_template").text = chk
 		# US-only shipping
 		ship = item.get("shipping") or {}
 		country = ship.get("country")

@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 from datetime import datetime
 from ..gelato_client import GelatoClient
 from datetime import timedelta
+from ..utils import send_email_via_sendgrid, render_simple_email
 
 
 @main_bp.get("/")
@@ -181,6 +182,17 @@ def referrals_create():
 			code = r.get("code") or ""
 			session["ref"] = code
 			session.modified = True
+			# Notify existing referrer
+			try:
+				base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+				link = f"{base}/?ref={code}"
+				html = render_simple_email("Referral Code", [
+					f"Your referral code: {code}",
+					f"Share this link: {link}",
+				])
+				send_email_via_sendgrid(email, "Your Dumbshirts referral code", html)
+			except Exception:
+				pass
 			return render_template("referrals.html", created=True, code=code, referrers=rows, my_code=code, my_rows=[])
 	# Generate code from email hash
 	base = email.split("@")[0].replace(" ", "-")[:12]
@@ -196,12 +208,69 @@ def referrals_create():
 	# Stash in session
 	session["ref"] = code
 	session.modified = True
+	# Notify new referrer
+	try:
+		base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+		link = f"{base}/?ref={code}"
+		html = render_simple_email("Referral Code Created", [
+			f"Your referral code: {code}",
+			f"Share this link: {link}",
+		])
+		send_email_via_sendgrid(email, "Your Dumbshirts referral code", html)
+	except Exception:
+		pass
 	return render_template("referrals.html", created=True, code=code, referrers=rows, my_code=code, my_rows=[])
 
 
 @main_bp.get("/checkout")
 def checkout():
 	cart = session.get("cart") or {"items": []}
+	# Support GET-based add-to-cart for Google checkout URLs
+	try:
+		pid_raw = request.args.get("product_id") or request.args.get("item_id")
+		qty_raw = request.args.get("quantity") or request.args.get("qty") or "1"
+		vid_raw = request.args.get("variant_id") or request.args.get("vid")
+		if pid_raw:
+			pid = int(str(pid_raw))
+			qty = max(1, min(10, int(str(qty_raw))))
+			product = Product.query.get(pid)
+			if product and product.status == "active":
+				variant = None
+				if vid_raw:
+					try:
+						v = Variant.query.get(int(str(vid_raw)))
+						if v and v.product_id == product.id:
+							variant = v
+					except Exception:
+						variant = None
+				if not variant and product.variants:
+					variant = product.variants[0]
+				# Price: honor site-wide 5% sale as in cart.add
+				from decimal import Decimal as _D
+				sale_price = (product.price * _D("95")) / _D("100")
+				found = False
+				for it in cart.get("items", []):
+					if variant and it.get("variant_id") == variant.id:
+						it["quantity"] += qty
+						found = True
+						break
+				if not found:
+					cart.setdefault("items", []).append({
+						"product_id": product.id,
+						"variant_id": (variant.id if variant else None),
+						"title": product.title,
+						"slug": product.slug,
+						"orig_price": float(product.price),
+						"price": float(sale_price),
+						"currency": product.currency,
+						"quantity": qty,
+						"image": (product.design.preview_url if (product.design and product.design.preview_url) else ""),
+						"product_uid": ((variant.gelato_sku) if variant else ""),
+					})
+				session["cart"] = cart
+				session.modified = True
+	except Exception:
+		pass
 	total = Decimal("0.00")
 	for it in cart.get("items", []):
 		# Sum discounted price stored in cart
@@ -245,6 +314,14 @@ def loyalty_signup():
 	if email:
 		session["loyalty_email"] = email
 		session.modified = True
+		try:
+			html = render_simple_email("Welcome to Loyalty", [
+				"Thanks for joining our loyalty program.",
+				"You earn 1 point per $1 spent.",
+			])
+			send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
+		except Exception:
+			pass
 	return render_template("loyalty.html", email=email, points=0, tier="member", perks=[]) 
 
 
@@ -258,9 +335,21 @@ def shipping_returns():
 	return render_template("shipping_returns.html")
 
 
-@main_bp.get("/contact")
+@main_bp.route("/contact", methods=["GET","POST"])
 def contact_page():
-	return render_template("contact.html")
+    # Basic GET renders form; POST triggers an email
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        email = (request.form.get('email') or '').strip()
+        msg = (request.form.get('message') or '').strip()
+        try:
+            to = (current_app.config.get('ADMIN_EMAIL') or os.getenv('ADMIN_EMAIL') or 'email@dumbshirts.store').strip()
+            html = render_simple_email('New contact message', [f'From: {name} <{email}>', '', msg])
+            send_email_via_sendgrid(to, 'Contact form message', html)
+        except Exception:
+            pass
+        return render_template('contact.html', sent=True)
+    return render_template("contact.html")
 
 
 @main_bp.get("/size-guide")

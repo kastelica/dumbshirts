@@ -7,7 +7,7 @@ from .trends import fetch_trending_phrases_any
 from .trends_store import load_cache, save_cache
 from .gelato_client import GelatoClient
 from flask import current_app
-from .utils import slugify, normalize_trend_term
+from .utils import slugify, normalize_trend_term, send_email_via_sendgrid, render_simple_email
 from .phrasegen import generate_candidates_from_title, memeify_term
 import os
 from werkzeug.utils import secure_filename
@@ -835,6 +835,14 @@ def publish_product(product_id: int):
 	p.status = "active"
 	db.session.commit()
 	flash("Product published", "success")
+	# Optional: test email send to admin if configured via env ADMIN_EMAIL
+	try:
+		to = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+		if to:
+			html = render_simple_email("Product Published", [f"'{p.title}' is now live."])
+			send_email_via_sendgrid(to, "Product published", html)
+	except Exception:
+		pass
 	return redirect(url_for("admin.edit_product_page", product_id=p.id))
 
 
