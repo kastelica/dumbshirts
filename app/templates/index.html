@@ -52,18 +52,21 @@
 						<div class="text-gray-200 bg-gray-800 rounded px-2 py-1 inline-block mt-1">${{ '%.2f'|format((p.price * 95) / 100) }}</div>
 					</div>
 				</div>
-			{# lightweight color selector and add-to-cart #}
+			{# lightweight color selector and add-to-cart; fallback to common colors if variants trimmed #}
 			{% set colors = (p.variants | map(attribute='color') | list) if p.variants else [] %}
 			{% set color_set = colors | select | map('lower') | unique | list %}
+			{% if color_set|length < 2 %}
+				{% set color_set = ['white','black','heather','blue','red','grey'] %}
+			{% endif %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
 					{% for v in p.variants %}
 					"{{ (v.color or '')|lower }}": {{ v.id }}{% if not loop.last %},{% endif %}
 					{% endfor %}
 				}'>
-					{% for c in color_set[:5] %}
-					<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
-					{% endfor %}
+				{% for c in color_set[:6] %}
+				<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
+				{% endfor %}
 				</div>
 				<form method="post" action="/cart/add" class="flex items-center gap-2">
 					<input type="hidden" name="product_id" value="{{ p.id }}">
@@ -113,9 +116,9 @@
         white: '/static/uploads/whitetshirt.png',
         blue:  '/static/uploads/bluetshirt.png',
         red:   '/static/uploads/redtshirt.png',
-        heather:'/static/uploads/heathertshirt.png',
-        gray:  '/static/uploads/heathertshirt.png',
-        grey:  '/static/uploads/heathertshirt.png'
+        heather:'/static/uploads/greytshirt.png',
+        gray:  '/static/uploads/greytshirt.png',
+        grey:  '/static/uploads/greytshirt.png'
       };
       // overlay layer
       let overlay;
