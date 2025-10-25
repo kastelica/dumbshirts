@@ -192,6 +192,11 @@ def referrals_create():
 					f"Share this link: {link}",
 				])
 				send_email_via_sendgrid(email, "Your Dumbshirts referral code", html)
+				# Admin notify
+				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+				if to_admin:
+					admin_html = render_simple_email("Referral code looked up", [f"Email: {email}", f"Code: {code}", f"Link: {link}"])
+					send_email_via_sendgrid(to_admin, "Referral code lookup", admin_html)
 			except Exception:
 				pass
 			return render_template("referrals.html", created=True, code=code, referrers=rows, my_code=code, my_rows=[])
@@ -218,6 +223,11 @@ def referrals_create():
 			f"Share this link: {link}",
 		])
 		send_email_via_sendgrid(email, "Your Dumbshirts referral code", html)
+		# Admin notify
+		to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+		if to_admin:
+			admin_html = render_simple_email("New referral code", [f"Email: {email}", f"Code: {code}", f"Link: {link}"])
+			send_email_via_sendgrid(to_admin, "New referral code created", admin_html)
 	except Exception:
 		pass
 	return render_template("referrals.html", created=True, code=code, referrers=rows, my_code=code, my_rows=[])

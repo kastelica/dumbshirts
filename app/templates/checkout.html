@@ -170,7 +170,17 @@ function gtag_report_conversion(url){
         shipSel.appendChild(opt);
     });
     selectedShip = shipSel.value;
-    shipSel.addEventListener('change', async ()=>{ selectedShip = shipSel.value; await createOrUpdatePI(); updatePayLabel(); });
+    shipSel.addEventListener('change', async ()=>{
+        selectedShip = shipSel.value;
+        // Update the visible total immediately without forcing field validation
+        updatePayLabel();
+        // If email is already valid, refresh the PaymentIntent silently
+        try{
+            const em = (document.getElementById('email')?.value||'').trim();
+            const emailOk = /.+@.+\..+/.test(em);
+            if(emailOk){ await createOrUpdatePI(true); }
+        }catch(_e){}
+    });
     shipNote.textContent = 'Static shipping options.';
 
     const stripe = Stripe('{{ publishable_key }}');
@@ -223,8 +233,8 @@ function gtag_report_conversion(url){
 		msg.textContent='';
 		return true;
 	}
-	async function createOrUpdatePI(){
-		if(!validateFields()) return false;
+    async function createOrUpdatePI(skipValidation){
+        if(!skipValidation && !validateFields()) return false;
 		const c = getChosen();
 		const resp = await fetch('/api/create-payment-intent', {
 			method: 'POST', headers: { 'Content-Type': 'application/json' },
