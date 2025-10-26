@@ -250,9 +250,10 @@ function gtag_report_conversion(url){
 		msg.textContent='';
 		return true;
 	}
-    async function createOrUpdatePI(skipValidation){
+	async function createOrUpdatePI(skipValidation){
         if(!skipValidation && !validateFields()) return false;
 		const c = getChosen();
+		try{ console.log('[checkout] createOrUpdatePI start', { skipValidation, chosen: c, baseAmount: amount, couponPct: window.__COUPON_PCT__, couponDisc: window.__COUPON_DISC__ }); }catch(_e){}
 		const resp = await fetch('/api/create-payment-intent', {
 			method: 'POST', headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -272,29 +273,35 @@ function gtag_report_conversion(url){
 			})
 		});
 		const data = await resp.json();
+		try{ console.log('[checkout] PI response', { ok: resp.ok, data }); }catch(_e){}
 		if(!resp.ok){ msg.textContent = (data && data.error) ? data.error : 'Failed to start payment'; return false; }
 		clientSecret = data.clientSecret;
 		orderId = data.orderId;
-		if(paymentElement){ try { paymentElement.unmount(); } catch(e){} }
+		try{ console.log('[checkout] PI ready', { clientSecret, orderId }); }catch(_e){}
+		if(paymentElement){ try { paymentElement.unmount(); } catch(e){ try{ console.warn('[checkout] unmount paymentElement failed', e); }catch(_e2){} } }
 		elements = stripe.elements({ clientSecret, appearance });
 		paymentElement = elements.create('payment');
 		paymentElement.mount('#payment-element');
 		return true;
 	}
 	updatePayLabel();
-    // Show Stripe payment methods on initial load without forcing validation
-    try { await createOrUpdatePI(true); } catch(e) {}
+	// Show Stripe payment methods on initial load without forcing validation
+	try { await createOrUpdatePI(true); console.log('[checkout] initial elements mounted'); } catch(e) { try{ console.error('[checkout] initial PI error', e); }catch(_e){} }
 	// Delay PI creation until fields are valid or shipping changes/submit
 	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); }
 	submitBtn.addEventListener('click', async (e) => {
 		e.preventDefault(); msg.textContent=''; setLoading(true);
+		try{ console.log('[checkout] submit clicked'); }catch(_e){}
 		if(!clientSecret){ const ok = await createOrUpdatePI(); if(!ok){ setLoading(false); return; } }
 		const email = document.getElementById('email').value.trim();
+		try{ console.log('[checkout] confirming payment', { email, orderId, clientSecret }); }catch(_e){}
 		const {error, paymentIntent} = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
+		try{ console.log('[checkout] confirm result', { error, paymentIntent }); }catch(_e){}
 		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
 		if (paymentIntent && paymentIntent.status === 'succeeded') {
 			msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!';
-			try{ gtag_report_conversion(); }catch(e){}
+			try{ gtag_report_conversion(); }catch(e){ try{ console.warn('[checkout] gtag conversion failed', e); }catch(_e2){} }
+			try{ console.log('[checkout] redirecting to confirmation', { orderId }); }catch(_e){}
 			if(orderId){ window.location = `/order/confirm/${orderId}`; return; }
 		} else { msg.textContent = 'Payment processed.'; }
 		setLoading(false);

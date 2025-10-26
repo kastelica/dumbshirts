@@ -340,6 +340,16 @@ def stripe_webhook():
 
 		# Build Gelato draft order
 		client = GelatoClient()
+		try:
+			current_app.logger.info("[gelato] building draft order", extra={
+				"order_id": order.id,
+				"items": [
+					{"id": oi.id, "variant_id": oi.variant_id, "product_uid": oi.product_uid, "qty": oi.quantity}
+					for oi in order.items
+				]
+			})
+		except Exception:
+			pass
 		items = []
 		for oi in order.items:
 			prod = db.session.get(Product, oi.product_id) if oi.product_id else None
@@ -387,14 +397,17 @@ def stripe_webhook():
 			},
 		}
 		try:
+			current_app.logger.info("[gelato] create_order request", extra={"payload": payload})
 			resp = client.create_order(payload)
 			order.gelato_order_id = resp.get("id")
 			order.status = "submitted"
 			db.session.commit()
-		except Exception:
+			current_app.logger.info("[gelato] order created", extra={"resp": resp})
+		except Exception as e:
+			current_app.logger.exception("[gelato] create_order failed: %s", str(e))
 			order.status = "failed"
 			db.session.commit()
-			# Even if Gelato fails, redirect user to confirmation
+			# Even if Gelato fails, continue HTTP 200 so Stripe doesn't retry
 			return ("gelato order failed", 200)
 
 	# Handle subscription renewals: create Gelato order after successful invoice payment
