@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}About — Dumbshirts.store{% endblock %}
+{% block content %}
+<nav class="mb-3 text-sm text-gray-400 flex items-center gap-2">
+	<a href="/" aria-label="Home" class="text-gray-300 hover:text-white">
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M2.25 12l9-7.5 9 7.5V20a1 1 0 01-1 1h-5.25v-6h-5.5v6H3.25a1 1 0 01-1-1v-8z"/></svg>
+	</a>
+	<span>›</span>
+	<span class="text-gray-200">About</span>
+</nav>
+
+<h1 class="text-2xl font-semibold mb-4">About Dumbshirts</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+	<div class="md:col-span-2 space-y-4">
+		<p class="text-gray-300">We make shirts about the internet—fast. When something trends, we turn it into a clean, wearable design. No clutter. No gradients. Just solid colors and sharp prints.</p>
+		<p class="text-gray-300">All shirts are printed on quality blanks with durable DTG. We ship from regional partners to keep delivery quick.</p>
+		<p class="text-gray-300">Have an idea? <a href="/contact" class="underline">Tell us</a>. We love suggestions and community memes.</p>
+	</div>
+	<div class="border border-gray-800 rounded bg-gray-900 p-4">
+		<div class="font-semibold mb-2">At a glance</div>
+		<ul class="text-sm space-y-1 text-gray-300">
+			<li>• New designs added daily</li>
+			<li>• Free shipping (3–6 days)</li>
+			<li>• Express shipping available</li>
+			<li>• 30‑day returns</li>
+		</ul>
+	</div>
+</div>
+
+<h2 class="text-xl font-semibold mt-8 mb-3">FAQ</h2>
+<div class="divide-y divide-gray-800 border border-gray-800 rounded bg-gray-900">
+	{% for item in faqs %}
+	<div class="p-4">
+		<div class="font-medium">{{ item.q }}</div>
+		<p class="text-gray-300 mt-1">{{ item.a }}</p>
+	</div>
+	{% endfor %}
+</div>
+{% endblock %}
+
+

@@ -307,6 +307,15 @@
 <div id="promo-5off" class="fixed left-4 bottom-4 z-40">
 	<button id="promo-5off-btn" class="bg-white text-black rounded-full px-4 py-2 shadow-lg">Get 5% off</button>
 </div>
+<!-- Floating Add to Cart bubble -->
+<div id="floating-add" class="fixed right-4 bottom-4 z-40">
+	<div class="bg-gray-900 border border-gray-800 rounded-full shadow-lg flex items-center gap-2 px-3 py-2">
+		<button id="fab-minus" type="button" class="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center" aria-label="Decrease quantity">−</button>
+		<span id="fab-qty" class="min-w-[24px] text-center">1</span>
+		<button id="fab-plus" type="button" class="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center" aria-label="Increase quantity">+</button>
+		<button id="fab-add" type="button" class="bg-white text-black px-3 py-1.5 rounded-full">Add to cart</button>
+	</div>
+</div>
 <div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
 	<div class="absolute inset-0 bg-black/70" data-close></div>
 	<div class="relative bg-gray-900 border border-gray-800 rounded w-11/12 md:w-[420px] mx-auto mt-[15vh] p-4">
@@ -634,6 +643,26 @@ function lookupProductUid(size, color, neck){
 	if(lsGet('promo_5off_captured')==='1'){
 		if(form && result){ form.classList.add('hidden'); result.classList.remove('hidden'); }
 	}
+})();
+</script>
+<script>
+(function(){
+	const qtyInput = document.querySelector('input[name="quantity"]');
+	const addForm = document.getElementById('add-form');
+	const qtyEl = document.getElementById('fab-qty');
+	const minusBtn = document.getElementById('fab-minus');
+	const plusBtn = document.getElementById('fab-plus');
+	const addBtn = document.getElementById('fab-add');
+	if(!qtyInput || !qtyEl || !minusBtn || !plusBtn || !addBtn || !addForm) return;
+	function clamp(n){ n = parseInt(n||1,10)||1; if(n<1) return 1; if(n>10) return 10; return n; }
+	function syncDisplay(){ qtyEl.textContent = String(clamp(qtyInput.value)); }
+	function setQty(n){ const v = clamp(n); qtyInput.value = String(v); qtyEl.textContent = String(v); }
+	try{ setQty(qtyInput.value); }catch(e){ setQty(1); }
+	minusBtn.addEventListener('click', function(){ setQty(clamp(qtyInput.value) - 1); });
+	plusBtn.addEventListener('click', function(){ setQty(clamp(qtyInput.value) + 1); });
+	addBtn.addEventListener('click', function(){ try{ addForm.submit(); }catch(e){} });
+	// Keep bubble in sync if user edits the main quantity field
+	qtyInput.addEventListener('input', syncDisplay);
 })();
 </script>
 {% endblock %}
