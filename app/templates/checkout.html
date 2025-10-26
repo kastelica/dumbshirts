@@ -258,6 +258,7 @@ function gtag_report_conversion(url){
 			method: 'POST', headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				amount: amount,
+				order_id: orderId || null,
 				shipment_method_uid: (c.uid || '').toString(),
 				shipping_price: c.price || 0,
 				first_name: document.getElementById('firstName').value.trim(),
@@ -278,6 +279,8 @@ function gtag_report_conversion(url){
 		clientSecret = data.clientSecret;
 		orderId = data.orderId;
 		try{ console.log('[checkout] PI ready', { clientSecret, orderId }); }catch(_e){}
+		// If we're only updating an existing order/PI, the server returns no new clientSecret
+		if(!clientSecret && orderId){ try{ console.log('[checkout] PI updated (no new clientSecret)'); }catch(_e){} return true; }
 		if(paymentElement){ try { paymentElement.unmount(); } catch(e){ try{ console.warn('[checkout] unmount paymentElement failed', e); }catch(_e2){} } }
 		elements = stripe.elements({ clientSecret, appearance });
 		paymentElement = elements.create('payment');
@@ -296,7 +299,16 @@ function gtag_report_conversion(url){
 		{ const ok = await createOrUpdatePI(false); if(!ok){ setLoading(false); return; } }
 		const email = document.getElementById('email').value.trim();
 		try{ console.log('[checkout] confirming payment', { email, orderId, clientSecret }); }catch(_e){}
-		const {error, paymentIntent} = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
+		let _confirmRes;
+		try{
+			_confirmRes = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
+		}catch(e){
+			try{ console.error('[checkout] confirm exception', e); }catch(_e){}
+			msg.textContent = (e && e.message) ? e.message : 'Payment failed';
+			setLoading(false);
+			return;
+		}
+		const {error, paymentIntent} = _confirmRes || {};
 		try{ console.log('[checkout] confirm result', { error, paymentIntent }); }catch(_e){}
 		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
 		if (paymentIntent && paymentIntent.status === 'succeeded') {
