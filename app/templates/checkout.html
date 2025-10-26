@@ -292,7 +292,8 @@ function gtag_report_conversion(url){
 	submitBtn.addEventListener('click', async (e) => {
 		e.preventDefault(); msg.textContent=''; setLoading(true);
 		try{ console.log('[checkout] submit clicked'); }catch(_e){}
-		if(!clientSecret){ const ok = await createOrUpdatePI(); if(!ok){ setLoading(false); return; } }
+		// Always refresh PaymentIntent and order with latest shipping/contact details
+		{ const ok = await createOrUpdatePI(false); if(!ok){ setLoading(false); return; } }
 		const email = document.getElementById('email').value.trim();
 		try{ console.log('[checkout] confirming payment', { email, orderId, clientSecret }); }catch(_e){}
 		const {error, paymentIntent} = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });

@@ -35,7 +35,7 @@ class BaseConfig:
     # Default tee productUid (placeholder; override in env if needed)
     DEFAULT_TEE_UID = os.getenv(
         "DEFAULT_TEE_UID",
-        "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4",
+        "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_m_gco_white_gpr_4-0_gildan_5000",
     )
 
 

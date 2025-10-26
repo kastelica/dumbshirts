@@ -223,14 +223,12 @@ def create_payment_intent():
 		for it in cart.get("items", []):
 			variant = db.session.get(Variant, int(it.get("variant_id"))) if it.get("variant_id") else None
 			product = db.session.get(Product, int(it.get("product_id"))) if it.get("product_id") else None
-			# Resolve productUid priority: variant.gelato_sku -> fallback by size/color mapping -> config default
-			product_uid = ""
-			if variant and variant.gelato_sku:
+			# Resolve productUid priority: size/color mapping -> variant.gelato_sku -> config default
+			product_uid = _lookup_gelato_uid(it.get("size"), it.get("color"))
+			if not product_uid and variant and variant.gelato_sku:
 				product_uid = variant.gelato_sku
 			if not product_uid:
-				product_uid = _lookup_gelato_uid(it.get("size"), it.get("color")) or current_app.config.get("DEFAULT_TEE_UID", "")
-			if not product_uid:
-				product_uid = "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4"
+				product_uid = current_app.config.get("DEFAULT_TEE_UID", "")
 			order_item = OrderItem(
 				order_id=order.id,
 				product_id=product.id if product else None,
