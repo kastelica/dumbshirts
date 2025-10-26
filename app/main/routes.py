@@ -12,6 +12,7 @@ from datetime import datetime
 from ..gelato_client import GelatoClient
 from datetime import timedelta
 from ..utils import send_email_via_sendgrid, render_simple_email
+from ..extensions import db
 
 
 @main_bp.get("/")
@@ -440,7 +441,7 @@ def order_confirm(order_id: int):
 			order.shipping_address.email = qp_email
 			db.session.flush()
 		# Create Gelato draft if still pending and no gelato id
-		if order.status == "pending" and not order.gelato_order_id:
+		if (order.status in ("pending", "paid")) and not order.gelato_order_id:
 			gelato_debug["attempted"] = True
 			from ..gelato_client import GelatoClient as _GC
 			client = _GC()
@@ -493,7 +494,9 @@ def order_confirm(order_id: int):
 			try:
 				resp = client.create_order(payload)
 				order.gelato_order_id = resp.get("id")
-				order.status = "submitted"
+				# Keep status as 'paid' if already paid; else mark submitted
+				if order.status != "paid":
+					order.status = "submitted"
 				db.session.commit()
 				gelato_debug["response"] = resp
 				gelato_debug["ok"] = True
