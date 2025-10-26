@@ -189,7 +189,7 @@
 					</select>
 
 				</div>
-				<div class="grid grid-cols-3 gap-3">
+				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label class="block text-sm mb-1">Size</label>
 						<select id="size-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
@@ -205,13 +205,6 @@
 						<div id="color-swatches" class="grid grid-cols-5 gap-2"></div>
 				<input type="hidden" id="color-select" value="white">
 				<input type="hidden" name="color" id="color-field" value="white">
-					</div>
-					<div>
-						<label class="block text-sm mb-1">Neck</label>
-						<select id="neck-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
-							<option value="crewneck" selected>Crewneck</option>
-							<option value="v-neck">V‑neck</option>
-						</select>
 					</div>
 				</div>
 				<div>
@@ -379,22 +372,18 @@
     };
 
 // Hardcoded mapping from selection -> exact Gelato productUid (edit as needed)
-function lookupProductUid(size, color, neck){
+function lookupProductUid(size, color){
     const MAP = {
-        'S|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
-        'M|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
-        'L|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
-        'XL|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
-        'S|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_black_gpr_4-4',
-        'M|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_black_gpr_4-4',
-        'L|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_black_gpr_4-4',
-        'XL|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_black_gpr_4-4',
-        'S|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
-        'M|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
-        'L|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
-        'XL|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+        'S|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
+        'M|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
+        'L|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
+        'XL|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+        'S|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_black_gpr_4-4',
+        'M|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_black_gpr_4-4',
+        'L|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_black_gpr_4-4',
+        'XL|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_black_gpr_4-4',
     };
-    const key = `${size}|${color}|${neck}`;
+    const key = `${size}|${color}`;
     return MAP[key] || '';
 }
 
@@ -491,7 +480,6 @@ function lookupProductUid(size, color, neck){
 					const qty = parseInt((document.querySelector('input[name="quantity"]')?.value)||'1', 10) || 1;
 					const size = document.getElementById('size-select').value;
 					const color = document.getElementById('color-select').value;
-					const neck = document.getElementById('neck-select').value;
 					const salePrice = {{ (((product.price * 95) / 100)|float)|tojson }};
 					if (typeof gtag === 'function') {
 						gtag('event','add_to_cart',{
@@ -502,7 +490,7 @@ function lookupProductUid(size, color, neck){
 								item_name: {{ product.title|tojson }},
 								item_brand: 'Dumbshirts.store',
 								item_category: 't-shirt',
-								item_variant: size + ' / ' + (color.charAt(0).toUpperCase()+color.slice(1)) + ' / ' + (neck==='crewneck'?'Crewneck':'V‑neck'),
+								item_variant: size + ' / ' + (color.charAt(0).toUpperCase()+color.slice(1)) + ' / Crewneck',
 								price: salePrice,
 								quantity: qty
 							}]
@@ -516,8 +504,7 @@ function lookupProductUid(size, color, neck){
 	function updateProductUid(){
 		const size = document.getElementById('size-select').value;
 		const color = document.getElementById('color-select').value;
-		const neck = document.getElementById('neck-select').value;
-    const uid = lookupProductUid(size, color, neck);
+    const uid = lookupProductUid(size, color);
 		document.getElementById('productUidInput').value = uid;
 		// If matching variant for color exists, sync hidden variant select so cart stores correct variant/color
 		try{
@@ -539,7 +526,7 @@ function lookupProductUid(size, color, neck){
 		}catch(e){}
 		updateMockup();
 	}
-	['size-select','color-select','neck-select'].forEach(id=>{
+	['size-select','color-select'].forEach(id=>{
 		const el = document.getElementById(id);
 		if(el){ el.addEventListener('change', updateProductUid); }
 	});
