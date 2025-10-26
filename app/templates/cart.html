@@ -25,7 +25,7 @@
 				{% endif %}
 			</div>
 			<div class="flex-1">
-				<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium underline">{{ it.title }}</a>
+				<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium">{{ it.title }}</a>
 				{% if it.color %}
 				<div class="text-xs text-gray-400 mt-0.5">Color: {{ it.color }}</div>
 				{% endif %}
@@ -88,7 +88,7 @@
 			{% for it in cart['items'] %}
 			<tr class="border-t border-gray-800">
 				<td class="py-2">
-					<a class="flex items-center gap-3 underline" href="{{ url_for('main.product_detail', slug=it.slug) }}">
+					<a class="flex items-center gap-3" href="{{ url_for('main.product_detail', slug=it.slug) }}">
 						<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
 							{% set color_key = (it.color or 'white')|lower %}
 							{% set base_map = {
