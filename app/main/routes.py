@@ -359,6 +359,14 @@ def health():
 	return {"status": "ok"}
 
 
+@main_bp.get("/api/gelato/verify")
+def gelato_verify():
+    """Quick connectivity check to Gelato APIs."""
+    client = GelatoClient()
+    ok, debug = client.verify()
+    return jsonify({"ok": ok, "debug": debug}), (200 if ok else 500)
+
+
 @main_bp.get("/shipping-returns")
 def shipping_returns():
 	return render_template("shipping_returns.html")
@@ -416,7 +424,9 @@ def order_confirm(order_id: int):
 	"""Order confirmation page hosting Google Customer Reviews opt-in snippet."""
 	order = Order.query.get_or_404(order_id)
 	addr = order.shipping_address
-	email = (addr.email if addr else "") or ""
+	# Prefer email passed via query param (from checkout) if present
+	qp_email = (request.args.get("email") or "").strip()
+	email = qp_email or ((addr.email if addr else "") or "")
 	country = (addr.country if addr and addr.country else "US")
 	est_date = (datetime.utcnow().date() + timedelta(days=7)).isoformat()
 	# Build product GTINs if any (we don't store GTINs; pass empty list for now)

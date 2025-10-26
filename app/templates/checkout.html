@@ -302,7 +302,11 @@ function gtag_report_conversion(url){
 			msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!';
 			try{ gtag_report_conversion(); }catch(e){ try{ console.warn('[checkout] gtag conversion failed', e); }catch(_e2){} }
 			try{ console.log('[checkout] redirecting to confirmation', { orderId }); }catch(_e){}
-			if(orderId){ window.location = `/order/confirm/${orderId}`; return; }
+			if(orderId){
+				const encEmail = encodeURIComponent(email || '');
+				window.location = `/order/confirm/${orderId}?email=${encEmail}`;
+				return;
+			}
 		} else { msg.textContent = 'Payment processed.'; }
 		setLoading(false);
 	});
