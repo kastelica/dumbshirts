@@ -159,6 +159,29 @@
 	</div>
 </div>
 {% else %}
-<p class="text-gray-400">Your cart is empty.</p>
+<div class="text-center py-12">
+	<div class="max-w-md mx-auto">
+		<div class="w-24 h-24 mx-auto mb-6 bg-gray-900 border border-gray-800 rounded-full flex items-center justify-center">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-12 h-12 text-gray-600">
+				<path d="M2.25 2.25a.75.75 0 000 1.5H4.5l2.598 10.392a2.25 2.25 0 002.187 1.733h8.715a2.25 2.25 0 002.187-1.733l1.263-5.681A.75.75 0 0021.3 6.75H6.708l-.39-1.56A2.25 2.25 0 004.14 3.75H2.25zM9 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9.75-1.5A1.5 1.5 0 1117.25 21a1.5 1.5 0 011.5-1.5z"/>
+			</svg>
+		</div>
+		<h2 class="text-xl font-semibold text-gray-200 mb-2">Your cart is empty</h2>
+		<p class="text-gray-400 mb-6">Ready to find some awesome shirts? Check out our latest designs!</p>
+		<div class="space-y-3">
+			<a href="/shop" class="inline-block bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors">
+				Browse All Products
+			</a>
+			<div class="text-sm text-gray-500">
+				<p class="mb-2">Popular categories:</p>
+				<div class="flex flex-wrap gap-2 justify-center">
+					<a href="/shop?cat=trending" class="px-3 py-1 bg-gray-900 border border-gray-800 rounded text-gray-300 hover:bg-gray-800">Trending</a>
+					<a href="/shop?cat=new" class="px-3 py-1 bg-gray-900 border border-gray-800 rounded text-gray-300 hover:bg-gray-800">New Arrivals</a>
+					<a href="/shop?sort=price_asc" class="px-3 py-1 bg-gray-900 border border-gray-800 rounded text-gray-300 hover:bg-gray-800">Under $20</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
 {% endif %}
 {% endblock %}
