@@ -49,6 +49,8 @@ def google_feed():
 			"description": p.description or "",
 			"price": f"{p.price}",
 			"sale_price": f"{sale}",
+			"cost_of_goods_sold": "8.64",
+			"auto_pricing_min_price": "19.99",
 			"availability": "in stock",
 			"image": _absolute_url(p.design.preview_url if (p.design and p.design.preview_url) else ""),
 			"additional_images": add_imgs,

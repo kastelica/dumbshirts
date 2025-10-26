@@ -22,6 +22,14 @@ def render_google_shopping_feed(items):
 		sp = item.get("sale_price")
 		if sp:
 			SubElement(it, "g:sale_price").text = f"{sp} USD"
+		# Cost of goods sold
+		cogs = item.get("cost_of_goods_sold")
+		if cogs:
+			SubElement(it, "g:cost_of_goods_sold").text = f"{cogs} USD"
+		# Auto pricing minimum price
+		min_price = item.get("auto_pricing_min_price")
+		if min_price:
+			SubElement(it, "g:auto_pricing_min_price").text = f"{min_price} USD"
 		SubElement(it, "g:availability").text = item.get("availability", "in stock")
 		SubElement(it, "g:condition").text = "new"
 		SubElement(it, "g:identifier_exists").text = "FALSE"
