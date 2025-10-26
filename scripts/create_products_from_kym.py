@@ -42,7 +42,9 @@ def create_product_from_image(title: str, image_url: str) -> Product:
     markup_percent = Decimal(str(current_app.config.get("MARKUP_PERCENT", 35)))
     price = (base_cost * (Decimal(1) + markup_percent / Decimal(100))).quantize(Decimal("0.01"))
 
-    base_slug = slugify(title) or "product"
+    # Append "T-Shirt" to product titles
+    product_title = f"{title} T-Shirt"
+    base_slug = slugify(product_title) or "product"
     slug = base_slug
     idx = 2
     while Product.query.filter_by(slug=slug).first():
@@ -51,8 +53,8 @@ def create_product_from_image(title: str, image_url: str) -> Product:
 
     p = Product(
         slug=slug,
-        title=title,
-        description=f"Free Shipping! Shirt inspired by {title}.",
+        title=product_title,
+        description=f"Free Shipping! Shirt inspired by the meme '{title}'. 100% Cotton, Crewneck, Unisex.",
         status="draft",
         base_cost=base_cost,
         price=price,
@@ -103,9 +105,22 @@ def main() -> None:
         picked = entries[:limit]
 
         created = 0
+        def _already_imported(title: str, meme_slug: str) -> bool:
+            # Check by final product slug (title + " T-Shirt")
+            pslug = slugify(f"{title} T-Shirt")
+            if Product.query.filter_by(slug=pslug).first():
+                return True
+            # Check by existing product pointing to a Design with same text title
+            d = Design.query.filter(Design.text == title).first()
+            if d and Product.query.filter_by(design_id=d.id).first():
+                return True
+            # Legacy: if an older run used the meme slug directly
+            if Product.query.filter_by(slug=meme_slug).first():
+                return True
+            return False
+
         for e in picked:
-            # Skip if product with slug already exists
-            if Product.query.filter_by(slug=e["slug"]).first():
+            if _already_imported(e["title"], e["slug"]):
                 continue
             try:
                 dhtml = fetch_html(e["url"])
