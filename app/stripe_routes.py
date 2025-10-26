@@ -168,6 +168,37 @@ def create_payment_intent():
 			return jsonify({"error": "Stripe not configured"}), 400
 		cart = session.get("cart") or {"items": []}
 		data = request.get_json(silent=True) or {}
+		# If an order_id is provided, update existing order/address without recreating PI
+		try:
+			existing_order_id = int(str(data.get("order_id"))) if data.get("order_id") else None
+		except Exception:
+			existing_order_id = None
+		if existing_order_id:
+			ord_row = db.session.get(Order, existing_order_id)
+			if ord_row and ord_row.stripe_payment_intent_id:
+				# Update shipping address fields in-place
+				addr = ord_row.shipping_address or Address()
+				if not ord_row.shipping_address:
+					db.session.add(addr)
+					db.session.flush()
+					ord_row.shipping_address_id = addr.id
+				addr.company_name = (data.get("company_name") or addr.company_name or "")
+				addr.first_name = (data.get("first_name") or addr.first_name or "")
+				addr.last_name = (data.get("last_name") or addr.last_name or "")
+				addr.address_line1 = (data.get("address_line1") or addr.address_line1 or "")
+				addr.address_line2 = (data.get("address_line2") or addr.address_line2 or "")
+				addr.state = (data.get("state") or addr.state or "")
+				addr.city = (data.get("city") or addr.city or "")
+				addr.post_code = (data.get("post_code") or addr.post_code or "")
+				addr.country = (data.get("country") or addr.country or "US")
+				addr.email = (data.get("email") or addr.email or "")
+				addr.phone = (data.get("phone") or addr.phone or "")
+				# Update shipment method uid if provided
+				if data.get("shipment_method_uid"):
+					ord_row.shipment_method_uid = (data.get("shipment_method_uid") or ord_row.shipment_method_uid or "").strip()
+				db.session.commit()
+				# Do not recreate PI; return unchanged so client keeps Elements state
+				return jsonify({"clientSecret": None, "orderId": ord_row.id})
 		amount_cents = _compute_cart_total(cart)
 		# Apply coupon discount server-side as well (percent off subtotal)
 		try:
