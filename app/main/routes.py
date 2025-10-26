@@ -442,9 +442,9 @@ def privacy_page():
 @main_bp.get("/about")
 def about_page():
     faqs = [
-        {"q": "What is Dumbshirts.store?", "a": "A small merch shop making shirts about whatever is trending—fun, timely, and limited."},
-        {"q": "How often do you add new designs?", "a": "We try to add new designs daily based on what's buzzing online."},
-        {"q": "What shirts do you print on?", "a": "High‑quality, unisex tees (like Gildan 5000) with durable DTG prints."},
+        {"q": "What is Dumbshirts.store?", "a": "A small merch shop making shirts about whatever is trending - fun, timely, and limited."},
+        {"q": "How often do you add new designs?", "a": "We try to add new designs daily based on what's happening online."},
+        {"q": "What shirts do you print on?", "a": "High‑quality, unisex tees with durable prints."},
         {"q": "How long is shipping?", "a": "Free shipping usually arrives in 3–6 business days; Express is 2–3 days."},
         {"q": "What’s your return policy?", "a": "30‑day returns on unworn items. See Shipping & Returns for full details."},
         {"q": "Do you take custom requests?", "a": "Sometimes! Send ideas via the Contact page—we love suggestions."},
