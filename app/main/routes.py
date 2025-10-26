@@ -17,8 +17,19 @@ from ..extensions import db
 
 @main_bp.get("/")
 def index():
-	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(9).all()
-	return render_template("index.html", products=products)
+	page = request.args.get("page", 1, type=int)
+	per_page = 9
+	
+	products_query = Product.query.filter_by(status="active").order_by(Product.created_at.desc())
+	products_pagination = products_query.paginate(
+		page=page, per_page=per_page, error_out=False
+	)
+	
+	return render_template("index.html", 
+		products=products_pagination.items,
+		pagination=products_pagination,
+		current_page=page
+	)
 
 
 @main_bp.before_app_request
@@ -40,6 +51,8 @@ def shop():
 	sort = request.args.get("sort", "newest").strip()
 	min_price = request.args.get("min", "").strip()
 	max_price = request.args.get("max", "").strip()
+	page = request.args.get("page", 1, type=int)
+	per_page = 12
 
 	q = Product.query.filter_by(status="active")
 	if cat_slug:
@@ -62,16 +75,20 @@ def shop():
 	else:  # newest
 		q = q.order_by(Product.created_at.desc())
 
-	products = q.all()
+	products_pagination = q.paginate(
+		page=page, per_page=per_page, error_out=False
+	)
 	categories = Category.query.order_by(Category.name.asc()).all()
 	return render_template(
 		"shop.html",
-		products=products,
+		products=products_pagination.items,
+		pagination=products_pagination,
 		categories=categories,
 		selected_cat=cat_slug,
 		sort=sort,
 		min_price=min_price,
 		max_price=max_price,
+		current_page=page,
 	)
 
 
