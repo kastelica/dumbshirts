@@ -77,6 +77,30 @@ def _compute_cart_total(cart: dict) -> int:
 	return int(total * 100)  # cents
 
 
+def _lookup_gelato_uid(size: str | None, color: str | None, neck: str | None = "crewneck") -> str:
+	"""Map size+color+neck to a Gelato productUid. Falls back to empty string when unknown.
+	Keep this mapping in sync with the client-side lookup on product_detail.
+	"""
+	s = (size or "").strip().upper()
+	c = (color or "").strip().lower()
+	n = (neck or "crewneck").strip().lower()
+	MAP = {
+		'S|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
+		'M|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
+		'L|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
+		'XL|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+		'S|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_black_gpr_4-4',
+		'M|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_black_gpr_4-4',
+		'L|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_black_gpr_4-4',
+		'XL|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_black_gpr_4-4',
+		'S|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
+		'M|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
+		'L|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
+		'XL|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+	}
+	return MAP.get(f"{s}|{c}|{n}", "")
+
+
 @stripe_bp.get("/api/shipment-methods")
 def shipment_methods():
 	try:
@@ -199,7 +223,14 @@ def create_payment_intent():
 		for it in cart.get("items", []):
 			variant = db.session.get(Variant, int(it.get("variant_id"))) if it.get("variant_id") else None
 			product = db.session.get(Product, int(it.get("product_id"))) if it.get("product_id") else None
-			product_uid = variant.gelato_sku if variant and variant.gelato_sku else "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4"
+			# Resolve productUid priority: variant.gelato_sku -> fallback by size/color mapping -> config default
+			product_uid = ""
+			if variant and variant.gelato_sku:
+				product_uid = variant.gelato_sku
+			if not product_uid:
+				product_uid = _lookup_gelato_uid(it.get("size"), it.get("color")) or current_app.config.get("DEFAULT_TEE_UID", "")
+			if not product_uid:
+				product_uid = "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4"
 			order_item = OrderItem(
 				order_id=order.id,
 				product_id=product.id if product else None,
@@ -318,9 +349,19 @@ def stripe_webhook():
 					file_url = _absolute_url(prod.design.image_url)
 				elif prod.design.preview_url:
 					file_url = _absolute_url(prod.design.preview_url)
+			# Ensure we have a valid productUid; if missing, try to recompute from variant size/color
+			product_uid = oi.product_uid or ""
+			if not product_uid:
+				try:
+					v = db.session.get(Variant, oi.variant_id) if oi.variant_id else None
+					product_uid = (v.gelato_sku if (v and v.gelato_sku) else "")
+				except Exception:
+					product_uid = ""
+			if not product_uid:
+				product_uid = current_app.config.get("DEFAULT_TEE_UID", "")
 			items.append({
 				"itemReferenceId": f"{order.id}-{oi.id}",
-				"productUid": oi.product_uid,
+				"productUid": product_uid,
 				"files": [ {"type": "default", "url": file_url} ],
 				"quantity": int(oi.quantity),
 			})
