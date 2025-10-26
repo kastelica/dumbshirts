@@ -1,7 +1,10 @@
 import os
 import sys
+import re
+import unicodedata
+import difflib
 from decimal import Decimal
-from typing import List, Dict
+from typing import List, Dict, Iterable
 
 # Ensure project root (containing the `app` package) is on sys.path
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -99,6 +102,26 @@ def main() -> None:
 
     app = create_app()
     with app.app_context():
+        # Helpers for fuzzy duplicate detection
+        STOP = {"the", "a", "an", "meme", "shirt", "t-shirt", "tshirt", "tee"}
+        def _norm_title(s: str) -> str:
+            if not s:
+                return ""
+            s2 = unicodedata.normalize("NFKD", s)
+            s2 = s2.encode("ascii", "ignore").decode("ascii")
+            s2 = s2.lower()
+            s2 = re.sub(r"[^a-z0-9]+", " ", s2)
+            toks = [t for t in s2.split() if t and t not in STOP]
+            return " ".join(toks)
+
+        # Load existing slugs and titles once
+        existing_slug_rows = db.session.query(Product.slug).all()
+        existing_slugs = {row[0] for row in existing_slug_rows if row and row[0]}
+        existing_title_rows = db.session.query(Product.title).all()
+        existing_titles = [row[0] for row in existing_title_rows if row and row[0]]
+        existing_design_rows = db.session.query(Design.text).all()
+        existing_design_titles = [row[0] for row in existing_design_rows if row and row[0]]
+        existing_norm_titles = {_norm_title(t) for t in (existing_titles + existing_design_titles)}
         # 1) Scrape listing and follow detail pages for images
         html = fetch_html(url)
         entries = parse_listing(html)
@@ -108,15 +131,25 @@ def main() -> None:
         def _already_imported(title: str, meme_slug: str) -> bool:
             # Check by final product slug (title + " T-Shirt")
             pslug = slugify(f"{title} T-Shirt")
-            if Product.query.filter_by(slug=pslug).first():
+            if pslug in existing_slugs:
                 return True
             # Check by existing product pointing to a Design with same text title
-            d = Design.query.filter(Design.text == title).first()
-            if d and Product.query.filter_by(design_id=d.id).first():
+            if title in existing_design_titles:
                 return True
             # Legacy: if an older run used the meme slug directly
-            if Product.query.filter_by(slug=meme_slug).first():
+            if meme_slug in existing_slugs:
                 return True
+            # Fuzzy: normalized match or high similarity to any existing title
+            cand_norm = _norm_title(title)
+            if not cand_norm:
+                return False
+            if cand_norm in existing_norm_titles:
+                return True
+            for t in existing_norm_titles:
+                if not t:
+                    continue
+                if difflib.SequenceMatcher(None, cand_norm, t).ratio() >= 0.90:
+                    return True
             return False
 
         for e in picked:
