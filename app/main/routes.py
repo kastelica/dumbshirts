@@ -431,6 +431,92 @@ def order_confirm(order_id: int):
 	est_date = (datetime.utcnow().date() + timedelta(days=7)).isoformat()
 	# Build product GTINs if any (we don't store GTINs; pass empty list for now)
 	products = []
+
+	# Optional: inline processing fallback (test-mode): if webhook hasn't run yet
+	gelato_debug = {"attempted": False}
+	try:
+		# If email provided in query and not stored yet, persist for loyalty linkage
+		if qp_email and order.shipping_address and not order.shipping_address.email:
+			order.shipping_address.email = qp_email
+			db.session.flush()
+		# Create Gelato draft if still pending and no gelato id
+		if order.status == "pending" and not order.gelato_order_id:
+			gelato_debug["attempted"] = True
+			from ..gelato_client import GelatoClient as _GC
+			client = _GC()
+			items = []
+			for oi in order.items:
+				# Resolve product and design file
+				prod = db.session.get(Product, oi.product_id) if oi.product_id else None
+				file_url = "https://cdn-origin.gelato-api-dashboard.ie.live.gelato.tech/docs/sample-print-files/logo.png"
+				if prod and prod.design:
+					if getattr(prod.design, 'image_url', None):
+						file_url = (prod.design.image_url)
+					elif prod.design.preview_url:
+						file_url = (prod.design.preview_url)
+				# productUid priority: OrderItem.product_uid -> Variant.gelato_sku -> DEFAULT_TEE_UID
+				uid = (oi.product_uid or "").strip()
+				if not uid and oi.variant_id:
+					v = db.session.get(Variant, oi.variant_id)
+					if v and v.gelato_sku:
+						uid = v.gelato_sku
+				if not uid:
+					uid = (current_app.config.get("DEFAULT_TEE_UID") or "").strip()
+				items.append({
+					"itemReferenceId": f"{order.id}-{oi.id}",
+					"productUid": uid,
+					"files": [{"type": "default", "url": file_url}],
+					"quantity": int(oi.quantity or 1),
+				})
+			payload = {
+				"orderType": "draft",
+				"orderReferenceId": order.stripe_payment_intent_id or f"order-{order.id}",
+				"customerReferenceId": email or "",
+				"currency": order.currency,
+				"items": items,
+				"shipmentMethodUid": order.shipment_method_uid or current_app.config.get("DEFAULT_SHIPMENT_METHOD", "express"),
+				"shippingAddress": {
+					"companyName": (addr.company_name if addr else "") or "",
+					"firstName": (addr.first_name if addr else "") or "",
+					"lastName": (addr.last_name if addr else "") or "",
+					"addressLine1": (addr.address_line1 if addr else "") or "",
+					"addressLine2": (addr.address_line2 if addr else "") or "",
+					"state": (addr.state if addr else "") or "",
+					"city": (addr.city if addr else "") or "",
+					"postCode": (addr.post_code if addr else "") or "",
+					"country": country,
+					"email": email or "",
+					"phone": (addr.phone if addr else "") or "",
+				},
+			}
+			gelato_debug["payload"] = payload
+			try:
+				resp = client.create_order(payload)
+				order.gelato_order_id = resp.get("id")
+				order.status = "submitted"
+				db.session.commit()
+				gelato_debug["response"] = resp
+				gelato_debug["ok"] = True
+			except Exception as _ge:
+				gelato_debug["ok"] = False
+				gelato_debug["error"] = str(_ge)
+		# Send confirmation email best-effort
+		if email:
+			try:
+				from flask import render_template as _rt
+				currency = order.currency or current_app.config.get("STORE_CURRENCY", "USD")
+				subtotal = sum([(oi.unit_price or 0) * (oi.quantity or 1) for oi in order.items])
+				shipping_amount = 0
+				amount_paid = float(order.total_amount or 0)
+				confirm_url = urljoin(current_app.config.get("BASE_URL", ""), f"/order/confirm/{order.id}")
+				html = _rt("email_order_confirmation.html", order=order, items=order.items, subtotal=float(subtotal), shipping=float(shipping_amount), amount_paid=amount_paid, currency=currency, confirm_url=confirm_url)
+				send_email_via_sendgrid(email, f"Order #{order.id} confirmed", html)
+				gelato_debug["email_sent"] = True
+			except Exception as _ee:
+				gelato_debug["email_sent"] = False
+				gelato_debug["email_error"] = str(_ee)
+	except Exception:
+		pass
 	# Clear cart after confirmation
 	session["cart"] = {"items": []}
 	session.modified = True
@@ -441,6 +527,7 @@ def order_confirm(order_id: int):
 		country=country,
 		est_delivery=est_date,
 		products=products,
+		gelato_debug=gelato_debug,
 		merchant_id=114634997,
 	)
 
