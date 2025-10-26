@@ -198,6 +198,7 @@
 							<option value="L" selected>L</option>
 							<option value="XL">XL</option>
 						</select>
+					<input type="hidden" name="size" id="size-field" value="L">
 					</div>
 					<div>
 						<label class="block text-sm mb-1">Color</label>
@@ -431,6 +432,8 @@ function lookupProductUid(size, color, neck){
         if(qpSize){
             const sizeSel = document.getElementById('size-select');
             if(sizeSel){ sizeSel.value = qpSize; }
+            const sizeField = document.getElementById('size-field');
+            if(sizeField){ sizeField.value = qpSize; }
         }
         if(qpVid){
             const variantSel = document.getElementById('variant-select');
@@ -519,6 +522,11 @@ function lookupProductUid(size, color, neck){
 		try{
 			const cf = document.getElementById('color-field');
 			if(cf){ cf.value = color; }
+		}catch(e){}
+		// sync hidden size field for POST
+		try{
+			const sf = document.getElementById('size-field');
+			if(sf){ sf.value = size; }
 		}catch(e){}
 		updateMockup();
 	}
