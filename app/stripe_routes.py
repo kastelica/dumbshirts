@@ -85,18 +85,18 @@ def _lookup_gelato_uid(size: str | None, color: str | None, neck: str | None = "
 	c = (color or "").strip().lower()
 	n = (neck or "crewneck").strip().lower()
 	MAP = {
-		'S|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
-		'M|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
-		'L|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
-		'XL|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
-		'S|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_black_gpr_4-4',
-		'M|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_black_gpr_4-4',
-		'L|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_black_gpr_4-4',
-		'XL|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_black_gpr_4-4',
-		'S|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
-		'M|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
-		'L|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
-		'XL|white|v-neck': 'apparel_product_gca_t-shirt_gsc_v-neck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+		'S|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_s_gco_white_gpr_4-0_gildan_5000',
+		'M|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_m_gco_white_gpr_4-0_gildan_5000',
+		'L|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_l_gco_white_gpr_4-0_gildan_5000',
+		'XL|white|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_xl_gco_white_gpr_4-0_gildan_5000',
+		'S|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_s_gco_black_gpr_4-0_gildan_5000',
+		'M|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_m_gco_black_gpr_4-0_gildan_5000',
+		'L|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_l_gco_black_gpr_4-0_gildan_5000',
+		'XL|black|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_xl_gco_black_gpr_4-0_gildan_5000',
+		'S|blue|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_s_gco_carolina-blue_gpr_4-0_gildan_5000	',
+		'M|blue|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_m_gco_carolina-blue_gpr_4-0_gildan_5000',
+		'L|blue|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_l_gco_carolina-blue_gpr_4-0_gildan_5000',
+		'XL|blue|crewneck': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_xl_gco_carolina-blue_gpr_4-0_gildan_5000',
 	}
 	return MAP.get(f"{s}|{c}|{n}", "")
 
