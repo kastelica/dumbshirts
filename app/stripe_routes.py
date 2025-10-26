@@ -367,6 +367,34 @@ def stripe_webhook():
 		except Exception:
 			pass
 
+		# Notify admin of new paid order (best-effort)
+		try:
+			to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+			if to_admin:
+				addr = order.shipping_address
+				cust_name = f"{(addr.first_name if addr else '')} {(addr.last_name if addr else '')}".strip()
+				cust_email = ((addr.email if addr else "") or "")
+				items_lines = []
+				try:
+					for oi in order.items:
+						total_line = float((oi.unit_price or 0) * (oi.quantity or 1))
+						items_lines.append(f"{int(oi.quantity or 1)}× {oi.title or ''} — ${total_line:.2f}")
+				except Exception:
+					items_lines = []
+				summary_lines = [
+					f"Order ID: {order.id}",
+					f"Status: {order.status}",
+					f"Amount: {float(order.total_amount or 0):.2f} {order.currency}",
+					f"Customer: {cust_name}",
+					f"Email: {cust_email}",
+					"",
+					"Items:",
+				] + items_lines
+				html = render_simple_email(f"New Order #{order.id}", summary_lines)
+				send_email_via_sendgrid(to_admin, f"New order #{order.id}", html)
+		except Exception:
+			pass
+
 		# Build Gelato draft order
 		client = GelatoClient()
 		try:
