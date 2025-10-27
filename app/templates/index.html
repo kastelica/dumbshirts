@@ -62,29 +62,9 @@
 			{% set color_set = ['white','black','heather','red','blue'] %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
-					{% set white_variant = None %}
-					{% set black_variant = None %}
-					{% set heather_variant = None %}
-					{% set red_variant = None %}
-					{% set blue_variant = None %}
 					{% for v in p.variants %}
-						{% if v.color == 'White' and not white_variant %}
-							{% set white_variant = v %}
-						{% elif v.color == 'Black' and not black_variant %}
-							{% set black_variant = v %}
-						{% elif v.color == 'Heather' and not heather_variant %}
-							{% set heather_variant = v %}
-						{% elif v.color == 'Red' and not red_variant %}
-							{% set red_variant = v %}
-						{% elif v.color == 'Blue' and not blue_variant %}
-							{% set blue_variant = v %}
-						{% endif %}
+					"{{ (v.color or '')|lower }}": {{ v.id }}{% if not loop.last %},{% endif %}
 					{% endfor %}
-					{% if white_variant %}"white": {{ white_variant.id }}{% endif %}
-					{% if black_variant %}{% if white_variant %},{% endif %}"black": {{ black_variant.id }}{% endif %}
-					{% if heather_variant %}{% if white_variant or black_variant %},{% endif %}"heather": {{ heather_variant.id }}{% endif %}
-					{% if red_variant %}{% if white_variant or black_variant or heather_variant %},{% endif %}"red": {{ red_variant.id }}{% endif %}
-					{% if blue_variant %}{% if white_variant or black_variant or heather_variant or red_variant %},{% endif %}"blue": {{ blue_variant.id }}{% endif %}
 				}' data-card-variant-map='{
 					{% for v in p.variants %}
 					"{{ ((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower) }}": {{ v.id }}{% if not loop.last %},{% endif %}
@@ -202,80 +182,13 @@
         red: '/static/uploads/redtshirt.png',
         blue: '/static/uploads/bluetshirt.png'
       };
-      
-      // Random color selection on page load - always use all 5 colors
-      console.log('[Index] Processing card:', card.querySelector('.font-semibold')?.textContent);
-      console.log('[Index] Color map:', colorMap);
-      console.log('[Index] Size-color map:', sizeColorToVid);
-      
-      // Always use all 5 colors regardless of database variants
-      const allColors = ['white', 'black', 'heather', 'red', 'blue'];
-      const randomColor = allColors[Math.floor(Math.random() * allColors.length)];
-      console.log('[Index] Selected random color:', randomColor);
-      
-      const chosenSize = (inputSize?.value||'L').toLowerCase();
-      const comboKey = `${chosenSize}|${randomColor}`;
-      const mapped = sizeColorToVid[comboKey] || colorMap[randomColor];
-      console.log('[Index] Mapped variant ID:', mapped, 'for combo:', comboKey);
-      
-      // Use the first available variant if no specific mapping found
-      const fallbackVariant = inputVariant?.value || '';
-      if(mapped && inputVariant){ 
-        inputVariant.value = mapped; 
-        console.log('[Index] Set variant ID to:', mapped);
-      } else if(fallbackVariant) {
-        console.log('[Index] Using fallback variant ID:', fallbackVariant);
-      }
-      
-      if(inputColor){ 
-        inputColor.value = randomColor; 
-        console.log('[Index] Set color to:', randomColor);
-      }
-      
-      // Highlight the selected color swatch
-      wrap.querySelectorAll('[data-color]').forEach(btn => {
-        btn.classList.remove('ring-2', 'ring-white');
-        if(btn.getAttribute('data-color') === randomColor) {
-          btn.classList.add('ring-2', 'ring-white');
-          console.log('[Index] Highlighted swatch for color:', randomColor);
-        }
-      });
-      
-      // Update mockup to show random color
-      if(mock && base){
-        base.onerror = function(){ this.onerror=null; this.src = BASES.white; };
-        base.src = BASES[randomColor] || BASES.white;
-        mock.classList.remove('hidden');
-        console.log('[Index] Updated mockup base to:', BASES[randomColor] || BASES.white);
-      }
-      
-      // Hide other frames so overlay is the active view
-      if(gallery){
-        gallery.querySelectorAll('img[data-frame]')?.forEach(im=>im.classList.add('hidden'));
-        console.log('[Index] Hidden all gallery frames');
-      }
-      
-      // Update card link to include selected color and variant
-      try{
-        const href = card.getAttribute('href') || '';
-        const url = new URL(href, window.location.origin);
-        url.searchParams.set('color', randomColor);
-        url.searchParams.set('size', (inputSize?.value||'L'));
-        const vid = inputVariant?.value || '';
-        if(vid){ url.searchParams.set('vid', String(vid)); }
-        card.setAttribute('href', url.pathname + url.search);
-        console.log('[Index] Updated card link to:', url.pathname + url.search);
-      }catch(_e){
-        console.error('[Index] Error updating card link:', _e);
-      }
-      
       // initialize design overlay from explicit design-only src placed on element
       try{
         const explicit = design?.getAttribute('data-design-src') || design?.getAttribute('src') || '';
         if(design && explicit){ design.src = explicit; }
       }catch(e){}
-      // default tee base (fallback if no random color was set)
-      if(base && !mock?.classList.contains('hidden')){ base.onerror = function(){ this.onerror=null; this.src = BASES.white; }; base.src = BASES.white; }
+      // default tee base
+      if(base){ base.onerror = function(){ this.onerror=null; this.src = BASES.white; }; base.src = BASES.white; }
       wrap.querySelectorAll('[data-color]').forEach(function(btn){
         btn.addEventListener('click', function(e){
           e.preventDefault();

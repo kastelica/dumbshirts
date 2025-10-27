@@ -656,7 +656,7 @@ def _create_product_for_design(design: Design) -> Product:
 
 	if not product.variants:
 		for size in ["S", "M", "L", "XL"]:
-			for color in ["White", "Black", "Heather", "Red", "Blue"]:
+			for color in ["Black", "White"]:
 				v = Variant(
 					product_id=product.id,
 					name=f"{size} / {color} / Front",
