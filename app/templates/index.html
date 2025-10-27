@@ -62,14 +62,11 @@
 			{% set color_set = ['white','black','heather','red','blue'] %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
-					{% set color_map = {} %}
-					{% for v in p.variants %}
-						{% if (v.color or '')|lower not in color_map %}
-							{% set _ = color_map.update({(v.color or '')|lower: v.id}) %}
+					{% for color in ['white', 'black', 'heather', 'red', 'blue'] %}
+						{% set found_variant = p.variants|selectattr('color', 'equalto', color|title)|first %}
+						{% if found_variant %}
+					"{{ color }}": {{ found_variant.id }}{% if not loop.last %},{% endif %}
 						{% endif %}
-					{% endfor %}
-					{% for color, vid in color_map.items() %}
-					"{{ color }}": {{ vid }}{% if not loop.last %},{% endif %}
 					{% endfor %}
 				}' data-card-variant-map='{
 					{% for v in p.variants %}
