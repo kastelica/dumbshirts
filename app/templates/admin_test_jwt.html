@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Test Google JWT | Admin{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto p-6">
+	<div class="mb-6">
+		<h1 class="text-2xl font-bold mb-2">Test Google JWT Validation</h1>
+		<p class="text-gray-300">Test Google Shopping automated discount JWT token validation.</p>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded p-6 mb-6">
+		<h2 class="text-lg font-semibold mb-4">JWT Token Test</h2>
+		<form method="post">
+			<div class="mb-4">
+				<label class="block text-sm mb-2">JWT Token (pv2 parameter)</label>
+				<textarea name="token" rows="3" class="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Paste JWT token here..."></textarea>
+			</div>
+			<div class="mb-4">
+				<label class="block text-sm mb-2">Merchant ID</label>
+				<input type="text" value="{{ config.GOOGLE_MERCHANT_ID or '114634997' }}" class="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" readonly>
+			</div>
+			<button type="submit" class="bg-white text-black px-4 py-2 rounded">Test Token</button>
+		</form>
+	</div>
+
+	{% if result %}
+	<div class="bg-gray-900 border border-gray-800 rounded p-6 mb-6">
+		<h2 class="text-lg font-semibold mb-4">Test Result</h2>
+		<div class="mb-4">
+			<div class="flex items-center gap-2">
+				{% if result.success %}
+					<span class="text-green-400">✅</span>
+					<span class="text-green-400 font-semibold">{{ result.message }}</span>
+				{% else %}
+					<span class="text-red-400">❌</span>
+					<span class="text-red-400 font-semibold">{{ result.message }}</span>
+				{% endif %}
+			</div>
+		</div>
+
+		{% if result.payload %}
+		<div class="mb-4">
+			<h3 class="text-md font-semibold mb-2">Token Payload</h3>
+			<pre class="bg-gray-950 border border-gray-800 rounded p-3 text-sm text-gray-300 overflow-x-auto">{{ result.payload | tojson(indent=2) }}</pre>
+		</div>
+		{% endif %}
+
+		{% if result.discount_info %}
+		<div class="mb-4">
+			<h3 class="text-md font-semibold mb-2">Discount Information</h3>
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-sm text-gray-400">Offer ID</label>
+					<div class="text-gray-200">{{ result.discount_info.offer_id }}</div>
+				</div>
+				<div>
+					<label class="block text-sm text-gray-400">Merchant ID</label>
+					<div class="text-gray-200">{{ result.discount_info.merchant_id }}</div>
+				</div>
+				<div>
+					<label class="block text-sm text-gray-400">Discounted Price</label>
+					<div class="text-green-400 font-semibold">${{ "%.2f"|format(result.discount_info.discounted_price) }}</div>
+				</div>
+				<div>
+					<label class="block text-sm text-gray-400">Prior Price</label>
+					<div class="text-gray-200">${{ "%.2f"|format(result.discount_info.prior_price) }}</div>
+				</div>
+				<div>
+					<label class="block text-sm text-gray-400">Currency</label>
+					<div class="text-gray-200">{{ result.discount_info.currency }}</div>
+				</div>
+				<div>
+					<label class="block text-sm text-gray-400">Expires At</label>
+					<div class="text-gray-200">{{ result.discount_info.expires_at }}</div>
+				</div>
+			</div>
+		</div>
+		{% endif %}
+	</div>
+	{% endif %}
+
+	<div class="bg-gray-900 border border-gray-800 rounded p-6">
+		<h2 class="text-lg font-semibold mb-4">Sample Test URL</h2>
+		<p class="text-gray-300 mb-4">Use this format to test with Google's test URLs:</p>
+		<code class="block bg-gray-950 border border-gray-800 rounded p-3 text-sm text-gray-300 overflow-x-auto">
+			https://yourstore.com/product/your-product-slug?pv2=JWT_TOKEN_HERE
+		</code>
+		<p class="text-gray-400 text-sm mt-2">Replace <code>JWT_TOKEN_HERE</code> with the actual token from Google.</p>
+	</div>
+
+	<div class="mt-6">
+		<a href="{{ url_for('admin.dashboard') }}" class="text-blue-400 hover:underline">← Back to Admin Dashboard</a>
+	</div>
+</div>
+{% endblock %}

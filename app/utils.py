@@ -1,12 +1,22 @@
 import re
 import os
-from typing import Optional, Sequence
+import base64
+import json
+import time
+from typing import Optional, Sequence, Dict, Any
 
 try:
     from sendgrid import SendGridAPIClient
     from sendgrid.helpers.mail import Mail, Email, To, Content
 except Exception:
     SendGridAPIClient = None
+
+try:
+    import jwt
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+except Exception:
+    jwt = None
 
 
 def slugify(value: str) -> str:
@@ -68,4 +78,109 @@ def render_simple_email(title: str, body_lines: Sequence[str]) -> str:
         "<p style='margin-top:16px;font-size:12px;color:#9ca3af'>Dumbshirts.store</p>"
         "</div>"
     )
+
+
+def get_google_public_key() -> Optional[str]:
+    """Get the Google public key for JWT validation."""
+    return """-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERUlUpxshr67EO66ZTX0Fpog0LEHc
+nUnlSsIrOfroxTLu2XnigBK/lfYRxzQWq9K6nqsSjjYeea0T12r+y3nvqg==
+-----END PUBLIC KEY-----"""
+
+
+def validate_google_jwt_token(token: str, merchant_id: str) -> Optional[Dict[str, Any]]:
+    """Validate Google Shopping automated discount JWT token.
+    
+    Args:
+        token: Base64URL encoded JWT token from pv2 parameter
+        merchant_id: Expected merchant ID to validate against
+        
+    Returns:
+        Dict with token payload if valid, None if invalid
+    """
+    if not jwt:
+        return None
+        
+    try:
+        # Get Google's public key
+        public_key_pem = get_google_public_key()
+        if not public_key_pem:
+            return None
+            
+        # Load the public key
+        public_key = serialization.load_pem_public_key(public_key_pem.encode())
+        
+        # Decode and verify the JWT token
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=['ES256'],
+            options={'verify_exp': True}
+        )
+        
+        # Validate required fields
+        if not all(key in payload for key in ['exp', 'o', 'm', 'p', 'c']):
+            return None
+            
+        # Check merchant ID matches
+        if payload.get('m') != merchant_id:
+            return None
+            
+        # Check if token is expired
+        current_time = int(time.time())
+        if payload.get('exp', 0) < current_time:
+            return None
+            
+        return payload
+        
+    except Exception:
+        return None
+
+
+def extract_google_discount_info(token_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract discount information from validated JWT token payload.
+    
+    Args:
+        token_payload: Validated JWT token payload
+        
+    Returns:
+        Dict with discount information
+    """
+    return {
+        'offer_id': token_payload.get('o', ''),
+        'merchant_id': token_payload.get('m', ''),
+        'discounted_price': float(token_payload.get('p', 0)),
+        'prior_price': float(token_payload.get('pp', 0)),
+        'currency': token_payload.get('c', 'USD'),
+        'expires_at': token_payload.get('exp', 0)
+    }
+
+
+def is_google_discount_valid(session_discount: Dict[str, Any], product_id: int) -> bool:
+    """Check if a Google discount stored in session is still valid.
+    
+    Args:
+        session_discount: Google discount data from session
+        product_id: Product ID to validate against
+        
+    Returns:
+        True if discount is valid, False otherwise
+    """
+    if not session_discount:
+        return False
+        
+    # Check if it's for the right product
+    if session_discount.get("product_id") != product_id:
+        return False
+        
+    # Check if it hasn't expired (48 hours from when it was set)
+    expires_at = session_discount.get("expires_at", 0)
+    current_time = int(time.time())
+    
+    # Google requires 48 hours persistence, but we'll also respect the JWT expiration
+    max_persistence = 48 * 60 * 60  # 48 hours in seconds
+    if current_time > expires_at or (current_time - expires_at) > max_persistence:
+        return False
+        
+    return True
 

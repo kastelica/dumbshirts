@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 from datetime import datetime
 from ..gelato_client import GelatoClient
 from datetime import timedelta
-from ..utils import send_email_via_sendgrid, render_simple_email
+from ..utils import send_email_via_sendgrid, render_simple_email, validate_google_jwt_token, extract_google_discount_info, is_google_discount_valid
 from ..extensions import db
 
 
@@ -113,6 +113,43 @@ def product_detail(slug: str):
 	product = Product.query.filter_by(slug=slug).first_or_404()
 	if product.status != "active":
 		return abort(404)
+	
+	# Handle Google Shopping automated discount token (pv2 parameter)
+	google_discount_info = None
+	pv2_token = request.args.get("pv2", "").strip()
+	if pv2_token:
+		# Get merchant ID from config (you'll need to set this in your config)
+		merchant_id = current_app.config.get("GOOGLE_MERCHANT_ID", "140301646")
+		
+		# Validate the JWT token
+		token_payload = validate_google_jwt_token(pv2_token, merchant_id)
+		if token_payload:
+			google_discount_info = extract_google_discount_info(token_payload)
+			
+			# Store discount info in session for persistence
+			session["google_discount"] = {
+				"product_id": product.id,
+				"offer_id": google_discount_info["offer_id"],
+				"discounted_price": google_discount_info["discounted_price"],
+				"prior_price": google_discount_info["prior_price"],
+				"currency": google_discount_info["currency"],
+				"expires_at": google_discount_info["expires_at"],
+				"token": pv2_token
+			}
+			session.modified = True
+	
+	# Check if we have a valid Google discount in session for this product
+	if not google_discount_info and session.get("google_discount"):
+		session_discount = session["google_discount"]
+		if is_google_discount_valid(session_discount, product.id):
+			google_discount_info = {
+				"offer_id": session_discount.get("offer_id", ""),
+				"discounted_price": session_discount.get("discounted_price", 0),
+				"prior_price": session_discount.get("prior_price", 0),
+				"currency": session_discount.get("currency", "USD"),
+				"expires_at": session_discount.get("expires_at", 0)
+			}
+	
 	# Collect available sizes/colors from variants (mock if none)
 	sizes = sorted({v.size for v in product.variants if v.size}) or ["S", "M", "L", "XL"]
 	colors = sorted({v.color for v in product.variants if v.color}) or ["Black", "White"]
@@ -132,6 +169,7 @@ def product_detail(slug: str):
 		images=images,
 		prev_slug=(prev_p.slug if prev_p else None),
 		next_slug=(next_p.slug if next_p else None),
+		google_discount_info=google_discount_info,
 	)
 
 
@@ -276,9 +314,12 @@ def checkout():
 						variant = None
 				if not variant and product.variants:
 					variant = product.variants[0]
-				# Price: honor site-wide 5% sale as in cart.add
+				# Price: honor Google discount if available, otherwise site-wide 5% sale
 				from decimal import Decimal as _D
-				sale_price = (product.price * _D("95")) / _D("100")
+				if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
+					sale_price = _D(str(session["google_discount"].get("discounted_price", 0)))
+				else:
+					sale_price = (product.price * _D("95")) / _D("100")
 				found = False
 				for it in cart.get("items", []):
 					if variant and it.get("variant_id") == variant.id:
@@ -292,7 +333,7 @@ def checkout():
 							found = True
 							break
 				if not found:
-					cart.setdefault("items", []).append({
+					cart_item = {
 						"product_id": product.id,
 						"variant_id": (variant.id if variant else None),
 						"title": product.title,
@@ -305,7 +346,15 @@ def checkout():
 						"product_uid": ((variant.gelato_sku) if variant else ""),
 						"color": ((str(color_raw).lower()) if color_raw else ((variant.color) if variant else "")),
 						"size": ((str(size_raw).upper()) if size_raw else ((variant.size) if variant else "")),
-					})
+					}
+					# Add Google discount data if available
+					if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
+						cart_item.update({
+							"google_discount_price": session["google_discount"].get("discounted_price"),
+							"google_discount_currency": session["google_discount"].get("currency"),
+							"google_offer_id": session["google_discount"].get("offer_id")
+						})
+					cart.setdefault("items", []).append(cart_item)
 				session["cart"] = cart
 				session.modified = True
 	except Exception:

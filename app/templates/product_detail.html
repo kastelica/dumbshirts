@@ -173,13 +173,26 @@
 			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
 			<p class="text-gray-300 mt-3">{{ product.description }}</p>
 			<div class="mt-6 text-2xl">
-				<span class="line-through text-red-400">${{ '%.2f'|format(product.price) }}</span>
-				<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format((product.price * 95) / 100) }} {{ product.currency }}</span>
+				{% if google_discount_info %}
+					{# Google Shopping automated discount pricing #}
+					<span class="line-through text-red-400">${{ '%.2f'|format(google_discount_info.prior_price or product.price) }}</span>
+					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format(google_discount_info.discounted_price) }} {{ google_discount_info.currency }}</span>
+					<div class="text-sm text-blue-400 mt-1">Google Special Price</div>
+				{% else %}
+					{# Regular 5% off pricing #}
+					<span class="line-through text-red-400">${{ '%.2f'|format(product.price) }}</span>
+					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format((product.price * 95) / 100) }} {{ product.currency }}</span>
+				{% endif %}
 			</div>
 
 			<form id="add-form" class="mt-6 space-y-4" method="post" action="/cart/add">
 				<input type="hidden" id="buy-now-flag" name="buy_now" value="">
 				<input type="hidden" id="productUidInput" name="product_uid" value="">
+				{% if google_discount_info %}
+				<input type="hidden" name="google_discount_price" value="{{ google_discount_info.discounted_price }}">
+				<input type="hidden" name="google_discount_currency" value="{{ google_discount_info.currency }}">
+				<input type="hidden" name="google_offer_id" value="{{ google_discount_info.offer_id }}">
+				{% endif %}
 				<div>
 					
 					<select id="variant-select" name="variant_id" class="hidden bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-full">
@@ -480,10 +493,16 @@ function lookupProductUid(size, color){
 					const qty = parseInt((document.querySelector('input[name="quantity"]')?.value)||'1', 10) || 1;
 					const size = document.getElementById('size-select').value;
 					const color = document.getElementById('color-select').value;
+					{% if google_discount_info %}
+					const salePrice = {{ google_discount_info.discounted_price|tojson }};
+					const currency = {{ google_discount_info.currency|tojson }};
+					{% else %}
 					const salePrice = {{ (((product.price * 95) / 100)|float)|tojson }};
+					const currency = {{ product.currency|tojson }};
+					{% endif %}
 					if (typeof gtag === 'function') {
 						gtag('event','add_to_cart',{
-							currency: {{ product.currency|tojson }},
+							currency: currency,
 							value: salePrice * qty,
 							items: [{
 								item_id: {{ product.id|tojson }},

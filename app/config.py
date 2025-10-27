@@ -37,6 +37,9 @@ class BaseConfig:
         "DEFAULT_TEE_UID",
         "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_heavy-weight_gsi_m_gco_white_gpr_4-0_gildan_5000",
     )
+    
+    # Google Shopping automated discounts
+    GOOGLE_MERCHANT_ID = os.getenv("GOOGLE_MERCHANT_ID", "114634997")
 
 
 class DevelopmentConfig(BaseConfig):

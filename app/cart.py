@@ -25,6 +25,12 @@ def add_to_cart():
 	size_from_form = (request.form.get("size") or "").strip()
 	qty = int(request.form.get("quantity", "1"))
 	buy_now = request.form.get("buy_now") == "1"
+	
+	# Check for Google discount pricing
+	google_discount_price = request.form.get("google_discount_price")
+	google_discount_currency = request.form.get("google_discount_currency")
+	google_offer_id = request.form.get("google_offer_id")
+	
 	if not variant_id:
 		return redirect(request.referrer or url_for("main.index"))
 	variant = Variant.query.get(int(variant_id))
@@ -32,6 +38,25 @@ def add_to_cart():
 		return redirect(request.referrer or url_for("main.index"))
 	product: Product = variant.product
 	cart = _get_cart()
+	
+	# Determine pricing
+	if google_discount_price and google_discount_currency:
+		# Use Google discount pricing
+		item_price = float(google_discount_price)
+		item_currency = google_discount_currency
+		item_orig_price = float(product.price)
+		google_discount_data = {
+			"google_discount_price": item_price,
+			"google_discount_currency": item_currency,
+			"google_offer_id": google_offer_id
+		}
+	else:
+		# Use regular 5% off pricing
+		item_price = float((product.price * Decimal("95")) / Decimal("100"))
+		item_currency = product.currency
+		item_orig_price = float(product.price)
+		google_discount_data = {}
+	
 	# merge only if same variant AND same color/size
 	desired_color = (color_from_form or (variant.color or "")).strip().lower()
 	desired_size = (size_from_form or (variant.size or "")).strip().lower()
@@ -41,23 +66,30 @@ def add_to_cart():
 			it_size = (it.get("size") or "").strip().lower()
 			if it_color == desired_color and it_size == desired_size:
 				it["quantity"] += qty
+				# Update pricing if Google discount is being applied
+				if google_discount_price:
+					it["price"] = item_price
+					it["currency"] = item_currency
+					it.update(google_discount_data)
 				_save_cart(cart)
 				return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
-	cart["items"].append({
+	
+	cart_item = {
 		"product_id": product.id,
 		"variant_id": variant.id,
 		"title": product.title,
 		"slug": product.slug,
-		# Store discounted sale price (5% off) as price, keep original as orig_price
-		"orig_price": float(product.price),
-		"price": float((product.price * Decimal("95")) / Decimal("100")),
-		"currency": product.currency,
+		"orig_price": item_orig_price,
+		"price": item_price,
+		"currency": item_currency,
 		"quantity": qty,
 		"image": ((product.design.image_url) if product.design else ""),
 		"product_uid": (variant.gelato_sku or ""),
 		"color": (color_from_form or (variant.color or "")),
 		"size": (size_from_form or (variant.size or "")),
-	})
+	}
+	cart_item.update(google_discount_data)
+	cart["items"].append(cart_item)
 	_save_cart(cart)
 	return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
 

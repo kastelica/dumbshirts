@@ -7,7 +7,7 @@ from .trends import fetch_trending_phrases_any
 from .trends_store import load_cache, save_cache
 from .gelato_client import GelatoClient
 from flask import current_app
-from .utils import slugify, normalize_trend_term, send_email_via_sendgrid, render_simple_email
+from .utils import slugify, normalize_trend_term, send_email_via_sendgrid, render_simple_email, validate_google_jwt_token, extract_google_discount_info
 from .phrasegen import generate_candidates_from_title, memeify_term
 import os
 from werkzeug.utils import secure_filename
@@ -1535,3 +1535,37 @@ def delete_review(review_id: str):
 	_save_json_list(path, reviews)
 	flash("Review deleted", "success")
 	return redirect(url_for("admin.manage_reviews"))
+
+
+@admin_bp.get("/test-google-jwt")
+@login_required
+def test_google_jwt():
+	"""Test Google JWT validation functionality."""
+	return render_template("admin_test_jwt.html")
+
+
+@admin_bp.post("/test-google-jwt")
+@login_required
+def test_google_jwt_submit():
+	"""Test Google JWT validation with provided token."""
+	token = request.form.get("token", "").strip()
+	merchant_id = current_app.config.get("GOOGLE_MERCHANT_ID", "114634997")
+	
+	result = {"success": False, "message": "", "payload": None, "discount_info": None}
+	
+	if not token:
+		result["message"] = "Please provide a JWT token"
+	else:
+		try:
+			payload = validate_google_jwt_token(token, merchant_id)
+			if payload:
+				result["success"] = True
+				result["message"] = "Token validation successful!"
+				result["payload"] = payload
+				result["discount_info"] = extract_google_discount_info(payload)
+			else:
+				result["message"] = "Token validation failed - invalid token or expired"
+		except Exception as e:
+			result["message"] = f"Error validating token: {str(e)}"
+	
+	return render_template("admin_test_jwt.html", result=result)
