@@ -71,9 +71,9 @@ def create_product_from_image(title: str, image_url: str) -> Product:
     shirts = get_or_create_category("Shirts", "shirts")
     p.categories.append(shirts)
 
-    # 3) Variants: sizes S-XL, colors Black/White, printed on front
+    # 3) Variants: sizes S-XL, colors White/Black/Heather/Red/Blue, printed on front
     for size in ["S", "M", "L", "XL"]:
-        for color in ["Black", "White"]:
+        for color in ["White", "Black", "Heather", "Red", "Blue"]:
             v = Variant(
                 product_id=p.id,
                 name=f"{size} / {color} / Front",
