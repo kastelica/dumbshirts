@@ -182,13 +182,48 @@
         red: '/static/uploads/redtshirt.png',
         blue: '/static/uploads/bluetshirt.png'
       };
+      
+      // Random color selection on page load
+      const availableColors = Object.keys(colorMap);
+      if(availableColors.length > 0) {
+        const randomColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+        const chosenSize = (inputSize?.value||'L').toLowerCase();
+        const comboKey = `${chosenSize}|${randomColor}`;
+        const mapped = sizeColorToVid[comboKey] || colorMap[randomColor];
+        if(mapped && inputVariant){ inputVariant.value = mapped; }
+        if(inputColor){ inputColor.value = randomColor; }
+        
+        // Update mockup to show random color
+        if(mock && base){
+          base.onerror = function(){ this.onerror=null; this.src = BASES.white; };
+          base.src = BASES[randomColor] || BASES.white;
+          mock.classList.remove('hidden');
+        }
+        
+        // Hide other frames so overlay is the active view
+        if(gallery){
+          gallery.querySelectorAll('img[data-frame]')?.forEach(im=>im.classList.add('hidden'));
+        }
+        
+        // Update card link to include selected color and variant
+        try{
+          const href = card.getAttribute('href') || '';
+          const url = new URL(href, window.location.origin);
+          url.searchParams.set('color', randomColor);
+          url.searchParams.set('size', (inputSize?.value||'L'));
+          const vid = inputVariant?.value || '';
+          if(vid){ url.searchParams.set('vid', String(vid)); }
+          card.setAttribute('href', url.pathname + url.search);
+        }catch(_e){}
+      }
+      
       // initialize design overlay from explicit design-only src placed on element
       try{
         const explicit = design?.getAttribute('data-design-src') || design?.getAttribute('src') || '';
         if(design && explicit){ design.src = explicit; }
       }catch(e){}
-      // default tee base
-      if(base){ base.onerror = function(){ this.onerror=null; this.src = BASES.white; }; base.src = BASES.white; }
+      // default tee base (fallback if no random color was set)
+      if(base && !mock?.classList.contains('hidden')){ base.onerror = function(){ this.onerror=null; this.src = BASES.white; }; base.src = BASES.white; }
       wrap.querySelectorAll('[data-color]').forEach(function(btn){
         btn.addEventListener('click', function(e){
           e.preventDefault();
