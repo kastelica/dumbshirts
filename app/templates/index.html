@@ -184,25 +184,52 @@
       };
       
       // Random color selection on page load
+      console.log('[Index] Processing card:', card.querySelector('.font-semibold')?.textContent);
+      console.log('[Index] Color map:', colorMap);
+      console.log('[Index] Size-color map:', sizeColorToVid);
+      
       const availableColors = Object.keys(colorMap);
+      console.log('[Index] Available colors:', availableColors);
+      
       if(availableColors.length > 0) {
         const randomColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+        console.log('[Index] Selected random color:', randomColor);
+        
         const chosenSize = (inputSize?.value||'L').toLowerCase();
         const comboKey = `${chosenSize}|${randomColor}`;
         const mapped = sizeColorToVid[comboKey] || colorMap[randomColor];
-        if(mapped && inputVariant){ inputVariant.value = mapped; }
-        if(inputColor){ inputColor.value = randomColor; }
+        console.log('[Index] Mapped variant ID:', mapped, 'for combo:', comboKey);
+        
+        if(mapped && inputVariant){ 
+          inputVariant.value = mapped; 
+          console.log('[Index] Set variant ID to:', mapped);
+        }
+        if(inputColor){ 
+          inputColor.value = randomColor; 
+          console.log('[Index] Set color to:', randomColor);
+        }
+        
+        // Highlight the selected color swatch
+        wrap.querySelectorAll('[data-color]').forEach(btn => {
+          btn.classList.remove('ring-2', 'ring-white');
+          if(btn.getAttribute('data-color') === randomColor) {
+            btn.classList.add('ring-2', 'ring-white');
+            console.log('[Index] Highlighted swatch for color:', randomColor);
+          }
+        });
         
         // Update mockup to show random color
         if(mock && base){
           base.onerror = function(){ this.onerror=null; this.src = BASES.white; };
           base.src = BASES[randomColor] || BASES.white;
           mock.classList.remove('hidden');
+          console.log('[Index] Updated mockup base to:', BASES[randomColor] || BASES.white);
         }
         
         // Hide other frames so overlay is the active view
         if(gallery){
           gallery.querySelectorAll('img[data-frame]')?.forEach(im=>im.classList.add('hidden'));
+          console.log('[Index] Hidden all gallery frames');
         }
         
         // Update card link to include selected color and variant
@@ -214,7 +241,19 @@
           const vid = inputVariant?.value || '';
           if(vid){ url.searchParams.set('vid', String(vid)); }
           card.setAttribute('href', url.pathname + url.search);
-        }catch(_e){}
+          console.log('[Index] Updated card link to:', url.pathname + url.search);
+        }catch(_e){
+          console.error('[Index] Error updating card link:', _e);
+        }
+      } else {
+        console.log('[Index] No available colors found, using default white');
+        // Highlight white swatch as default
+        wrap.querySelectorAll('[data-color]').forEach(btn => {
+          btn.classList.remove('ring-2', 'ring-white');
+          if(btn.getAttribute('data-color') === 'white') {
+            btn.classList.add('ring-2', 'ring-white');
+          }
+        });
       }
       
       // initialize design overlay from explicit design-only src placed on element

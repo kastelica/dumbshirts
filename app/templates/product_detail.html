@@ -412,15 +412,31 @@ function lookupProductUid(size, color){
 		const color = (document.getElementById('color-select')?.value||'white').toLowerCase();
 		const base = document.getElementById('mockup-base');
 		const design = document.getElementById('mockup-design');
+		console.log('[Product Detail] updateMockup called with color:', color);
+		console.log('[Product Detail] Base element:', base);
+		console.log('[Product Detail] Design element:', design);
+		
 		if(base){
-			base.onerror = function(){ this.onerror = null; this.src = MOCKUP_BASES.white; };
-			base.src = MOCKUP_BASES[color] || MOCKUP_BASES.white;
+			base.onerror = function(){ 
+				console.log('[Product Detail] Base image failed to load, falling back to white');
+				this.onerror = null; 
+				this.src = MOCKUP_BASES.white; 
+			};
+			const baseSrc = MOCKUP_BASES[color] || MOCKUP_BASES.white;
+			console.log('[Product Detail] Setting base src to:', baseSrc);
+			base.src = baseSrc;
 		}
 		// Choose best design image from template context
 		try{
 			const raw = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
-			if(design && raw){ design.src = raw; }
-		}catch(e){}
+			console.log('[Product Detail] Design image URL:', raw);
+			if(design && raw){ 
+				design.src = raw; 
+				console.log('[Product Detail] Set design src to:', raw);
+			}
+		}catch(e){
+			console.error('[Product Detail] Error setting design image:', e);
+		}
 		// Also set the first gallery frame to match the composited view lazily
 		try{
 			const frame0 = document.querySelector('img[data-frame="0"]');
@@ -454,6 +470,7 @@ function lookupProductUid(size, color){
 
 	// Build color swatches (5 common colors)
 	(function buildColorSwatches(){
+		console.log('[Product Detail] Building color swatches...');
 		const colors = [
 			{ key: 'white', hex: '#ffffff' },
 			{ key: 'black', hex: '#000000' },
@@ -463,6 +480,10 @@ function lookupProductUid(size, color){
 		];
 		const wrap = document.getElementById('color-swatches');
 		const hidden = document.getElementById('color-select');
+		console.log('[Product Detail] Wrap element:', wrap);
+		console.log('[Product Detail] Hidden input:', hidden);
+		console.log('[Product Detail] Initial hidden value:', hidden?.value);
+		
 		if(!wrap || !hidden) return;
 		wrap.innerHTML = '';
 		colors.forEach(c => {
@@ -472,16 +493,22 @@ function lookupProductUid(size, color){
 			b.style.backgroundColor = c.hex;
 			b.setAttribute('aria-label', c.key);
 			b.addEventListener('click', () => {
+				console.log('[Product Detail] Color swatch clicked:', c.key);
 				hidden.value = c.key;
 				const colorField = document.getElementById('color-field');
 				if(colorField){ colorField.value = c.key; }
 				Array.from(wrap.children).forEach(el => el.classList.remove('ring-2','ring-white'));
 				b.classList.add('ring-2','ring-white');
+				console.log('[Product Detail] Updated color to:', c.key);
 				updateProductUid();
 			});
-			if(hidden.value === c.key){ b.classList.add('ring-2','ring-white'); }
+			if(hidden.value === c.key){ 
+				b.classList.add('ring-2','ring-white');
+				console.log('[Product Detail] Highlighted initial color:', c.key);
+			}
 			wrap.appendChild(b);
 		});
+		console.log('[Product Detail] Color swatches built, total:', wrap.children.length);
 	})();
 
 	// GA4 add_to_cart tracking on form submit
