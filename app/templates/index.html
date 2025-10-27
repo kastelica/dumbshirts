@@ -62,12 +62,16 @@
 			{% set color_set = ['white','black','heather','red','blue'] %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
-					{% for color in ['white', 'black', 'heather', 'red', 'blue'] %}
-						{% set found_variant = p.variants|selectattr('color', 'equalto', color|title)|first %}
-						{% if found_variant %}
-					"{{ color }}": {{ found_variant.id }}{% if not loop.last %},{% endif %}
-						{% endif %}
-					{% endfor %}
+					{% set white_variant = p.variants|selectattr('color', 'equalto', 'White')|first %}
+					{% set black_variant = p.variants|selectattr('color', 'equalto', 'Black')|first %}
+					{% set heather_variant = p.variants|selectattr('color', 'equalto', 'Heather')|first %}
+					{% set red_variant = p.variants|selectattr('color', 'equalto', 'Red')|first %}
+					{% set blue_variant = p.variants|selectattr('color', 'equalto', 'Blue')|first %}
+					{% if white_variant %}"white": {{ white_variant.id }}{% endif %}
+					{% if black_variant %}{% if white_variant %},{% endif %}"black": {{ black_variant.id }}{% endif %}
+					{% if heather_variant %}{% if white_variant or black_variant %},{% endif %}"heather": {{ heather_variant.id }}{% endif %}
+					{% if red_variant %}{% if white_variant or black_variant or heather_variant %},{% endif %}"red": {{ red_variant.id }}{% endif %}
+					{% if blue_variant %}{% if white_variant or black_variant or heather_variant or red_variant %},{% endif %}"blue": {{ blue_variant.id }}{% endif %}
 				}' data-card-variant-map='{
 					{% for v in p.variants %}
 					"{{ ((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower) }}": {{ v.id }}{% if not loop.last %},{% endif %}
