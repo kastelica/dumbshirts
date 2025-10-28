@@ -22,10 +22,9 @@
 <body class="min-h-screen bg-gray-950 text-gray-100">
 	<div id="promo-bar" class="bg-gray-900 border-b border-gray-800">
 		<div class="max-w-6xl mx-auto px-4 py-2 text-center text-sm">
-			<span class="text-green-400 font-semibold">Save 5% today</span>
-			<span class="text-gray-300">— use code</span>
-			<span class="font-mono bg-gray-800 text-gray-100 px-1.5 py-0.5 rounded">5off</span>
-			<span class="text-gray-300">at checkout.</span>
+			<button id="promo-bar-btn" class="text-green-400 font-semibold hover:underline">
+				Save 5% today — click to reveal your coupon
+			</button>
 		</div>
 	</div>
 	<header class="border-b border-gray-800">
@@ -142,6 +141,28 @@
 		</div>
 	</footer>
 </body>
+
+{# 5% Off Modal - Global #}
+<div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
+	<div class="absolute inset-0 bg-black/70" data-close></div>
+	<div class="relative bg-gray-900 border border-gray-800 rounded w-11/12 md:w-[420px] mx-auto mt-[15vh] p-4">
+		<div class="flex items-center justify-between mb-2">
+			<div class="text-lg font-semibold">Get 5% off</div>
+			<button class="bg-gray-800 text-white px-3 py-1 rounded" data-close>Close</button>
+		</div>
+		<div class="text-sm text-gray-300">Enter your email and we'll reveal your coupon.</div>
+		<form id="promo-5off-form" class="mt-3 flex items-center gap-2">
+			<input id="promo-5off-email" type="email" placeholder="you@example.com" class="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" required />
+			<button class="bg-white text-black px-3 py-2 rounded">Reveal</button>
+		</form>
+		<div id="promo-5off-result" class="hidden mt-3">
+			<div class="text-green-400 text-sm">Your code:</div>
+			<div class="mt-1 text-xl font-semibold">5off</div>
+			<div class="text-xs text-gray-500 mt-1">Use at Cart or Checkout.</div>
+		</div>
+	</div>
+</div>
+
 <script>
 (function(){
 	const btn = document.getElementById('menu-toggle');
@@ -150,6 +171,43 @@
 		btn.addEventListener('click', ()=>{
 			mobile.classList.toggle('hidden');
 		});
+	}
+})();
+</script>
+
+<script>
+(function(){
+	function lsGet(k){ try{return localStorage.getItem(k)||'';}catch(e){return '';} }
+	function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+	
+	// Promo bar button
+	const promoBarBtn = document.getElementById('promo-bar-btn');
+	const modal = document.getElementById('promo-5off-modal');
+	const form = document.getElementById('promo-5off-form');
+	const emailInput = document.getElementById('promo-5off-email');
+	const result = document.getElementById('promo-5off-result');
+	
+	function open(){ if(modal){ modal.classList.remove('hidden'); } }
+	function close(){ if(modal){ modal.classList.add('hidden'); } }
+	
+	if(promoBarBtn){ promoBarBtn.addEventListener('click', open); }
+	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
+	
+	if(form){
+		form.addEventListener('submit', async function(e){
+			e.preventDefault();
+			const email = (emailInput?.value||'').trim();
+			if(!email) return;
+			try{
+				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ email }) });
+				lsSet('promo_5off_captured','1');
+				if(result){ result.classList.remove('hidden'); }
+			}catch(_e){ if(result){ result.classList.remove('hidden'); } }
+		});
+	}
+	
+	if(lsGet('promo_5off_captured')==='1'){
+		if(form && result){ form.classList.add('hidden'); result.classList.remove('hidden'); }
 	}
 })();
 </script>
