@@ -33,9 +33,9 @@ def create_product_from_image(title: str, image_url: str) -> Product:
     """Create a draft shirt product with a square front design image."""
     # 1) Design row
     d = Design(type="image", text=title, approved=True)
-    d.image_url = image_url
-    d.preview_url = image_url
-    d.extra_image1_url = image_url
+    d.image_url = image_url  # Main design file URL
+    d.preview_url = image_url  # Preview/thumbnail image (same as main for now)
+    # d.extra_image1_url = None  # Leave empty for additional images later
     db.session.add(d)
     db.session.flush()
 
