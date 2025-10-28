@@ -149,20 +149,33 @@
 (function(){
   document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.js-card-gallery').forEach(g => {
-      // idx = -1 => overlay (mockup), 0..N-1 => image frames
-      let idx = -1;
+      // Only cycle through actual design images, not mockup overlay
+      let idx = 0;
       const frames = Array.from(g.querySelectorAll('img[data-frame]'));
       const mock = g.querySelector('.mockup-wrap');
-      // initialize: hide all
+      
+      // initialize: show first frame, hide mockup
       const render = ()=>{
         frames.forEach(im=>im.classList.add('hidden'));
         if(mock) mock.classList.add('hidden');
-        if(idx === -1){ if(mock) mock.classList.remove('hidden'); }
-        else if(frames[idx]){ frames[idx].classList.remove('hidden'); }
+        if(frames[idx]){ frames[idx].classList.remove('hidden'); }
       };
-      // controls
-      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; if(idx===-1) idx=frames.length-1; else idx -= 1; render(); });
-      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(!frames.length) return; if(idx===frames.length-1) idx=-1; else idx += 1; render(); });
+      
+      // controls - only cycle through actual frames
+      g.querySelector('[data-action="prev"]')?.addEventListener('click', (e)=>{ 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        if(!frames.length) return; 
+        idx = (idx - 1 + frames.length) % frames.length; 
+        render(); 
+      });
+      g.querySelector('[data-action="next"]')?.addEventListener('click', (e)=>{ 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        if(!frames.length) return; 
+        idx = (idx + 1) % frames.length; 
+        render(); 
+      });
       render();
     });
 
@@ -221,7 +234,7 @@
             base.src = BASES[c] || BASES.white;
             mock.classList.remove('hidden');
           }
-          // hide other frames so overlay is the active view (like product_detail)
+          // hide carousel frames when showing mockup overlay
           if(gallery){
             gallery.querySelectorAll('img[data-frame]')?.forEach(im=>im.classList.add('hidden'));
           }
