@@ -93,31 +93,36 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 
 
 def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
-	"""Attempt to remove background via Hugging Face Inference API (briaai/RMBG-1.4).
+	"""Attempt to remove background via Hugging Face Pipeline (briaai/RMBG-1.4).
 
-	Reads token from config HUGGINGFACE_TOKEN or env var. Returns processed bytes on
-	success, otherwise None. Non-fatal on failure.
+	Uses the transformers pipeline approach for reliable background removal.
+	Returns processed bytes on success, otherwise None. Non-fatal on failure.
 	"""
 	try:
-		import requests as _req
-		token = (current_app.config.get("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or "").strip()
-		if not token:
-			return None
-		# New Inference Providers router (2025+)
-		url_new = "https://router.huggingface.co/hf-inference/models/briaai/RMBG-1.4"
-		r = _req.post(url_new, headers={"Authorization": f"Bearer {token}", "Accept": "image/png"}, data=png_bytes, timeout=45)
-		if r.status_code == 200 and r.content:
-			return r.content
-		# Fallback to legacy endpoint until fully retired
-		url_old = "https://api-inference.huggingface.co/models/briaai/RMBG-1.4"
-		r2 = _req.post(url_old, headers={"Authorization": f"Bearer {token}", "Accept": "image/png"}, data=png_bytes, timeout=45)
-		if r2.status_code == 200 and r2.content:
-			current_app.logger.info("[bg-remove] used legacy HF endpoint; consider upgrading base URL")
-			return r2.content
-		current_app.logger.warning(f"[bg-remove] HF responses new={r.status_code} old={r2.status_code}")
-		return None
+		# Use the working pipeline approach instead of API calls
+		from transformers import pipeline
+		from PIL import Image
+		from io import BytesIO
+		
+		# Load the pipeline
+		pipe = pipeline("image-segmentation", model="briaai/RMBG-1.4", trust_remote_code=True)
+		
+		# Load image from bytes
+		image = Image.open(BytesIO(png_bytes)).convert("RGB")
+		
+		# Apply background removal
+		pillow_image = pipe(image)  # This applies mask and returns image with transparent background
+		
+		# Convert to bytes
+		output = BytesIO()
+		pillow_image.save(output, format='PNG')
+		result_bytes = output.getvalue()
+		
+		current_app.logger.info("[bg-remove] Successfully removed background via HF pipeline")
+		return result_bytes
+		
 	except Exception as _e:
-		current_app.logger.warning(f"[bg-remove] HF failed: {_e}")
+		current_app.logger.warning(f"[bg-remove] HF pipeline failed: {_e}")
 		return None
 
 
