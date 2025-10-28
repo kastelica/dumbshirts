@@ -104,25 +104,34 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 		from PIL import Image
 		from io import BytesIO
 		
+		current_app.logger.info("[bg-remove] Loading HF pipeline...")
+		
 		# Load the pipeline
 		pipe = pipeline("image-segmentation", model="briaai/RMBG-1.4", trust_remote_code=True)
 		
+		current_app.logger.info("[bg-remove] Pipeline loaded, processing image...")
+		
 		# Load image from bytes
 		image = Image.open(BytesIO(png_bytes)).convert("RGB")
+		current_app.logger.info(f"[bg-remove] Image loaded: {image.size}, mode: {image.mode}")
 		
 		# Apply background removal
 		pillow_image = pipe(image)  # This applies mask and returns image with transparent background
+		
+		current_app.logger.info(f"[bg-remove] Background removal complete, result mode: {pillow_image.mode}")
 		
 		# Convert to bytes
 		output = BytesIO()
 		pillow_image.save(output, format='PNG')
 		result_bytes = output.getvalue()
 		
-		current_app.logger.info("[bg-remove] Successfully removed background via HF pipeline")
+		current_app.logger.info(f"[bg-remove] Successfully removed background via HF pipeline, output size: {len(result_bytes)} bytes")
 		return result_bytes
 		
 	except Exception as _e:
 		current_app.logger.warning(f"[bg-remove] HF pipeline failed: {_e}")
+		import traceback
+		current_app.logger.warning(f"[bg-remove] Full traceback: {traceback.format_exc()}")
 		return None
 
 
@@ -1169,12 +1178,15 @@ def generate_openai_image(product_id: int):
 				img = b64decode(b64)
 				# Try background removal
 				try:
+					current_app.logger.info("[bg-remove] Starting background removal for on-demand image")
 					clean = _remove_bg_hf(img)
 					if clean:
 						img = clean
-						current_app.logger.info("[bg-remove] Applied on-demand image")
-				except Exception:
-					pass
+						current_app.logger.info("[bg-remove] Successfully applied background removal to on-demand image")
+					else:
+						current_app.logger.warning("[bg-remove] Background removal returned None for on-demand image")
+				except Exception as e:
+					current_app.logger.warning(f"[bg-remove] Background removal failed for on-demand image: {e}")
 				p2 = Product.query.get(pid)
 				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
 				# Upload to Cloudinary if configured; otherwise save locally
