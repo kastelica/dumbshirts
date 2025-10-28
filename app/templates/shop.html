@@ -61,6 +61,8 @@
 			{# lightweight color selector and add-to-cart #}
 			{% set colors = (p.variants | map(attribute='color') | list) if p.variants else [] %}
 			{% set color_set = colors | select | map('lower') | unique | list %}
+			{# Fallback to standard colors if no variants exist #}
+			{% if not color_set %}{% set color_set = ['white','black','heather','red','blue'] %}{% endif %}
 			<div class="mt-3 flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
 					{% for v in p.variants %}
