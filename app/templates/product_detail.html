@@ -47,7 +47,7 @@
 		"name": {{ product.title|tojson }},
 		{% if image_abs %}"image": [{{ image_abs|tojson }}],{% endif %}
 		"description": {{ (product.description or product.title)|tojson }},
-		"sku": {{ (product.variants[0].gelato_sku if product.variants and product.variants[0].gelato_sku else product.id)|string|tojson }},
+		"sku": {{ product.id|string|tojson }},
 		"brand": { "@type": "Brand", "name": "Dumbshirts.store" },
 		"url": {{ canonical|tojson }},
 		"review": {
