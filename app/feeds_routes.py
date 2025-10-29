@@ -190,6 +190,10 @@ def reviews_feed():
         skus = SubElement(product_ids, "skus")
         SubElement(skus, "sku").text = str(p.id)
         
+        # MPNs (Manufacturer Part Numbers) - use product ID as MPN
+        mpns = SubElement(product_ids, "mpns")
+        SubElement(mpns, "mpn").text = str(p.id)
+        
         # Brands (required for products with known brand)
         brands = SubElement(product_ids, "brands")
         SubElement(brands, "brand").text = "Dumbshirts.store"
