@@ -35,16 +35,28 @@
     // -1 = mockup (main image), 0 = design-only square PNG
     let idx = -1;
     
-    // Initialize mockup with default white color for cards
+    // Initialize mockup with auto-selected color for cards
     if (isCardView && mock) {
       const base = mock.querySelector('.mockup-base');
       const design = mock.querySelector('.mockup-design');
+      const cardEl = galleryEl.closest('.group') || galleryEl.closest('a');
+      
+      // Get auto-selected color from card data attribute
+      let autoColor = 'white';
+      if (cardEl) {
+        const dataColor = cardEl.getAttribute('data-auto-color');
+        if (dataColor) {
+          autoColor = dataColor.toLowerCase();
+        }
+      }
+      
       if (base) {
         base.onerror = function() {
           this.onerror = null;
           this.src = MOCKUP_BASES.white;
         };
-        base.src = MOCKUP_BASES.white;
+        const baseSrc = MOCKUP_BASES[autoColor] || MOCKUP_BASES.white;
+        base.src = baseSrc;
       }
       // Set design src from data-design-src attribute (like product_detail)
       if (design) {
@@ -182,11 +194,39 @@
     
     if (!gallery) return;
     
+    // Get auto-selected color from card data attribute
+    let autoColor = (inputColor?.value || 'white').toLowerCase();
+    const dataAutoColor = cardEl.getAttribute('data-auto-color');
+    if (dataAutoColor) {
+      autoColor = dataAutoColor.toLowerCase();
+      // Update hidden color input to match auto-selected color
+      if (inputColor) {
+        inputColor.value = autoColor;
+      }
+    }
+    
     // Get design image source from mockup-design element or first frame
     const mockDesign = gallery.querySelector('.mockup-design') || gallery.querySelector('#mockup-design');
     const designSrc = mockDesign?.getAttribute('data-design-src') || 
                      mockDesign?.getAttribute('src') || 
                      (gallery.querySelector('img[data-frame]')?.getAttribute('src') || '');
+    
+    // Mark the auto-selected color swatch as active
+    wrap.querySelectorAll('[data-color]').forEach(btn => {
+      const btnColor = (btn.getAttribute('data-color') || '').toLowerCase();
+      if (btnColor === autoColor) {
+        btn.classList.add('ring-2', 'ring-white');
+        // Update variant if needed
+        const chosenSize = (inputSize?.value || 'L').toLowerCase();
+        const comboKey = `${chosenSize}|${autoColor}`;
+        const mapped = sizeColorToVid[comboKey] || colorMap[autoColor];
+        if (mapped && inputVariant) {
+          inputVariant.value = mapped;
+        }
+      } else {
+        btn.classList.remove('ring-2', 'ring-white');
+      }
+    });
     
     // Prevent navigation when clicking size dropdown inside card link
     try {

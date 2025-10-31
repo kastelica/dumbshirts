@@ -34,7 +34,10 @@
 </form>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 	{% for p in products %}
-	<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors">
+	{# Auto-select a different color for each product using product ID #}
+	{% set color_set = ['white','black','heather','red','blue'] %}
+	{% set auto_color = color_set[p.id % color_set|length] %}
+	<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ auto_color }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors" data-auto-color="{{ auto_color }}">
 		<div class="relative js-card-gallery">
 			{# Live mockup container: base tee by color + design overlay #}
 			<div class="absolute inset-0 z-10 pointer-events-none mockup-wrap">
@@ -79,7 +82,7 @@
 				<form method="post" action="/cart/add" class="flex items-center gap-2">
 					<input type="hidden" name="product_id" value="{{ p.id }}">
 					<input type="hidden" name="variant_id" value="{{ p.variants[0].id if p.variants else '' }}" class="js-variant-id">
-					<input type="hidden" name="color" value="white" class="js-color-val">
+					<input type="hidden" name="color" value="{{ auto_color }}" class="js-color-val">
 					<input type="hidden" name="size" value="L" class="js-size-val">
 					<input type="hidden" name="quantity" value="1">
 					<button class="text-xs bg-white text-black px-3 py-1 rounded">Add</button>
