@@ -29,15 +29,16 @@
 	{% for p in products %}
 	<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors">
 		<div class="relative js-card-gallery">
-			{# Live mockup overlay for card: tee base + design overlay (shown by default) #}
+			{# Live mockup container: base tee by color + design overlay #}
 			<div class="absolute inset-0 z-10 pointer-events-none mockup-wrap">
 				<img alt="Tee base" class="w-full h-full object-contain mockup-base" />
-				<img alt="Design overlay" class="absolute object-contain mockup-design" style="width:35%; left:32%; top:26%;" src="{{ (p.design.image_url or p.design.preview_url) if p.design else '' }}" data-design-src="{{ (p.design.image_url or p.design.preview_url) if p.design else '' }}" />
+				<img alt="Design overlay" class="absolute object-contain mockup-design" style="width:35%; left:32%; top:26%;" data-design-src="{{ (p.design.image_url or p.design.preview_url) if p.design else '' }}" />
 			</div>
 			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
-				{% if p.design and p.design.preview_url %}
-					{# Design-only square PNG as second image #}
-					<img src="{{ p.design.preview_url }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame />
+				{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
+				{% set design_only = (p.design.image_url or p.design.preview_url) if p.design else '' %}
+				{% if design_only %}
+					<img src="{{ design_only }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
 				{% else %}
 					<span class="text-gray-600 text-sm">No image</span>
 				{% endif %}

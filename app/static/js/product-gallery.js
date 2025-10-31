@@ -46,7 +46,13 @@
         };
         base.src = MOCKUP_BASES.white;
       }
-      // Design src should already be set from data-design-src attribute
+      // Set design src from data-design-src attribute (like product_detail)
+      if (design) {
+        const designSrc = design.getAttribute('data-design-src') || design.getAttribute('src') || '';
+        if (designSrc) {
+          design.src = designSrc;
+        }
+      }
     }
     
     const render = () => {
