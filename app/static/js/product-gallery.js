@@ -21,25 +21,40 @@
   /**
    * Initialize gallery with navigation controls
    * Supports both card galleries (.js-card-gallery) and detail galleries (.js-gallery)
-   * For detail galleries: idx -1 = mockup, 0+ = image frames
-   * For card galleries: idx 0+ = image frames only (mockup handled separately)
+   * Both start with mockup view: idx -1 = mockup, 0 = design-only
    */
   function initGallery(galleryEl) {
     const frames = Array.from(galleryEl.querySelectorAll('img[data-frame]'));
     const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
     const isDetailView = galleryEl.classList.contains('js-gallery');
+    const isCardView = galleryEl.classList.contains('js-card-gallery');
     
     if (!frames.length && !mock) return;
     
-    // Detail view: start at mockup (-1), card view: start at first frame (0)
-    let idx = isDetailView ? -1 : 0;
+    // Both card and detail views start at mockup (-1)
+    // -1 = mockup (main image), 0 = design-only square PNG
+    let idx = -1;
+    
+    // Initialize mockup with default white color for cards
+    if (isCardView && mock) {
+      const base = mock.querySelector('.mockup-base');
+      const design = mock.querySelector('.mockup-design');
+      if (base) {
+        base.onerror = function() {
+          this.onerror = null;
+          this.src = MOCKUP_BASES.white;
+        };
+        base.src = MOCKUP_BASES.white;
+      }
+      // Design src should already be set from data-design-src attribute
+    }
     
     const render = () => {
       frames.forEach(im => im.classList.add('hidden'));
       if (mock) mock.classList.add('hidden');
       
-      if (isDetailView && idx === -1) {
-        // Show mockup in detail view
+      if (idx === -1) {
+        // Show mockup (for both detail and card views)
         if (mock) mock.classList.remove('hidden');
       } else if (frames[idx]) {
         frames[idx].classList.remove('hidden');
@@ -54,16 +69,14 @@
         e.preventDefault();
         e.stopPropagation();
       }
-      if (isDetailView && idx === -1) {
-        idx = frames.length - 1;
+      if (idx === -1) {
+        // From mockup, go to last frame (design-only)
+        idx = frames.length > 0 ? frames.length - 1 : 0;
       } else if (idx > 0) {
         idx--;
-      } else if (isDetailView && frames.length > 0) {
-        idx = frames.length - 1;
-      } else if (frames.length > 0) {
-        idx = frames.length - 1;
-      } else {
-        idx = isDetailView ? -1 : 0;
+      } else if (idx === 0) {
+        // From design-only, go back to mockup
+        idx = -1;
       }
       render();
     };
@@ -73,14 +86,14 @@
         e.preventDefault();
         e.stopPropagation();
       }
-      if (isDetailView && idx === frames.length - 1) {
-        idx = -1;
+      if (idx === -1) {
+        // From mockup, go to design-only (frame 0)
+        idx = frames.length > 0 ? 0 : -1;
       } else if (idx < frames.length - 1) {
         idx++;
-      } else if (frames.length > 0) {
-        idx = 0;
-      } else {
-        idx = isDetailView ? -1 : 0;
+      } else if (idx === frames.length - 1) {
+        // From last frame, go back to mockup
+        idx = -1;
       }
       render();
     };
@@ -95,6 +108,7 @@
 
   /**
    * Update mockup overlay with selected color
+   * Updates the base t-shirt color but doesn't change visibility - that's handled by gallery navigation
    */
   function updateMockup(galleryEl, color, designSrc) {
     const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
@@ -118,10 +132,8 @@
       design.src = designSrc;
     }
     
-    // Show mockup and hide image frames
-    mock.classList.remove('hidden');
-    const frames = galleryEl.querySelectorAll('img[data-frame]');
-    frames.forEach(im => im.classList.add('hidden'));
+    // Note: We don't change visibility here - that's handled by gallery navigation
+    // The mockup base color just updates to reflect the selected color
   }
 
   /**
@@ -208,6 +220,12 @@
         
         // Show mockup overlay for selected color
         updateMockup(gallery, c, designSrc);
+        // Ensure mockup is visible and hide frames
+        if (mock) {
+          mock.classList.remove('hidden');
+          const frames = gallery.querySelectorAll('img[data-frame]');
+          frames.forEach(im => im.classList.add('hidden'));
+        }
         
         // Update card link URL params
         try {
@@ -306,9 +324,24 @@
           if (vid) variantSelect.value = String(vid);
         }
         
-        // Update mockup
+        // Update mockup base color (always update color, but only show if we're on mockup view)
         if (gallery) {
           updateMockup(gallery, newColor, designSrc);
+          // If we're currently showing the mockup, keep it visible; otherwise stay on current frame
+          const isDetailView = gallery.classList.contains('js-gallery');
+          if (isDetailView) {
+            // Check if we're currently on mockup view (idx -1)
+            // We'll get the gallery state and if on mockup, refresh it; otherwise leave as is
+            const mock = gallery.querySelector('.mockup-wrap') || gallery.querySelector('#mockup-wrap');
+            if (mock && !mock.classList.contains('hidden')) {
+              // We're on mockup view, update it but keep it visible
+              // Mockup is already updated above, just ensure it's visible
+              mock.classList.remove('hidden');
+              // Hide any frames
+              const frames = gallery.querySelectorAll('img[data-frame]');
+              frames.forEach(im => im.classList.add('hidden'));
+            }
+          }
         }
         
         // Call custom callback if it exists (for product_detail page specific logic)
@@ -326,6 +359,17 @@
   }
 
   /**
+   * Initialize mockup for product detail page with default color
+   */
+  function initDetailMockup(defaultColor, designSrc) {
+    const gallery = document.querySelector('.js-gallery');
+    if (!gallery) return;
+    
+    // Initialize mockup with default color
+    updateMockup(gallery, defaultColor || 'white', designSrc);
+  }
+
+  /**
    * Main initialization function
    */
   function init() {
@@ -339,8 +383,10 @@
       initCardColorSwatches(card);
     });
     
-    // Product detail page initialization (called from template if needed)
+    // Product detail page initialization
     if (document.getElementById('color-swatches') && window.PRODUCT_DATA) {
+      const defaultColor = document.getElementById('color-select')?.value || 'white';
+      initDetailMockup(defaultColor, window.PRODUCT_DATA.designSrc);
       initDetailColorSwatches(window.PRODUCT_DATA);
     }
   }
@@ -359,6 +405,7 @@
     hideMockup,
     initCardColorSwatches,
     initDetailColorSwatches,
+    initDetailMockup,
     MOCKUP_BASES
   };
 

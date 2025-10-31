@@ -145,14 +145,11 @@
 						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
 						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
 					</div>
-					{# Build optimized gallery: 1) design-only 2) extra images #}
+					{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
 					{% set imgs = [] %}
 					{% set design_only = (product.design.image_url or product.design.preview_url) if product.design else '' %}
-					{% if design_only %}{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}{% endif %}
-					{# Extra images if present #}
-					{% if product.design and (product.design.extra_image1_url or product.design.extra_image2_url) %}
-						{% set _ = imgs.append({'src': product.design.extra_image1_url, 'alt': product.title}) if product.design.extra_image1_url %}
-						{% set _ = imgs.append({'src': product.design.extra_image2_url, 'alt': product.title}) if product.design.extra_image2_url %}
+					{% if design_only %}
+						{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}
 					{% endif %}
 					{% set valid_imgs = imgs | selectattr('src') | list %}
 					{% if valid_imgs %}
@@ -406,6 +403,14 @@ function lookupProductUid(size, color){
 		const designSrc = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
 		if (gallery && window.ProductGallery) {
 			window.ProductGallery.updateMockup(gallery, color, designSrc);
+			// If currently viewing mockup, refresh it to show new color; otherwise stay on current view
+			const mock = gallery.querySelector('#mockup-wrap');
+			if (mock && !mock.classList.contains('hidden')) {
+				// We're on mockup view, update and keep it visible
+				const frames = gallery.querySelectorAll('img[data-frame]');
+				frames.forEach(im => im.classList.add('hidden'));
+				mock.classList.remove('hidden');
+			}
 		}
 	}
 
