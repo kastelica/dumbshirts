@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 from .feeds import render_google_shopping_feed, render_google_promotions_feed, render_google_customer_match_feed
 import os
 import json
+import re
 from .models import Product, Promotion, Order, Address
 from decimal import Decimal
 import datetime
@@ -23,6 +24,71 @@ def google_feed():
 		base = current_app.config.get("BASE_URL", "http://localhost:5000")
 		return urljoin(base, u)
 
+	def _optimize_title(product_title: str, brand: str = "Dumbshirts.store") -> str:
+		"""Optimize product title for Google Shopping per best practices.
+		
+		Principles:
+		- Use all 150 characters when possible
+		- Put most important details first (first 70 chars visible)
+		- Include keywords: product name, brand, specific details
+		- Be specific and clear
+		- Professional grammar, no promotional text
+		"""
+		if not product_title:
+			return "T-Shirt"
+		
+		# Clean up title: remove "T-Shirt" suffix if present (we'll add it properly)
+		title_clean = product_title.strip()
+		title_clean = re.sub(r'\s+T-Shirt\s*$', '', title_clean, flags=re.IGNORECASE)
+		title_clean = title_clean.strip()
+		
+		# Extract core product name (remove any trailing metadata)
+		# Limit to reasonable length for the core name
+		core_name = title_clean[:80] if len(title_clean) > 80 else title_clean
+		
+		# Build optimized title with important keywords first
+		# Format: Core Product Name - Brand T-Shirt - Product Type Details
+		# Target: Put most searchable terms in first 70 characters
+		
+		parts = []
+		
+		# 1. Core product name (most important for search matching)
+		parts.append(core_name)
+		
+		# 2. Brand name (helps recognition)
+		if brand and brand not in core_name:
+			parts.append(brand)
+		
+		# 3. Product type and details
+		product_details = ["Unisex T-Shirt", "100% Cotton", "Crewneck"]
+		parts.extend(product_details)
+		
+		# Join with proper spacing
+		optimized = " - ".join(parts)
+		
+		# Truncate to 150 characters (Google's limit)
+		if len(optimized) > 150:
+			# Prioritize keeping the core name and brand
+			# Try to keep as much of core name as possible
+			max_core = min(80, len(core_name))
+			available_for_details = 150 - max_core - len(f" - {brand} - ") - 30
+			if available_for_details > 0:
+				truncated_details = "Unisex T-Shirt - 100% Cotton - Crewneck"[:available_for_details]
+				optimized = f"{core_name[:max_core]} - {brand} - {truncated_details}"
+			else:
+				# If still too long, just use core name + brand + minimal details
+				optimized = f"{core_name[:100]} - {brand} - T-Shirt"
+			optimized = optimized[:150]
+		
+		# Clean up: remove extra spaces, ensure proper capitalization
+		optimized = re.sub(r'\s+', ' ', optimized).strip()
+		
+		# Ensure first letter is capitalized, rest follows title case rules
+		if optimized:
+			optimized = optimized[0].upper() + optimized[1:] if len(optimized) > 1 else optimized.upper()
+		
+		return optimized
+	
 	for p in products:
 		# Compute 15% off sale price
 		try:
@@ -40,9 +106,13 @@ def google_feed():
 			pass
 
 		checkout_url = url_for('main.checkout', item_id=p.id, _external=True)
+		
+		# Optimize title for Google Shopping
+		optimized_title = _optimize_title(p.title, "Dumbshirts.store")
+		
 		items.append({
 			"id": p.id,
-			"title": p.title,
+			"title": optimized_title,
 			"link": url_for('main.product_detail', slug=p.slug, _external=True),
 			"description": p.description or "",
 			"price": f"{p.price}",
