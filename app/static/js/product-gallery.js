@@ -18,6 +18,44 @@
     pink: '/static/uploads/pinktshirt.png'
   };
 
+  // Color to hex mapping for background colors
+  const COLOR_BACKGROUNDS = {
+    white: '#ffffff',
+    black: '#000000',
+    heather: '#9ca3af',
+    grey: '#9ca3af',
+    gray: '#9ca3af',
+    red: '#ef4444',
+    blue: '#3b82f6',
+    pink: '#ec4899'
+  };
+
+  /**
+   * Create or update the colored background for design-only frame
+   */
+  function updateDesignBackground(galleryEl, color) {
+    const container = galleryEl.querySelector('.aspect-square') || galleryEl;
+    let bgDiv = container.querySelector('.design-bg-color');
+    
+    if (!bgDiv) {
+      bgDiv = document.createElement('div');
+      bgDiv.className = 'design-bg-color absolute inset-0 z-[1]';
+      // Ensure container has relative positioning
+      if (container.style.position !== 'relative' && !container.classList.contains('relative')) {
+        container.style.position = 'relative';
+      }
+      // Insert at beginning so it's behind images (z-[1] above base background)
+      container.insertBefore(bgDiv, container.firstChild);
+    }
+    
+    const colorLower = (color || 'white').toLowerCase();
+    const bgColor = COLOR_BACKGROUNDS[colorLower] || COLOR_BACKGROUNDS.white;
+    bgDiv.style.backgroundColor = bgColor;
+    
+    // Store current color on gallery element for reference
+    galleryEl.setAttribute('data-current-color', colorLower);
+  }
+
   /**
    * Initialize gallery with navigation controls
    * Supports both card galleries (.js-card-gallery) and detail galleries (.js-gallery)
@@ -35,6 +73,9 @@
     // -1 = mockup (main image), 0 = design-only square PNG
     let idx = -1;
     
+    // Track current selected color for background updates
+    let currentColor = 'white';
+    
     // Initialize mockup with auto-selected color for cards
     if (isCardView && mock) {
       const base = mock.querySelector('.mockup-base');
@@ -47,6 +88,7 @@
         const dataColor = cardEl.getAttribute('data-auto-color');
         if (dataColor) {
           autoColor = dataColor.toLowerCase();
+          currentColor = autoColor;
         }
       }
       
@@ -65,17 +107,48 @@
           design.src = designSrc;
         }
       }
+      
+      // Initialize background color for design frame
+      updateDesignBackground(galleryEl, currentColor);
+    } else if (isDetailView) {
+      // For detail view, get initial color from select or default to white
+      const colorSelect = document.getElementById('color-select');
+      if (colorSelect) {
+        currentColor = (colorSelect.value || 'white').toLowerCase();
+      }
+      updateDesignBackground(galleryEl, currentColor);
     }
     
     const render = () => {
       frames.forEach(im => im.classList.add('hidden'));
       if (mock) mock.classList.add('hidden');
       
+      const container = galleryEl.querySelector('.aspect-square') || galleryEl;
+      const bgDiv = container.querySelector('.design-bg-color');
+      
       if (idx === -1) {
         // Show mockup (for both detail and card views)
         if (mock) mock.classList.remove('hidden');
+        // Hide background color when showing mockup
+        if (bgDiv) bgDiv.classList.add('hidden');
       } else if (frames[idx]) {
         frames[idx].classList.remove('hidden');
+        // Ensure frame image is above background (z-index)
+        frames[idx].style.position = 'relative';
+        frames[idx].style.zIndex = '2';
+        // Show background color when showing design-only frame
+        // Get current color from attribute or use tracked color
+        const savedColor = galleryEl.getAttribute('data-current-color') || currentColor;
+        if (bgDiv) {
+          bgDiv.classList.remove('hidden');
+          // Update background color to current selected color
+          const colorLower = savedColor.toLowerCase();
+          const bgColor = COLOR_BACKGROUNDS[colorLower] || COLOR_BACKGROUNDS.white;
+          bgDiv.style.backgroundColor = bgColor;
+        } else {
+          // Create and show background if it doesn't exist
+          updateDesignBackground(galleryEl, savedColor);
+        }
       }
     };
     
@@ -121,7 +194,20 @@
     
     render();
     
-    return { render, idx: () => idx, setIdx: (i) => { idx = i; render(); } };
+    // Expose method to update color (for swatch changes)
+    return { 
+      render, 
+      idx: () => idx, 
+      setIdx: (i) => { idx = i; render(); },
+      setColor: (c) => { 
+        currentColor = (c || 'white').toLowerCase();
+        galleryEl.setAttribute('data-current-color', currentColor);
+        // If currently showing design frame, update background
+        if (idx !== -1) {
+          updateDesignBackground(galleryEl, currentColor);
+        }
+      }
+    };
   }
 
   /**
@@ -266,6 +352,10 @@
         
         // Show mockup overlay for selected color
         updateMockup(gallery, c, designSrc);
+        // Update background color for design frame
+        updateDesignBackground(gallery, c);
+        // Store color on gallery for when frame switches
+        gallery.setAttribute('data-current-color', c.toLowerCase());
         // Ensure mockup is visible and hide frames
         if (mock) {
           mock.classList.remove('hidden');
@@ -373,6 +463,8 @@
         // Update mockup base color (always update color, but only show if we're on mockup view)
         if (gallery) {
           updateMockup(gallery, newColor, designSrc);
+          // Update background color for design frame
+          updateDesignBackground(gallery, newColor);
           // If we're currently showing the mockup, keep it visible; otherwise stay on current frame
           const isDetailView = gallery.classList.contains('js-gallery');
           if (isDetailView) {
@@ -413,6 +505,8 @@
     
     // Initialize mockup with default color
     updateMockup(gallery, defaultColor || 'white', designSrc);
+    // Initialize background color
+    updateDesignBackground(gallery, defaultColor || 'white');
   }
 
   /**
@@ -448,11 +542,13 @@
   window.ProductGallery = {
     initGallery,
     updateMockup,
+    updateDesignBackground,
     hideMockup,
     initCardColorSwatches,
     initDetailColorSwatches,
     initDetailMockup,
-    MOCKUP_BASES
+    MOCKUP_BASES,
+    COLOR_BACKGROUNDS
   };
 
 })();
