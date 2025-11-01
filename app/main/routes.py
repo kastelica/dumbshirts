@@ -894,6 +894,19 @@ def sitemap_xml():
 	for c in Category.query.all():
 		add_url(urljoin(base, f"/shop?cat={c.slug}"), iso_today, "weekly", "0.6")
 
+	# SEO category pages
+	category_pages = [
+		("/funny-tshirts", iso_today, "weekly", "0.7"),
+		("/meme-tshirts", iso_today, "weekly", "0.7"),
+		("/sarcastic-tshirts", iso_today, "weekly", "0.7"),
+		("/witty-shirts", iso_today, "weekly", "0.7"),
+		("/funny-saying-tshirts", iso_today, "weekly", "0.7"),
+		("/pun-shirts", iso_today, "weekly", "0.7"),
+		("/dad-joke-shirts", iso_today, "weekly", "0.7"),
+	]
+	for path, lm, cf, pr in category_pages:
+		add_url(urljoin(base, path), lm, cf, pr)
+
 	# Product pages with images and lastmod
 	for p in Product.query.filter_by(status="active").all():
 		img = p.design.preview_url if getattr(p, "design", None) and p.design.preview_url else ""

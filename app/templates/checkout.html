@@ -127,9 +127,9 @@
         </div>
     </form>
 	{% if publishable_key %}
-	<div id="payment-element" class="bg-gray-900 border border-gray-800 rounded p-3"></div>
-	<button id="submit" class="w-full bg-white text-black px-4 py-2 rounded">Pay ${{ '%.2f'|format(total_amount) }}</button>
-	<div id="payment-message" class="text-sm text-red-400" role="alert"></div>
+	<div id="payment-element" class="bg-gray-900 border border-gray-800 rounded p-3 mb-4"></div>
+	<button id="submit" class="w-full bg-white text-black px-6 py-4 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors">Pay ${{ '%.2f'|format(total_amount) }}</button>
+	<div id="payment-message" class="text-sm text-red-400 mt-2" role="alert"></div>
 	{% else %}
 	<p class="text-xs text-gray-500">Stripe not configured. Set STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY.</p>
 	{% endif %}
@@ -291,7 +291,7 @@ function gtag_report_conversion(url){
 	// Show Stripe payment methods on initial load without forcing validation
 	try { await createOrUpdatePI(true); console.log('[checkout] initial elements mounted'); } catch(e) { try{ console.error('[checkout] initial PI error', e); }catch(_e){} }
 	// Delay PI creation until fields are valid or shipping changes/submit
-	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); }
+	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); submitBtn.classList.toggle('opacity-75', b); }
 	submitBtn.addEventListener('click', async (e) => {
 		e.preventDefault(); msg.textContent=''; setLoading(true);
 		try{ console.log('[checkout] submit clicked'); }catch(_e){}
