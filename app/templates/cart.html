@@ -61,14 +61,14 @@
 			<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format(discount) }} {{ currency }}</span></div>
 			{% endif %}
 		</div>
-		<div class="flex items-center justify-between">
-			<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
-			<div class="space-x-2">
-			<form method="post" action="/cart/clear" class="inline">
-				<button class="underline text-gray-300">Clear</button>
-			</form>
-			<a href="/checkout" class="bg-white text-black px-6 py-3 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors">Checkout</a>
+		<div class="pt-4 border-t border-gray-800">
+			<div class="flex items-center justify-between mb-4">
+				<div class="text-lg font-semibold">Total: ${{ '%.2f'|format(total) }}</div>
+				<form method="post" action="/cart/clear" class="inline">
+					<button class="underline text-gray-300 text-sm">Clear</button>
+				</form>
 			</div>
+			<a href="/checkout" class="block w-full bg-white text-black px-6 py-3 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors text-center">Checkout</a>
         </div>
 	</div>
 </div>
@@ -147,14 +147,14 @@
 			<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format(discount) }} {{ currency }}</span></div>
 			{% endif %}
 		</div>
-		<div class="flex items-center justify-between">
-			<div class="text-lg">Total: ${{ '%.2f'|format(total) }}</div>
-			<div class="space-x-2">
-			<form method="post" action="/cart/clear" class="inline">
-				<button class="underline text-gray-300">Clear cart</button>
-			</form>
-			<a href="/checkout" class="bg-white text-black px-6 py-3 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors">Checkout</a>
+		<div class="pt-4 border-t border-gray-800">
+			<div class="flex items-center justify-between mb-4">
+				<div class="text-lg font-semibold">Total: ${{ '%.2f'|format(total) }}</div>
+				<form method="post" action="/cart/clear" class="inline">
+					<button class="underline text-gray-300 text-sm">Clear cart</button>
+				</form>
 			</div>
+			<a href="/checkout" class="block w-full bg-white text-black px-6 py-3 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors text-center md:inline-block md:w-auto">Checkout</a>
         </div>
 	</div>
 </div>
