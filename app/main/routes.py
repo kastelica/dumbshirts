@@ -98,6 +98,79 @@ def shop():
 	)
 
 
+def _render_category_page(category_name: str, category_slug: str, category_description: str, category_keywords: str):
+	"""Helper function to render category pages with pagination and SEO data"""
+	import random
+	page = request.args.get("page", 1, type=int)
+	per_page = 24
+	
+	# Get all active products, randomized per page
+	all_active = list(Product.query.filter_by(status="active").all())
+	random.shuffle(all_active)
+	
+	# Paginate manually (simple approach)
+	start_idx = (page - 1) * per_page
+	end_idx = start_idx + per_page
+	products = all_active[start_idx:end_idx]
+	
+	# Create pagination object-like structure
+	total = len(all_active)
+	total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+	
+	class SimplePagination:
+		def __init__(self, page, per_page, total):
+			self.page = page
+			self.per_page = per_page
+			self.total = total
+			self.pages = total_pages
+			self.has_prev = page > 1
+			self.has_next = page < total_pages
+			self.prev_num = page - 1 if self.has_prev else None
+			self.next_num = page + 1 if self.has_next else None
+			
+		def iter_pages(self, left_edge=2, right_edge=2, left_current=2, right_current=2):
+			last = self.pages
+			for num in range(1, last + 1):
+				if num <= left_edge or (num > self.page - left_current - 1 and num < self.page + right_current) or num > last - right_edge:
+					yield num
+	
+	pagination = SimplePagination(page, per_page, total) if total_pages > 0 else None
+	category_title = f"{category_name} | Dumbshirts.store"
+	
+	return render_template("category.html",
+		products=products,
+		pagination=pagination,
+		current_page=page,
+		category_name=category_name,
+		category_slug=category_slug,
+		category_title=category_title,
+		category_description=category_description,
+		category_keywords=category_keywords
+	)
+
+
+@main_bp.get("/funny-tshirts")
+def funny_tshirts():
+	"""Category page for funny t-shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Funny T-Shirts",
+		category_slug="funny-tshirts",
+		category_description="Shop our collection of funny t-shirts. Discover hilarious, witty, and entertaining t-shirt designs that bring humor to your wardrobe. Free shipping on orders over $50.",
+		category_keywords="funny t-shirts, funny shirts, humorous t-shirts, comedy tees, joke t-shirts, witty t-shirts"
+	)
+
+
+@main_bp.get("/meme-tshirts")
+def meme_tshirts():
+	"""Category page for meme t-shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Meme T-Shirts",
+		category_slug="meme-tshirts",
+		category_description="Browse our selection of meme t-shirts. From viral internet memes to classic pop culture references, find the perfect meme-inspired t-shirt to express your personality.",
+		category_keywords="meme t-shirts, meme shirts, internet meme tees, viral meme t-shirts, meme culture t-shirts, trending meme designs"
+	)
+
+
 @main_bp.get("/search")
 def search():
 	q = request.args.get("q", "").strip()
