@@ -171,6 +171,61 @@ def meme_tshirts():
 	)
 
 
+@main_bp.get("/sarcastic-tshirts")
+def sarcastic_tshirts():
+	"""Category page for sarcastic t-shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Sarcastic T-Shirts",
+		category_slug="sarcastic-tshirts",
+		category_description="Express your sharp wit with our collection of sarcastic t-shirts. Perfect for those who appreciate dry humor and clever comebacks. Stand out with designs that speak your mind in style.",
+		category_keywords="sarcastic t-shirts, sarcastic shirts, witty sarcastic tees, dry humor t-shirts, sassy t-shirts, clever comeback shirts"
+	)
+
+
+@main_bp.get("/witty-shirts")
+def witty_shirts():
+	"""Category page for witty shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Witty Shirts",
+		category_slug="witty-shirts",
+		category_description="Show off your intelligence and sense of humor with our witty t-shirt collection. Featuring clever wordplay, smart observations, and intellectually humorous designs that make people think and laugh.",
+		category_keywords="witty shirts, witty t-shirts, clever t-shirts, smart humor shirts, intellectual humor tees, witty wordplay shirts"
+	)
+
+
+@main_bp.get("/funny-saying-tshirts")
+def funny_saying_tshirts():
+	"""Category page for funny saying t-shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Funny Saying T-Shirts",
+		category_slug="funny-saying-tshirts",
+		category_description="Browse our collection of funny saying t-shirts featuring hilarious quotes, catchphrases, and memorable one-liners. Perfect for expressing your personality and making people laugh wherever you go.",
+		category_keywords="funny saying t-shirts, quote t-shirts, funny quote shirts, catchphrase t-shirts, one-liner shirts, humorous quote tees"
+	)
+
+
+@main_bp.get("/pun-shirts")
+def pun_shirts():
+	"""Category page for pun shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Pun Shirts",
+		category_slug="pun-shirts",
+		category_description="Get ready to groan and giggle with our pun t-shirt collection! Featuring clever wordplay, pun-tastic designs, and humor that's so bad it's good. Perfect for pun lovers and anyone who appreciates a good play on words.",
+		category_keywords="pun shirts, pun t-shirts, wordplay t-shirts, punny shirts, clever pun tees, dad joke pun shirts, pun humor t-shirts"
+	)
+
+
+@main_bp.get("/dad-joke-shirts")
+def dad_joke_shirts():
+	"""Category page for dad joke shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Dad Joke Shirts",
+		category_slug="dad-joke-shirts",
+		category_description="Embrace the dad joke aesthetic with our collection of dad joke t-shirts. Featuring classic dad humor, cheesy jokes, and puns that are so corny they're charming. Perfect for dads, dads-to-be, and anyone who loves wholesome humor.",
+		category_keywords="dad joke shirts, dad joke t-shirts, dad humor shirts, cheesy joke tees, dad pun shirts, wholesome humor t-shirts, dad joke merchandise"
+	)
+
+
 @main_bp.get("/search")
 def search():
 	q = request.args.get("q", "").strip()

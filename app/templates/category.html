@@ -259,6 +259,48 @@
 			<p class="text-gray-300 leading-relaxed">
 				Each meme t-shirt is printed on high-quality, soft cotton material for maximum comfort. Whether you're representing your favorite meme or just want to show off your internet culture knowledge, our {{ category_name.lower() }} are perfect for memers and meme enthusiasts alike.
 			</p>
+			{% elif category_slug == "sarcastic-tshirts" %}
+			<p class="text-gray-300 leading-relaxed mb-4">
+				Ready to let your sarcastic side shine? Our sarcastic t-shirt collection is designed for those who appreciate sharp wit, dry humor, and clever comebacks. These designs speak volumes without saying much—perfect for making a statement with your style.
+			</p>
+			<p class="text-gray-300 leading-relaxed">
+				Made from premium cotton, our {{ category_name.lower() }} are comfortable enough for everyday wear and bold enough to turn heads. Whether you're the master of dry humor or just appreciate a good sarcastic remark, you'll find designs that match your personality.
+			</p>
+			{% elif category_slug == "witty-shirts" %}
+			<p class="text-gray-300 leading-relaxed mb-4">
+				Intelligence meets humor in our witty shirt collection. These designs feature clever wordplay, smart observations, and intellectually humorous content that makes people think twice before laughing. Perfect for those who appreciate humor that requires a moment to fully appreciate.
+			</p>
+			<p class="text-gray-300 leading-relaxed">
+				Our {{ category_name.lower() }} are crafted from high-quality materials and printed with designs that showcase your cleverness. Whether you love puns, wordplay, or clever observations, these shirts let you wear your wit on your sleeve—literally.
+			</p>
+			{% elif category_slug == "funny-saying-tshirts" %}
+			<p class="text-gray-300 leading-relaxed mb-4">
+				Say it with a shirt! Our funny saying t-shirt collection features hilarious quotes, memorable catchphrases, and one-liners that are guaranteed to get a laugh. From movie quotes to original sayings, these designs help you express yourself in the most entertaining way.
+			</p>
+			<p class="text-gray-300 leading-relaxed">
+				Perfect for making a statement or just spreading some joy, our {{ category_name.lower() }} feature bold typography and clever phrasing that's impossible to ignore. Made from comfortable cotton, they're ideal for any occasion where you want to share a laugh.
+			</p>
+			{% elif category_slug == "pun-shirts" %}
+			<p class="text-gray-300 leading-relaxed mb-4">
+				Prepare for groans and giggles with our pun t-shirt collection! These designs feature clever wordplay, pun-tastic humor, and jokes that are so bad they're good. Perfect for pun enthusiasts who love a good play on words and aren't afraid to share their love of wordplay.
+			</p>
+			<p class="text-gray-300 leading-relaxed">
+				Our {{ category_name.lower() }} are made with love for all the pun lovers out there. Featuring designs that range from clever to corny, these shirts celebrate the art of the pun in all its glory. Wear them proudly and watch as people either laugh or groan—either reaction is a win!
+			</p>
+			{% elif category_slug == "dad-joke-shirts" %}
+			<p class="text-gray-300 leading-relaxed mb-4">
+				Embrace your inner dad with our dad joke t-shirt collection! Featuring classic dad humor, cheesy jokes, and puns that are so corny they're absolutely charming. These designs celebrate the wholesome, wholesome humor that dads are famous for.
+			</p>
+			<p class="text-gray-300 leading-relaxed">
+				Perfect for dads, dads-to-be, or anyone who appreciates wholesome humor, our {{ category_name.lower() }} feature the kind of jokes that make people roll their eyes and smile at the same time. Made from comfortable cotton, they're ideal for family gatherings, barbecues, or any time you want to spread some dad joke cheer.
+			</p>
+			{% else %}
+			<p class="text-gray-300 leading-relaxed mb-4">
+				Explore our curated collection of {{ category_name.lower() }} featuring the best designs in this category. Each shirt is carefully selected to bring humor, style, and personality to your wardrobe.
+			</p>
+			<p class="text-gray-300 leading-relaxed">
+				All our {{ category_name.lower() }} are made from premium 100% cotton, ensuring comfort and durability. With multiple sizes and colors available, you're sure to find the perfect shirt that matches your unique style and sense of humor.
+			</p>
 			{% endif %}
 		</div>
 
@@ -272,7 +314,7 @@
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="text-green-400 font-bold mt-1">✓</span>
-					<span><strong class="text-white">Fast Shipping:</strong> Free shipping on orders over $50. Quick delivery to get your new tee fast.</span>
+					<span><strong class="text-white">Fast Shipping:</strong> Free shipping. Quick delivery to get your new tee fast.</span>
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="text-green-400 font-bold mt-1">✓</span>
@@ -311,7 +353,7 @@
 				</div>
 				<div>
 					<h3 class="text-xl font-semibold mb-2 text-white">How long does shipping take?</h3>
-					<p class="text-gray-300">Standard shipping typically takes 5-7 business days. Free shipping is available on orders over $50. Express shipping options are available at checkout.</p>
+					<p class="text-gray-300">Standard shipping typically takes 5-7 business days. Free shipping. Express shipping options are available at checkout.</p>
 				</div>
 				<div>
 					<h3 class="text-xl font-semibold mb-2 text-white">Are new designs added regularly?</h3>
