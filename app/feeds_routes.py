@@ -26,9 +26,9 @@ def google_feed():
 		return urljoin(base, u)
 
 	for p in products:
-		# Compute 5% off sale price
+		# Compute 10% off sale price
 		try:
-			sale = (Decimal(str(p.price)) * Decimal('0.95')).quantize(Decimal('0.01'))
+			sale = (Decimal(str(p.price)) * Decimal('0.85')).quantize(Decimal('0.01'))
 		except Exception:
 			sale = p.price
 		# Build additional images list (up to 10 allowed; we add up to 2 if present)
