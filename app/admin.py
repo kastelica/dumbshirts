@@ -815,9 +815,18 @@ def auto_product_page():
 @login_required
 def toggle_product_visibility(product_id: int):
 	p = Product.query.get_or_404(product_id)
-	p.status = "draft" if p.status == "active" else "active"
+	old_status = p.status
+	if p.status == "active":
+		p.status = "draft"
+		flash("Product hidden (set to draft)", "success")
+	elif p.status == "draft":
+		p.status = "active"
+		flash("Product published (set to active)", "success")
+	else:
+		# Handle other statuses (archived, etc.)
+		p.status = "active"
+		flash("Product activated", "success")
 	db.session.commit()
-	flash("Visibility updated", "success")
 	return redirect(url_for("admin.products_list"))
 
 

@@ -24,10 +24,10 @@
 		<tr class="border-t border-gray-800">
 			<td class="py-2">
 				<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="flex items-center gap-3">
-				<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
-					{% set thumb = (p.design.preview_url if p.design and p.design.preview_url else (p.design.extra_image1_url if p.design and p.design.extra_image1_url else '')) %}
+				<div class="w-12 h-12 bg-white border border-gray-300 rounded overflow-hidden flex items-center justify-center">
+					{% set thumb = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 					{% if thumb %}
-					<img src="{{ thumb }}" alt="{{ p.title }}" class="w-full h-full object-cover" />
+					<img src="{{ thumb }}" alt="{{ p.title }}" class="w-full h-full object-contain" />
 					{% else %}
 					<span class="text-gray-600 text-xs">No</span>
 					{% endif %}
@@ -39,7 +39,15 @@
 			<td class="py-2">${{ '%.2f'|format(p.price) }} {{ p.currency }}</td>
 			<td class="py-2 space-x-2">
 				<form action="{{ url_for('admin.toggle_product_visibility', product_id=p.id) }}" method="post" class="inline">
-					<button class="bg-white text-black px-3 py-1 rounded">{{ 'Hide' if p.status == 'active' else 'Show' }}</button>
+					<button class="bg-white text-black px-3 py-1 rounded">
+						{% if p.status == 'active' %}
+							Hide
+						{% elif p.status == 'draft' %}
+							Publish
+						{% else %}
+							Show
+						{% endif %}
+					</button>
 				</form>
 				<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="underline">Edit</a>
 				<form action="{{ url_for('admin.gelato_order_product', product_id=p.id) }}" method="post" class="inline">
