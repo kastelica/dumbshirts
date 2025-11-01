@@ -13,45 +13,35 @@
 			</div>
 		</div>
 		<div class="mt-6 md:mt-0 md:col-span-2">
-			<div id="hero-slideshow" class="w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
-				{% if products %}
-					{% set color_set = ['white','black','heather','red','blue','pink'] %}
-					{% set slide_idx = 0 %}
-					{% for p in products[:6] %}
-						{% set slide_color = color_set[loop.index0 % color_set|length] %}
-						{% set design_img = '' %}
-						{% if p.design %}
-							{% set design_img = p.design.image_url or p.design.preview_url or '' %}
-						{% endif %}
+			{% if hero_products and hero_products|length > 0 %}
+			<div class="relative w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden">
+				<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out" style="transform: translateX(0%);">
+					{% for p in hero_products %}
+					<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity">
+						{% set design_img = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 						{% if design_img %}
-							<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide absolute inset-0 {% if slide_idx == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4 z-0" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
-								<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
-							</a>
-							{% set slide_idx = slide_idx + 1 %}
+							<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
+						{% else %}
+							<span class="text-gray-600 text-sm">No image</span>
 						{% endif %}
+					</a>
 					{% endfor %}
-					{% set slide_count = slide_idx %}
-					{% if slide_count > 1 %}
-						<button type="button" id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Previous slide">‹</button>
-						<button type="button" id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Next slide">›</button>
-						<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 pointer-events-auto">
-							{% set dot_idx = 0 %}
-							{% for p in products[:6] %}
-								{% set has_design_img = false %}
-								{% if p.design and (p.design.image_url or p.design.preview_url) %}
-									{% set has_design_img = true %}
-								{% endif %}
-								{% if has_design_img %}
-									<button type="button" class="hero-slide-dot w-2 h-2 rounded-full {% if dot_idx == 0 %}bg-white{% else %}bg-gray-600{% endif %} transition-colors" aria-label="Go to slide {{ dot_idx + 1 }}"></button>
-									{% set dot_idx = dot_idx + 1 %}
-								{% endif %}
-							{% endfor %}
-						</div>
-					{% endif %}
-				{% else %}
-					<div class="flex items-center justify-center h-full text-gray-500">No products available</div>
+				</div>
+				{% if hero_products|length > 1 %}
+				<button id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Previous slide">‹</button>
+				<button id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Next slide">›</button>
+				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+					{% for p in hero_products %}
+					<button class="hero-slide-dot w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}" data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
+					{% endfor %}
+				</div>
 				{% endif %}
 			</div>
+			{% else %}
+			<div class="w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
+				<span class="text-gray-600 text-sm">No products available</span>
+			</div>
+			{% endif %}
 		</div>
 	</div>
 </section>
@@ -173,175 +163,40 @@
 			<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
 		</div>
 	</div>
-	<div id="hero-slideshow-mobile" class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
-		{% if products %}
-			{% set color_set = ['white','black','heather','red','blue','pink'] %}
-			{% set slide_idx = 0 %}
-			{% for p in products[:6] %}
-				{% set slide_color = color_set[loop.index0 % color_set|length] %}
-				{% set design_img = '' %}
-				{% if p.design %}
-					{% set design_img = p.design.image_url or p.design.preview_url or '' %}
-				{% endif %}
+	{% if hero_products and hero_products|length > 0 %}
+	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
+		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out" style="transform: translateX(0%);">
+			{% for p in hero_products %}
+			<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity">
+				{% set design_img = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 				{% if design_img %}
-					<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide-mobile absolute inset-0 {% if slide_idx == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4 z-0" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
-						<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
-					</a>
-					{% set slide_idx = slide_idx + 1 %}
+					<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
+				{% else %}
+					<span class="text-gray-600 text-sm">No image</span>
 				{% endif %}
+			</a>
 			{% endfor %}
-			{% set slide_count = slide_idx %}
-			{% if slide_count > 1 %}
-				<button type="button" id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Previous slide">‹</button>
-				<button type="button" id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Next slide">›</button>
-				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 pointer-events-auto">
-					{% set dot_idx = 0 %}
-					{% for p in products[:6] %}
-						{% set has_design_img = false %}
-						{% if p.design and (p.design.image_url or p.design.preview_url) %}
-							{% set has_design_img = true %}
-						{% endif %}
-						{% if has_design_img %}
-							<button type="button" class="hero-slide-dot-mobile w-2 h-2 rounded-full {% if dot_idx == 0 %}bg-white{% else %}bg-gray-600{% endif %} transition-colors" aria-label="Go to slide {{ dot_idx + 1 }}"></button>
-							{% set dot_idx = dot_idx + 1 %}
-						{% endif %}
-					{% endfor %}
-				</div>
-			{% endif %}
-		{% else %}
-			<div class="flex items-center justify-center h-full text-gray-500">No products available</div>
+		</div>
+		{% if hero_products|length > 1 %}
+		<button id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Previous slide">‹</button>
+		<button id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Next slide">›</button>
+		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+			{% for p in hero_products %}
+			<button class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}" data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
+			{% endfor %}
+		</div>
 		{% endif %}
 	</div>
+	{% else %}
+	<div class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
+		<span class="text-gray-600 text-sm">No products available</span>
+	</div>
+	{% endif %}
 </section>
 {% endblock %}
 
 {% block head %}
 <script src="/static/js/product-gallery.js"></script>
-<script>
-// Hero slideshow functionality
-(function(){
-		function initSlideshow(containerId, prevId, nextId, slideClass, dotClass) {
-		const container = document.getElementById(containerId);
-		if(!container) return;
-		
-		const slides = Array.from(container.querySelectorAll('.' + slideClass));
-		const dots = Array.from(container.querySelectorAll('.' + dotClass));
-		const prevBtn = document.getElementById(prevId);
-		const nextBtn = document.getElementById(nextId);
-		
-		if(slides.length <= 1) {
-			// Hide navigation if only one slide
-			if(prevBtn) prevBtn.style.display = 'none';
-			if(nextBtn) nextBtn.style.display = 'none';
-			if(dots.length > 0) {
-				dots.forEach(dot => dot.style.display = 'none');
-			}
-			return;
-		}
-		
-		// Ensure buttons are visible
-		if(prevBtn) prevBtn.style.display = 'flex';
-		if(nextBtn) nextBtn.style.display = 'flex';
-		
-		let currentIndex = 0;
-		let autoSlideInterval = null;
-		
-		function showSlide(index) {
-			if(index < 0 || index >= slides.length) return;
-			
-			slides.forEach((slide, i) => {
-				if(i === index) {
-					slide.classList.remove('opacity-0');
-					slide.classList.add('opacity-100');
-				} else {
-					slide.classList.remove('opacity-100');
-					slide.classList.add('opacity-0');
-				}
-			});
-			
-			dots.forEach((dot, i) => {
-				if(i === index) {
-					dot.classList.remove('bg-gray-600');
-					dot.classList.add('bg-white');
-				} else {
-					dot.classList.remove('bg-white');
-					dot.classList.add('bg-gray-600');
-				}
-			});
-			
-			currentIndex = index;
-		}
-		
-		function nextSlide() {
-			const next = (currentIndex + 1) % slides.length;
-			showSlide(next);
-		}
-		
-		function prevSlide() {
-			const prev = (currentIndex - 1 + slides.length) % slides.length;
-			showSlide(prev);
-		}
-		
-		function startAutoSlide() {
-			stopAutoSlide(); // Clear any existing interval
-			autoSlideInterval = setInterval(nextSlide, 4000); // Change slide every 4 seconds
-		}
-		
-		function stopAutoSlide() {
-			if(autoSlideInterval) {
-				clearInterval(autoSlideInterval);
-				autoSlideInterval = null;
-			}
-		}
-		
-		// Button handlers
-		if(nextBtn) {
-			nextBtn.addEventListener('click', function(e){
-				e.preventDefault();
-				e.stopPropagation();
-				stopAutoSlide();
-				nextSlide();
-				startAutoSlide();
-			});
-		}
-		
-		if(prevBtn) {
-			prevBtn.addEventListener('click', function(e){
-				e.preventDefault();
-				e.stopPropagation();
-				stopAutoSlide();
-				prevSlide();
-				startAutoSlide();
-			});
-		}
-		
-		// Dot handlers
-		dots.forEach((dot, index) => {
-			dot.addEventListener('click', function(e){
-				e.preventDefault();
-				e.stopPropagation();
-				stopAutoSlide();
-				showSlide(index);
-				startAutoSlide();
-			});
-		});
-		
-		// Pause on hover
-		container.addEventListener('mouseenter', stopAutoSlide);
-		container.addEventListener('mouseleave', startAutoSlide);
-		
-		// Ensure first slide is visible on load
-		showSlide(0);
-		
-		// Start auto-sliding
-		startAutoSlide();
-	}
-	
-	// Initialize both desktop and mobile slideshows
-	initSlideshow('hero-slideshow', 'hero-slide-prev', 'hero-slide-next', 'hero-slide', 'hero-slide-dot');
-	initSlideshow('hero-slideshow-mobile', 'hero-slide-prev-mobile', 'hero-slide-next-mobile', 'hero-slide-mobile', 'hero-slide-dot-mobile');
-})();
-</script>
 <div id="promo-5off" class="fixed left-4 bottom-4 z-40">
 	<button id="promo-5off-btn" class="bg-white text-black rounded-full px-4 py-2 shadow-lg">Get 5% off</button>
 </div>
@@ -451,6 +306,126 @@
 		document.addEventListener('DOMContentLoaded', init);
 	}else{
 		init();
+	}
+})();
+</script>
+<script>
+// Hero Slideshow functionality
+(function(){
+	function initSlideshow(slideshowId, prevId, nextId, dotClass){
+		const slideshow = document.getElementById(slideshowId);
+		if(!slideshow) return;
+		
+		// Find the container (parent of slideshow)
+		const container = slideshow.parentElement;
+		if(!container) return;
+		
+		const prevBtn = document.getElementById(prevId);
+		const nextBtn = document.getElementById(nextId);
+		const dots = container.querySelectorAll('.' + dotClass);
+		
+		const slides = slideshow.querySelectorAll('a');
+		if(slides.length <= 1) return;
+		
+		let currentSlide = 0;
+		const totalSlides = slides.length;
+		
+		function updateSlideshow(){
+			const translateX = -currentSlide * 100;
+			slideshow.style.transform = `translateX(${translateX}%)`;
+			
+			// Update dots
+			dots.forEach((dot, idx) => {
+				if(idx === currentSlide){
+					dot.classList.add('bg-white');
+					dot.classList.remove('bg-gray-700');
+				}else{
+					dot.classList.remove('bg-white');
+					dot.classList.add('bg-gray-700');
+				}
+			});
+		}
+		
+		function nextSlide(){
+			currentSlide = (currentSlide + 1) % totalSlides;
+			updateSlideshow();
+		}
+		
+		function prevSlide(){
+			currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+			updateSlideshow();
+		}
+		
+		function goToSlide(index){
+			currentSlide = index;
+			updateSlideshow();
+		}
+		
+		// Button handlers
+		if(prevBtn) prevBtn.addEventListener('click', prevSlide);
+		if(nextBtn) nextBtn.addEventListener('click', nextSlide);
+		
+		// Dot handlers
+		dots.forEach((dot, idx) => {
+			dot.addEventListener('click', () => goToSlide(idx));
+		});
+		
+		// Touch/swipe support for mobile
+		let touchStartX = 0;
+		let touchEndX = 0;
+		
+		slideshow.addEventListener('touchstart', (e) => {
+			touchStartX = e.changedTouches[0].screenX;
+		});
+		
+		slideshow.addEventListener('touchend', (e) => {
+			touchEndX = e.changedTouches[0].screenX;
+			handleSwipe();
+		});
+		
+		function handleSwipe(){
+			const swipeThreshold = 50;
+			const diff = touchStartX - touchEndX;
+			
+			if(Math.abs(diff) > swipeThreshold){
+				if(diff > 0){
+					nextSlide(); // Swiped left, go next
+				}else{
+					prevSlide(); // Swiped right, go prev
+				}
+			}
+		}
+		
+		// Auto-advance slideshow (optional - comment out if not wanted)
+		let autoAdvanceInterval;
+		function startAutoAdvance(){
+			autoAdvanceInterval = setInterval(nextSlide, 5000); // Change slide every 5 seconds
+		}
+		function stopAutoAdvance(){
+			if(autoAdvanceInterval) clearInterval(autoAdvanceInterval);
+		}
+		
+		// Pause on hover/interaction
+		if(container){
+			container.addEventListener('mouseenter', stopAutoAdvance);
+			container.addEventListener('mouseleave', startAutoAdvance);
+			container.addEventListener('touchstart', stopAutoAdvance);
+		}
+		
+		// Start auto-advance
+		startAutoAdvance();
+	}
+	
+	// Initialize both desktop and mobile slideshows
+	function initAll(){
+		initSlideshow('hero-slideshow', 'hero-slide-prev', 'hero-slide-next', 'hero-slide-dot');
+		initSlideshow('hero-slideshow-mobile', 'hero-slide-prev-mobile', 'hero-slide-next-mobile', 'hero-slide-dot-mobile');
+	}
+	
+	if(document.readyState === 'loading'){
+		document.addEventListener('DOMContentLoaded', initAll);
+	}else{
+		initAll();
 	}
 })();
 </script>

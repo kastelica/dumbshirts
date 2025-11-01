@@ -25,10 +25,16 @@ def index():
 		page=page, per_page=per_page, error_out=False
 	)
 	
+	# Fetch 5 random active products for hero slideshow
+	import random
+	all_active = Product.query.filter_by(status="active").all()
+	hero_products = random.sample(all_active, min(5, len(all_active))) if len(all_active) >= 5 else all_active
+	
 	return render_template("index.html", 
 		products=products_pagination.items,
 		pagination=products_pagination,
-		current_page=page
+		current_page=page,
+		hero_products=hero_products
 	)
 
 
