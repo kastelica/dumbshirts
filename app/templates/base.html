@@ -120,7 +120,7 @@
 		{% block content %}{% endblock %}
 	</main>
 	<footer class="border-t border-gray-800">
-		<div class="max-w-6xl mx-auto px-4 py-8 text-sm text-gray-300 grid grid-cols-1 md:grid-cols-4 gap-6">
+		<div class="max-w-6xl mx-auto px-4 py-8 text-sm text-gray-300 grid grid-cols-1 md:grid-cols-5 gap-6">
 			<div>
 				<div class="font-semibold text-gray-100">Dumbshirts.store</div>
 				<p class="mt-2 text-gray-400">Wear all the dumb stuff going on. New products every day.</p>
@@ -136,6 +136,15 @@
 					{% if current_user.is_authenticated %}
 					<li><a href="/admin" class="hover:underline">Admin</a></li>
 					{% endif %}
+				</ul>
+			</div>
+			<div>
+				<div class="font-semibold text-gray-100">Categories</div>
+				<ul class="mt-2 space-y-1">
+					<li><a href="/funny-tshirts" class="hover:underline">Funny T-Shirts</a></li>
+					<li><a href="/meme-tshirts" class="hover:underline">Meme T-Shirts</a></li>
+					<li><a href="/sarcastic-tshirts" class="hover:underline">Sarcastic T-Shirts</a></li>
+					<li><a href="/pun-shirts" class="hover:underline">Pun Shirts</a></li>
 				</ul>
 			</div>
 			<div>
