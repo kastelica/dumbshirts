@@ -63,7 +63,7 @@
 					<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
 					{% endfor %}
 				</div>
-				<form method="post" action="/cart/add" class="flex items-center gap-2">
+				<form method="post" action="/cart/add" class="flex items-center gap-2 js-add-to-cart-form" data-product-id="{{ p.id }}" data-product-title="{{ p.title }}" data-product-price="{{ ((p.price * 85) / 100)|float }}" data-currency="{{ p.currency }}">
 					<input type="hidden" name="product_id" value="{{ p.id }}">
 					<input type="hidden" name="variant_id" value="{{ p.variants[0].id if p.variants else '' }}" class="js-variant-id">
 					<input type="hidden" name="color" value="{{ auto_color }}" class="js-color-val">
@@ -149,6 +149,48 @@
 	if(lsGet('promo_5off_captured')==='1'){
 		if(form && result){ form.classList.add('hidden'); result.classList.remove('hidden'); }
 	}
+})();
+</script>
+<script>
+// GA4 add_to_cart tracking for product cards
+(function(){
+	document.querySelectorAll('.js-add-to-cart-form').forEach(function(form){
+		form.addEventListener('submit', function(e){
+			try{
+				const productId = form.getAttribute('data-product-id');
+				const productTitle = form.getAttribute('data-product-title');
+				const productPrice = parseFloat(form.getAttribute('data-product-price') || '0');
+				const currency = form.getAttribute('data-currency') || 'USD';
+				const qtyInput = form.querySelector('input[name="quantity"]');
+				const qty = parseInt(qtyInput?.value || '1', 10) || 1;
+				const colorInput = form.querySelector('.js-color-val');
+				const sizeInput = form.querySelector('.js-size-val');
+				const variantInput = form.querySelector('.js-variant-id');
+				const color = colorInput?.value || '';
+				const size = sizeInput?.value || '';
+				const variantId = variantInput?.value || '';
+				
+				if(typeof gtag === 'function'){
+					gtag('event', 'add_to_cart', {
+						currency: currency,
+						value: productPrice * qty,
+						items: [{
+							item_id: productId?.toString() || '',
+							item_name: productTitle || '',
+							item_brand: 'Dumbshirts.store',
+							item_category: 't-shirt',
+							item_variant: variantId?.toString() || (size + ' / ' + (color.charAt(0).toUpperCase() + color.slice(1)) + ' / Crewneck'),
+							price: productPrice,
+							quantity: qty
+						}]
+					});
+					console.log('[search] GA4 add_to_cart event sent', { product_id: productId, quantity: qty });
+				}
+			}catch(err){
+				console.warn('[search] add_to_cart tracking failed', err);
+			}
+		});
+	});
 })();
 </script>
 {% endblock %}
