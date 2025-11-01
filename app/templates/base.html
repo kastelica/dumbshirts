@@ -17,7 +17,8 @@
 			y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
 		})(window, document, "clarity", "script", "tz2unbylxr");
 	</script>
-	<!-- Google AdSense -->
+
+<!-- Google AdSense -->
 	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7253694940601462" crossorigin="anonymous"></script>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -173,6 +174,28 @@
 	</div>
 </div>
 
+{# Exit Intent - Free Shirt Offer Modal #}
+<div id="exit-intent-modal" class="fixed inset-0 z-[60] hidden">
+	<div class="absolute inset-0 bg-black/80" data-exit-close></div>
+	<div class="relative bg-gray-900 border-2 border-white rounded-lg w-11/12 md:w-[500px] mx-auto mt-[10vh] p-6 shadow-2xl">
+		<div class="flex items-center justify-between mb-4">
+			<div class="text-2xl font-bold">Wait! Get a FREE Shirt!</div>
+			<button class="bg-gray-800 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-700" data-exit-close aria-label="Close">×</button>
+		</div>
+		<div class="text-lg text-gray-200 mb-2">Join our list and we'll send you a free t-shirt.</div>
+		<div class="text-sm text-gray-400 mb-4">Just enter your email below — no strings attached.</div>
+		<form id="exit-intent-form" class="space-y-3">
+			<input id="exit-intent-email" type="email" placeholder="your@email.com" class="w-full bg-gray-950 border border-gray-700 rounded px-4 py-3 text-gray-100 text-lg" required />
+			<button type="submit" class="w-full bg-white text-black px-6 py-3 rounded font-semibold text-lg hover:bg-gray-100 transition-colors">Claim My Free Shirt</button>
+		</form>
+		<div id="exit-intent-success" class="hidden mt-4 text-center">
+			<div class="text-green-400 text-lg font-semibold mb-2">✓ You're in!</div>
+			<div class="text-sm text-gray-300">Check your email for details about your free shirt.</div>
+		</div>
+		<div class="mt-4 text-xs text-gray-500 text-center">We'll email you with next steps. Limited time offer.</div>
+	</div>
+</div>
+
 <script>
 (function(){
 	const btn = document.getElementById('menu-toggle');
@@ -218,6 +241,148 @@
 	
 	if(lsGet('promo_5off_captured')==='1'){
 		if(form && result){ form.classList.add('hidden'); result.classList.remove('hidden'); }
+	}
+})();
+</script>
+
+{# Exit Intent Detection Script #}
+<script>
+(function(){
+	function lsGet(k){ try{return localStorage.getItem(k)||'';}catch(e){return '';} }
+	function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+	
+	const modal = document.getElementById('exit-intent-modal');
+	const form = document.getElementById('exit-intent-form');
+	const emailInput = document.getElementById('exit-intent-email');
+	const successDiv = document.getElementById('exit-intent-success');
+	
+	if(!modal || !form) return;
+	
+	// Check if already shown or submitted
+	const exitIntentShown = lsGet('exit_intent_shown') === '1';
+	const exitIntentSubmitted = lsGet('exit_intent_submitted') === '1';
+	
+	function openModal(){
+		if(exitIntentShown || exitIntentSubmitted) return;
+		if(modal) {
+			modal.classList.remove('hidden');
+			document.body.style.overflow = 'hidden'; // Prevent scrolling
+			lsSet('exit_intent_shown', '1');
+		}
+	}
+	
+	function closeModal(){
+		if(modal) {
+			modal.classList.add('hidden');
+			document.body.style.overflow = ''; // Restore scrolling
+		}
+	}
+	
+	// Close button handlers
+	if(modal){
+		modal.querySelectorAll('[data-exit-close]').forEach(el => {
+			el.addEventListener('click', closeModal);
+		});
+	}
+	
+	// Exit intent detection: mouse moving toward top edge
+	let mouseY = 0;
+	let lastMouseY = window.innerHeight / 2; // Initialize to middle
+	let topEdgeThreshold = 5; // Trigger when within 5px of top
+	let pageLoadTime = performance.now(); // Track when page loaded
+	let minTimeOnPage = 3000; // Require at least 3 seconds on page
+	
+	document.addEventListener('mousemove', function(e){
+		mouseY = e.clientY;
+		
+		// Detect rapid upward movement toward top edge
+		if(!exitIntentShown && !exitIntentSubmitted){
+			const timeOnPage = performance.now() - pageLoadTime;
+			// Check if mouse is near top edge and moving upward
+			if(mouseY <= topEdgeThreshold && lastMouseY > mouseY && timeOnPage >= minTimeOnPage){
+				// User is moving mouse toward close button
+				if(!document.getElementById('exit-intent-modal')?.classList.contains('hidden')){
+					return; // Already showing
+				}
+				// Small delay to confirm intent
+				setTimeout(function(){
+					if(document.activeElement && document.activeElement.tagName === 'INPUT') return;
+					if(document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
+					openModal();
+				}, 150);
+			}
+		}
+		
+		lastMouseY = mouseY;
+	});
+	
+	// Also detect mouse leaving viewport at top (for browsers that support it)
+	document.addEventListener('mouseleave', function(e){
+		if(e.clientY <= 0 && !exitIntentShown && !exitIntentSubmitted){
+			const timeOnPage = performance.now() - pageLoadTime;
+			if(timeOnPage >= minTimeOnPage){
+				setTimeout(function(){
+					if(document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+					openModal();
+				}, 100);
+			}
+		}
+	});
+	
+	// Also detect Escape key press (alternative exit intent)
+	document.addEventListener('keydown', function(e){
+		if(e.key === 'Escape' && !exitIntentShown && !exitIntentSubmitted){
+			const timeOnPage = performance.now() - pageLoadTime;
+			// Only show on Escape if they've been on page for a bit
+			if(document.hasFocus() && timeOnPage >= minTimeOnPage){
+				// Don't show if user is in an input field
+				if(document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')){
+					return;
+				}
+				openModal();
+			}
+		}
+	});
+	
+	// Form submission
+	if(form && emailInput){
+		form.addEventListener('submit', async function(e){
+			e.preventDefault();
+			const email = (emailInput.value || '').trim().toLowerCase();
+			if(!email) return;
+			
+			try{
+				await fetch('/loyalty/signup', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({ email })
+				});
+				
+				// Mark as submitted
+				lsSet('exit_intent_submitted', '1');
+				
+				// Hide form, show success
+				if(form) form.classList.add('hidden');
+				if(successDiv) successDiv.classList.remove('hidden');
+				
+				// Auto-close after 3 seconds
+				setTimeout(function(){
+					closeModal();
+				}, 3000);
+			} catch(err){
+				console.warn('[exit-intent] Submission failed', err);
+				// Still show success to user (optimistic)
+				if(form) form.classList.add('hidden');
+				if(successDiv) successDiv.classList.remove('hidden');
+				lsSet('exit_intent_submitted', '1');
+				setTimeout(closeModal, 3000);
+			}
+		});
+	}
+	
+	// Prevent showing on admin pages
+	if(window.location.pathname.startsWith('/admin')){
+		lsSet('exit_intent_shown', '1');
 	}
 })();
 </script>
