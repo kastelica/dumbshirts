@@ -603,6 +603,39 @@ def order_confirm(order_id: int):
 			except Exception as _ee:
 				gelato_debug["email_sent"] = False
 				gelato_debug["email_error"] = str(_ee)
+		# Fallback: Notify admin of new paid/submitted order (in case webhook didn't fire or failed)
+		# Only send if order status indicates payment succeeded
+		if order.status in ("paid", "submitted"):
+			try:
+				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+				if to_admin:
+					addr = order.shipping_address
+					cust_name = f"{(addr.first_name if addr else '')} {(addr.last_name if addr else '')}".strip()
+					cust_email = ((addr.email if addr else "") or "")
+					items_lines = []
+					try:
+						for oi in order.items:
+							total_line = float((oi.unit_price or 0) * (oi.quantity or 1))
+							items_lines.append(f"{int(oi.quantity or 1)}× {oi.title or ''} — ${total_line:.2f}")
+					except Exception:
+						items_lines = []
+					summary_lines = [
+						f"Order ID: {order.id}",
+						f"Status: {order.status}",
+						f"Amount: {float(order.total_amount or 0):.2f} {order.currency}",
+						f"Customer: {cust_name}",
+						f"Email: {cust_email}",
+						"",
+						"Items:",
+					] + items_lines
+					html = render_simple_email(f"New Order #{order.id}", summary_lines)
+					ok, msg = send_email_via_sendgrid(to_admin, f"New order #{order.id}", html)
+					if ok:
+						current_app.logger.info(f"[order-confirm] Admin email sent for order {order.id} to {to_admin}")
+					else:
+						current_app.logger.warning(f"[order-confirm] Admin email failed for order {order.id}: {msg}")
+			except Exception as e:
+				current_app.logger.exception(f"[order-confirm] Admin email exception for order {order.id}: {e}")
 	except Exception:
 		pass
 	# Clear cart after confirmation

@@ -403,9 +403,15 @@ def stripe_webhook():
 					"Items:",
 				] + items_lines
 				html = render_simple_email(f"New Order #{order.id}", summary_lines)
-				send_email_via_sendgrid(to_admin, f"New order #{order.id}", html)
-		except Exception:
-			pass
+				ok, msg = send_email_via_sendgrid(to_admin, f"New order #{order.id}", html)
+				if ok:
+					current_app.logger.info(f"[webhook] Admin email sent for order {order.id} to {to_admin}")
+				else:
+					current_app.logger.warning(f"[webhook] Admin email failed for order {order.id}: {msg}")
+			else:
+				current_app.logger.warning(f"[webhook] ADMIN_EMAIL not configured for order {order.id}")
+		except Exception as e:
+			current_app.logger.exception(f"[webhook] Admin email exception for order {order.id}: {e}")
 
 		# Build Gelato draft order
 		client = GelatoClient()
