@@ -18,7 +18,10 @@
 					{% set color_set = ['white','black','heather','red','blue','pink'] %}
 					{% for p in products[:6] %}
 						{% set slide_color = color_set[loop.index0 % color_set|length] %}
-						{% set design_img = (p.design.image_url or p.design.preview_url) if p.design else '' %}
+						{% set design_img = '' %}
+						{% if p.design %}
+							{% set design_img = p.design.image_url or p.design.preview_url or '' %}
+						{% endif %}
 						{% if design_img %}
 							<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide absolute inset-0 {% if loop.index0 == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4" data-slide-index="{{ loop.index0 }}" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
 								<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
@@ -30,7 +33,11 @@
 						<button type="button" id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Next slide">›</button>
 						<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
 							{% for p in products[:6] %}
-								{% if (p.design.image_url or p.design.preview_url) if p.design else '' %}
+								{% set has_design_img = false %}
+								{% if p.design and (p.design.image_url or p.design.preview_url) %}
+									{% set has_design_img = true %}
+								{% endif %}
+								{% if has_design_img %}
 									<button type="button" class="hero-slide-dot w-2 h-2 rounded-full {% if loop.index0 == 0 %}bg-white{% else %}bg-gray-600{% endif %} transition-colors" data-slide-index="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index0 + 1 }}"></button>
 								{% endif %}
 							{% endfor %}
@@ -166,7 +173,10 @@
 			{% set color_set = ['white','black','heather','red','blue','pink'] %}
 			{% for p in products[:6] %}
 				{% set slide_color = color_set[loop.index0 % color_set|length] %}
-				{% set design_img = (p.design.image_url or p.design.preview_url) if p.design else '' %}
+				{% set design_img = '' %}
+				{% if p.design %}
+					{% set design_img = p.design.image_url or p.design.preview_url or '' %}
+				{% endif %}
 				{% if design_img %}
 					<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide-mobile absolute inset-0 {% if loop.index0 == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4" data-slide-index="{{ loop.index0 }}" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
 						<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
@@ -178,7 +188,11 @@
 				<button type="button" id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Next slide">›</button>
 				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
 					{% for p in products[:6] %}
-						{% if (p.design.image_url or p.design.preview_url) if p.design else '' %}
+						{% set has_design_img = false %}
+						{% if p.design and (p.design.image_url or p.design.preview_url) %}
+							{% set has_design_img = true %}
+						{% endif %}
+						{% if has_design_img %}
 							<button type="button" class="hero-slide-dot-mobile w-2 h-2 rounded-full {% if loop.index0 == 0 %}bg-white{% else %}bg-gray-600{% endif %} transition-colors" data-slide-index="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index0 + 1 }}"></button>
 						{% endif %}
 					{% endfor %}
