@@ -3,13 +3,14 @@
 <div class="flex items-center justify-between mb-4">
     <h1 class="text-2xl font-semibold">Products</h1>
     <div class="flex items-center gap-2">
+        <button id="filter-active-btn" class="bg-gray-800 text-white px-4 py-2 rounded">Show Active Only</button>
         <form method="post" action="{{ url_for('admin.create_blank_product') }}">
             <button class="bg-white text-black px-4 py-2 rounded">Add Product</button>
         </form>
         <a href="{{ url_for('admin.auto_product_page') }}" class="bg-gray-800 text-white px-4 py-2 rounded">Auto Product Generator</a>
     </div>
  </div>
-<table class="w-full text-left text-sm">
+<table id="products-table" class="w-full text-left text-sm">
 	<thead class="text-gray-400">
 		<tr>
 			<th class="py-2">Product</th>
@@ -39,15 +40,7 @@
 			<td class="py-2">${{ '%.2f'|format(p.price) }} {{ p.currency }}</td>
 			<td class="py-2 space-x-2">
 				<form action="{{ url_for('admin.toggle_product_visibility', product_id=p.id) }}" method="post" class="inline">
-					<button class="bg-white text-black px-3 py-1 rounded">
-						{% if p.status == 'active' %}
-							Hide
-						{% elif p.status == 'draft' %}
-							Publish
-						{% else %}
-							Show
-						{% endif %}
-					</button>
+					<button class="bg-white text-black px-3 py-1 rounded">{{ 'Hide' if p.status == 'active' else 'Show' }}</button>
 				</form>
 				<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="underline">Edit</a>
 				<form action="{{ url_for('admin.gelato_order_product', product_id=p.id) }}" method="post" class="inline">
@@ -65,4 +58,35 @@
 		{% endfor %}
 	</tbody>
 </table>
+<script>
+(function(){
+	const filterBtn = document.getElementById('filter-active-btn');
+	const table = document.getElementById('products-table');
+	const rows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
+	let showingAll = true;
+	
+	if(filterBtn && rows.length > 0){
+		filterBtn.addEventListener('click', function(){
+			showingAll = !showingAll;
+			rows.forEach(function(row){
+				const statusCell = row.querySelector('td:nth-child(2)');
+				if(statusCell){
+					const status = (statusCell.textContent || '').trim().toLowerCase();
+					if(showingAll){
+						row.style.display = '';
+						filterBtn.textContent = 'Show Active Only';
+					}else{
+						if(status === 'active'){
+							row.style.display = '';
+						}else{
+							row.style.display = 'none';
+						}
+						filterBtn.textContent = 'Show All';
+					}
+				}
+			});
+		});
+	}
+})();
+</script>
 {% endblock %}
