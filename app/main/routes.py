@@ -602,9 +602,25 @@ def order_confirm(order_id: int):
 	# Clear cart after confirmation
 	session["cart"] = {"items": []}
 	session.modified = True
+	
+	# Convert OrderItem objects to dictionaries for JSON serialization
+	order_items_dict = []
+	for oi in order.items:
+		order_items_dict.append({
+			"id": oi.id,
+			"order_id": oi.order_id,
+			"product_id": oi.product_id,
+			"variant_id": oi.variant_id,
+			"title": oi.title,
+			"quantity": oi.quantity,
+			"unit_price": float(oi.unit_price) if oi.unit_price else 0,
+			"product_uid": oi.product_uid,
+		})
+	
 	return render_template(
 		"order_confirmation.html",
 		order=order,
+		order_items=order_items_dict,
 		email=email,
 		country=country,
 		est_delivery=est_date,

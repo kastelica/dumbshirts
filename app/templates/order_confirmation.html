@@ -41,7 +41,7 @@ window.renderOptIn = function() {
 			// Check if purchase event already sent (stored in sessionStorage to avoid duplicates)
 			const eventKey = 'ga4_purchase_' + {{ order.id|tojson }};
 			if(!sessionStorage.getItem(eventKey)){
-				const items = {{ order.items|tojson }} || [];
+				const items = {{ order_items|tojson }} || [];
 				gtag('event', 'purchase', {
 					transaction_id: {{ (order.stripe_payment_intent_id or order.id)|tojson }},
 					value: {{ (order.total_amount or 0)|float|tojson }},
