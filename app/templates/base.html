@@ -47,15 +47,16 @@
 					<a href="/" class="hover:underline">Home</a>
             <a href="/shop" class="hover:underline">Shop</a>
 					<a href="/search" class="hover:underline">Search</a>
-					<a href="/about" class="hover:underline">About</a>
+					<a href="/reviews" class="hover:underline">Reviews</a>
 					<div class="relative inline-block group">
 						<button class="hover:underline inline-flex items-center">Extras</button>
 						<div class="absolute right-0 top-full pt-2 pointer-events-none group-hover:pointer-events-auto z-[9999]">
 							<div class="bg-gray-900 border border-gray-800 rounded shadow-lg min-w-[200px] py-2 z-[9999] opacity-0 group-hover:opacity-100 transition-opacity invisible group-hover:visible">
-								<a href="/reviews" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Reviews</a>
-								<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Loyalty</a>
+								
+								<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Rewards</a>
 								<a href="/subscribe/monthly-shirt" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Monthly Shirt</a>
 								<a href="/referrals" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Referrals</a>
+								<a href="/about" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">About</a>
 								
 							</div>
 						</div>
@@ -119,30 +120,41 @@
 		{% block content %}{% endblock %}
 	</main>
 	<footer class="border-t border-gray-800">
-		<div class="max-w-6xl mx-auto px-4 py-8 text-sm text-gray-300 grid grid-cols-1 md:grid-cols-3 gap-6">
+		<div class="max-w-6xl mx-auto px-4 py-8 text-sm text-gray-300 grid grid-cols-1 md:grid-cols-4 gap-6">
 			<div>
 				<div class="font-semibold text-gray-100">Dumbshirts.store</div>
 				<p class="mt-2 text-gray-400">Wear all the dumb stuff going on. New products every day.</p>
 			</div>
 			<div>
-				<div class="font-semibold text-gray-100">Explore</div>
+				<div class="font-semibold text-gray-100">Menu</div>
 				<ul class="mt-2 space-y-1">
 					<li><a href="/shop" class="hover:underline">Shop</a></li>
 					<li><a href="/search" class="hover:underline">Search</a></li>
+					<li><a href="/reviews" class="hover:underline">Reviews</a></li>
 					<li><a href="/cart" class="hover:underline">Cart</a></li>
-						<li><a href="/loyalty" class="hover:underline">Loyalty</a></li>
+					
 					{% if current_user.is_authenticated %}
 					<li><a href="/admin" class="hover:underline">Admin</a></li>
 					{% endif %}
 				</ul>
 			</div>
 			<div>
-				<div class="font-semibold text-gray-100">About</div>
+				<div class="font-semibold text-gray-100">Extras</div>
+				<ul class="mt-2 space-y-1">
+					
+					<li><a href="/loyalty" class="hover:underline">Rewards</a></li>
+					<li><a href="/subscribe/monthly-shirt" class="hover:underline">Monthly Shirt</a></li>
+					<li><a href="/referrals" class="hover:underline">Referrals</a></li>
+				</ul>
+			</div>
+			<div>
+				<div class="font-semibold text-gray-100">Details</div>
 				<ul class="mt-2 space-y-1">
 					<li><a href="/about" class="hover:underline">About</a></li>
+					<li><a href="/shipping-returns" class="hover:underline">Shipping & Returns</a></li>
 					<li><a href="/privacy" class="hover:underline">Privacy</a></li>
 					<li><a href="/terms" class="hover:underline">Terms</a></li>
-					<li><a href="/shipping-returns" class="hover:underline">Shipping & Returns</a></li>
+					
 					<li><a href="/contact" class="hover:underline">Contact</a></li>
 				</ul>
 			</div>
