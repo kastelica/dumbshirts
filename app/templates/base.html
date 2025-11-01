@@ -175,18 +175,18 @@
 </div>
 
 {# Exit Intent - Free Shirt Offer Modal #}
-<div id="exit-intent-modal" class="fixed inset-0 z-[60] hidden">
-	<div class="absolute inset-0 bg-black/80" data-exit-close></div>
-	<div class="relative bg-gray-900 border-2 border-white rounded-lg w-11/12 md:w-[500px] mx-auto mt-[10vh] p-6 shadow-2xl">
+<div id="exit-intent-modal" class="fixed inset-0 z-[100] hidden">
+	<div class="absolute inset-0 bg-black/80 z-[100]" data-exit-close></div>
+	<div class="relative bg-gray-900 border-2 border-white rounded-lg w-11/12 md:w-[500px] mx-auto mt-[10vh] p-6 shadow-2xl z-[101]">
 		<div class="flex items-center justify-between mb-4">
 			<div class="text-2xl font-bold">Wait! Get a FREE Shirt!</div>
 			<button class="bg-gray-800 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-700" data-exit-close aria-label="Close">×</button>
 		</div>
 		<div class="text-lg text-gray-200 mb-2">Join our list and we'll send you a free t-shirt.</div>
 		<div class="text-sm text-gray-400 mb-4">Just enter your email below — no strings attached.</div>
-		<form id="exit-intent-form" class="space-y-3">
+		<form id="exit-intent-form" class="space-y-3 relative z-[70]">
 			<input id="exit-intent-email" type="email" placeholder="your@email.com" class="w-full bg-gray-950 border border-gray-700 rounded px-4 py-3 text-gray-100 text-lg" required />
-			<button type="submit" class="w-full bg-white text-black px-6 py-3 rounded font-semibold text-lg hover:bg-gray-100 transition-colors">Claim My Free Shirt</button>
+			<button type="submit" class="w-full bg-white text-black px-6 py-3 rounded font-semibold text-lg hover:bg-gray-100 transition-colors relative z-[71]">Claim My Free Shirt</button>
 		</form>
 		<div id="exit-intent-success" class="hidden mt-4 text-center">
 			<div class="text-green-400 text-lg font-semibold mb-2">✓ You're in!</div>
