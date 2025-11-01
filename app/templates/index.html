@@ -198,45 +198,63 @@
 })();
 </script>
 <script>
-// GA4 add_to_cart tracking for product cards
+// GA4 add_to_cart tracking for product cards - use event delegation
 (function(){
-	document.querySelectorAll('.js-add-to-cart-form').forEach(function(form){
-		form.addEventListener('submit', function(e){
-			try{
-				const productId = form.getAttribute('data-product-id');
-				const productTitle = form.getAttribute('data-product-title');
-				const productPrice = parseFloat(form.getAttribute('data-product-price') || '0');
-				const currency = form.getAttribute('data-currency') || 'USD';
-				const qtyInput = form.querySelector('input[name="quantity"]');
-				const qty = parseInt(qtyInput?.value || '1', 10) || 1;
-				const colorInput = form.querySelector('.js-color-val');
-				const sizeInput = form.querySelector('.js-size-val');
-				const variantInput = form.querySelector('.js-variant-id');
-				const color = colorInput?.value || '';
-				const size = sizeInput?.value || '';
-				const variantId = variantInput?.value || '';
-				
-				if(typeof gtag === 'function'){
-					gtag('event', 'add_to_cart', {
-						currency: currency,
-						value: productPrice * qty,
-						items: [{
-							item_id: productId?.toString() || '',
-							item_name: productTitle || '',
-							item_brand: 'Dumbshirts.store',
-							item_category: 't-shirt',
-							item_variant: variantId?.toString() || (size + ' / ' + (color.charAt(0).toUpperCase() + color.slice(1)) + ' / Crewneck'),
-							price: productPrice,
-							quantity: qty
-						}]
-					});
-					console.log('[index] GA4 add_to_cart event sent', { product_id: productId, quantity: qty });
-				}
-			}catch(err){
-				console.warn('[index] add_to_cart tracking failed', err);
+	function handleAddToCart(e){
+		// For submit events, e.target is usually the form, but could be button
+		let form = e.target;
+		if(form.tagName !== 'FORM'){
+			form = form.closest ? form.closest('.js-add-to-cart-form') : (form.form || null);
+		}
+		if(!form || !form.classList || !form.classList.contains('js-add-to-cart-form')) return;
+		
+		try{
+			const productId = form.getAttribute('data-product-id');
+			const productTitle = form.getAttribute('data-product-title');
+			const productPrice = parseFloat(form.getAttribute('data-product-price') || '0');
+			const currency = form.getAttribute('data-currency') || 'USD';
+			const qtyInput = form.querySelector('input[name="quantity"]');
+			const qty = parseInt(qtyInput?.value || '1', 10) || 1;
+			const colorInput = form.querySelector('.js-color-val');
+			const sizeInput = form.querySelector('.js-size-val');
+			const variantInput = form.querySelector('.js-variant-id');
+			const color = colorInput?.value || '';
+			const size = sizeInput?.value || '';
+			const variantId = variantInput?.value || '';
+			
+			if(typeof gtag === 'function'){
+				gtag('event', 'add_to_cart', {
+					currency: currency,
+					value: productPrice * qty,
+					items: [{
+						item_id: productId?.toString() || '',
+						item_name: productTitle || '',
+						item_brand: 'Dumbshirts.store',
+						item_category: 't-shirt',
+						item_variant: variantId?.toString() || (size + ' / ' + (color.charAt(0).toUpperCase() + color.slice(1)) + ' / Crewneck'),
+						price: productPrice,
+						quantity: qty
+					}]
+				});
+				console.log('[index] GA4 add_to_cart event sent', { product_id: productId, quantity: qty });
 			}
-		});
-	});
+		}catch(err){
+			console.warn('[index] add_to_cart tracking failed', err);
+		}
+	}
+	
+	function init(){
+		// Use event delegation on document for reliability
+		document.addEventListener('submit', function(e){
+			handleAddToCart(e);
+		}, true); // Use capture phase to catch early
+	}
+	
+	if(document.readyState === 'loading'){
+		document.addEventListener('DOMContentLoaded', init);
+	}else{
+		init();
+	}
 })();
 </script>
 {% endblock %}
