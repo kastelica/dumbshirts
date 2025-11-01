@@ -855,6 +855,88 @@ def _import_kym_products(limit: int = 5, url: str = "https://knowyourmeme.com/me
 	from scripts.scrape_kym_memes import fetch_html, parse_listing, parse_detail_image, BASE
 	import requests
 	
+	def _clean_kym_title(raw_title: str) -> str:
+		"""Clean KYM title by removing author names, timestamps, and other metadata."""
+		if not raw_title:
+			return ""
+		
+		t = raw_title.strip()
+		
+		# Remove "T-Shirt" suffix if present (we add it ourselves)
+		t = re.sub(r'\s+T-Shirt\s*$', '', t, flags=re.IGNORECASE)
+		
+		# Remove common artifacts like 'X★X' and arrows
+		if "★" in t:
+			parts = [p.strip() for p in t.split("★") if p.strip()]
+			if parts:
+				t = parts[0]
+		t = t.replace("→", "").strip()
+		
+		# Remove "Meme" prefix if present (common in KYM listings)
+		if t.startswith("Meme") and len(t) > 5:
+			t = t[4:].strip()
+		
+		# Remove timestamps first (bullet + time patterns)
+		# Match patterns like: "• about a year ago", "• 5 days ago", etc.
+		time_patterns = [
+			r'\s*[•·]\s*about\s+a\s+(day|week|month|year)\s+ago\s*',
+			r'\s*[•·]\s*about\s+\d+\s+(day|days|week|weeks|month|months|year|years)\s+ago\s*',
+			r'\s*[•·]\s*\d+\s+(day|days|week|weeks|month|months|year|years)\s+ago\s*',
+		]
+		
+		for pattern in time_patterns:
+			t = re.sub(pattern, '', t, flags=re.IGNORECASE)
+		
+		# Split on bullet if still present (author names often come before bullet)
+		if '•' in t or '·' in t:
+			parts = re.split(r'[•·]', t)
+			if parts:
+				t = parts[0].strip()
+		
+		# Remove trailing author names (pattern: capitalized FirstName LastName at end)
+		# Match patterns like "Phillip Hamilton", "Owen Carry" at the end
+		# Look for "CapitalWord CapitalWord" pattern at the end
+		t = re.sub(r'\s+[A-Z][a-z]+[A-Z][a-z]+$', '', t)  # No space: "NameSurname"
+		t = re.sub(r'\s+[A-Z][a-z]+\s+[A-Z][a-z]+$', '', t)  # With space: "FirstName LastName"
+		
+		# Handle concatenated author names (e.g., "TitleInPhillip Hamilton")
+		# Pattern: lowercase letter + CapitalWord + CapitalWord (likely author concatenated)
+		t = re.sub(r'([a-z])([A-Z][a-z]+\s+[A-Z][a-z]+)$', r'\1', t)
+		
+		# Handle author names directly concatenated to title (e.g., "InPhillipHamilton" or "InPhillip Hamilton")
+		# Look for transition from lowercase to capital (likely start of author name)
+		# Split at boundary where lowercase letter meets capital letter (likely author start)
+		# But be careful - only do this near the end to avoid splitting legitimate title words
+		# Try to find a point where we have: lowercase + Capital + Capital pattern near the end
+		# Match last occurrence of: word ending lowercase + CapitalWord + optional space + CapitalWord
+		matches = list(re.finditer(r'([a-z])([A-Z][a-z]+)\s?([A-Z][a-z]+)?$', t))
+		if matches:
+			# Get the last match
+			match = matches[-1]
+			# Check if it looks like an author name (two capitalized words)
+			if match.group(3):  # Has both capitalized words
+				# Remove from the start of the author name
+				t = t[:match.start(2)].rstrip()
+		
+		# Additional pass: if we have patterns like "wordInCapitalWord" at the end, split them
+		# Only do this near the end (last 50 chars) to be safe
+		if len(t) > 20:
+			last_part = t[-50:]
+			# Look for pattern: lowercase letter directly followed by Capital letter (concatenation)
+			m = re.search(r'([a-z])([A-Z][a-z]+)$', last_part)
+			if m and len(m.group(2)) > 3:  # Only if the capitalized word is substantial
+				# Check if this looks like an author name by checking for another capital word before it
+				before_match = re.search(r'([A-Z][a-z]+)\s*$', t[:-len(m.group(2))])
+				if before_match:  # Found another capitalized word, likely author
+					t = t[:t.rfind(before_match.group(1))].rstrip()
+		
+		# Remove any remaining bullet points and clean up whitespace
+		t = re.sub(r'[•·]+', '', t)
+		t = re.sub(r'\s+', ' ', t)  # Multiple spaces to single space
+		t = t.strip()
+		
+		return t
+	
 	# Helper for duplicate detection
 	STOP = {"the", "a", "an", "meme", "shirt", "t-shirt", "tshirt", "tee"}
 	def _norm_title(s: str) -> str:
@@ -909,32 +991,40 @@ def _import_kym_products(limit: int = 5, url: str = "https://knowyourmeme.com/me
 	created = 0
 	
 	for i, e in enumerate(picked):
-		if _already_imported(e["title"], e["slug"]):
-			_progress_add(f"[KYM] Skipping duplicate: {e['title']}")
+		# Clean the title before using it
+		raw_title = e["title"]
+		cleaned_title = _clean_kym_title(raw_title)
+		
+		if not cleaned_title or len(cleaned_title) < 2:
+			_progress_add(f"[KYM] Skipping invalid title (after cleaning): '{raw_title}' -> '{cleaned_title}'")
 			continue
 		
-		_progress_add(f"[KYM] Processing {i+1}/{len(picked)}: {e['title']}")
+		if _already_imported(cleaned_title, e["slug"]):
+			_progress_add(f"[KYM] Skipping duplicate: {cleaned_title}")
+			continue
+		
+		_progress_add(f"[KYM] Processing {i+1}/{len(picked)}: '{raw_title}' -> '{cleaned_title}'")
 		
 		try:
 			dhtml = fetch_html(e["url"])
 			img = parse_detail_image(dhtml)
 		except Exception as e_img:
-			_progress_add(f"[KYM] Failed to fetch image for {e['title']}: {e_img}")
+			_progress_add(f"[KYM] Failed to fetch image for {cleaned_title}: {e_img}")
 			img = ""
 		
 		if not img:
-			_progress_add(f"[KYM] No image found for {e['title']}, skipping")
+			_progress_add(f"[KYM] No image found for {cleaned_title}, skipping")
 			continue
 		
-		_progress_add(f"[KYM] Creating product: {e['title']}")
+		_progress_add(f"[KYM] Creating product: {cleaned_title}")
 		try:
-			p = _create_product_from_kym_image(e["title"], img)
+			p = _create_product_from_kym_image(cleaned_title, img)
 			db.session.commit()
 			created += 1
 			_progress_add(f"[KYM] ✓ Created product {p.id}: {p.title}")
 		except Exception as e_prod:
 			current_app.logger.exception(f"[KYM] Failed to create product: {e_prod}")
-			_progress_add(f"[KYM] ✗ Failed to create product for {e['title']}: {e_prod}")
+			_progress_add(f"[KYM] ✗ Failed to create product for {cleaned_title}: {e_prod}")
 			db.session.rollback()
 	
 	return created
