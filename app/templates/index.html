@@ -28,8 +28,8 @@
 					{% endfor %}
 				</div>
 				{% if hero_products|length > 1 %}
-				<button id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Previous slide">‹</button>
-				<button id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Next slide">›</button>
+				<button id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/90 border border-black text-white text-xl flex items-center justify-center hover:bg-black transition-colors z-10" aria-label="Previous slide">‹</button>
+				<button id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/90 border border-black text-white text-xl flex items-center justify-center hover:bg-black transition-colors z-10" aria-label="Next slide">›</button>
 				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
 					{% for p in hero_products %}
 					<button class="hero-slide-dot w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}" data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
@@ -178,8 +178,8 @@
 			{% endfor %}
 		</div>
 		{% if hero_products|length > 1 %}
-		<button id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Previous slide">‹</button>
-		<button id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10" aria-label="Next slide">›</button>
+		<button id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/90 border border-black text-white text-lg flex items-center justify-center hover:bg-black transition-colors z-10" aria-label="Previous slide">‹</button>
+		<button id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/90 border border-black text-white text-lg flex items-center justify-center hover:bg-black transition-colors z-10" aria-label="Next slide">›</button>
 		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
 			{% for p in hero_products %}
 			<button class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}" data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
