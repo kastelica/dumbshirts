@@ -3,58 +3,12 @@
 <div class="flex items-center justify-between mb-4">
     <h1 class="text-2xl font-semibold">Products</h1>
     <div class="flex items-center gap-2">
-        {# Removed full-page Refresh button; progress panel auto-updates #}
         <form method="post" action="{{ url_for('admin.create_blank_product') }}">
             <button class="bg-white text-black px-4 py-2 rounded">Add Product</button>
         </form>
-        <form method="post" action="{{ url_for('admin.toggle_auto_mode') }}" class="flex items-center gap-2" id="autoModeForm">
-            <label class="text-sm flex items-center gap-2">
-                <input type="checkbox" name="skip_images" value="1" class="h-4 w-4" {% if auto_mode_skip_images %}checked{% endif %}>
-                <span>Skip image generation</span>
-            </label>
-            <label class="text-sm flex items-center gap-2">
-                <input type="checkbox" name="continuous" value="1" class="h-4 w-4" {% if auto_mode_continuous %}checked{% endif %}>
-                <span>Continuous (limit 2)</span>
-            </label>
-            <button class="bg-gray-800 text-white px-4 py-2 rounded">{{ 'Auto OFF' if auto_mode_enabled else 'Auto ON' }}</button>
-        </form>
+        <a href="{{ url_for('admin.auto_product_page') }}" class="bg-gray-800 text-white px-4 py-2 rounded">Auto Product Generator</a>
     </div>
  </div>
-{% if auto_mode_enabled %}
-<div class="mb-4 p-3 border border-gray-800 rounded bg-gray-900" id="autoModePanel">
-    <div class="text-sm text-gray-400 mb-2">Auto Mode Progress</div>
-    <ul class="text-sm space-y-1">
-        {% for line in auto_mode_progress or [] %}
-        <li class="text-gray-200">{{ line }}</li>
-        {% endfor %}
-    </ul>
-    <button id="refreshProgress" class="mt-2 text-xs underline">Refresh status</button>
-    <script>
-    (function(){
-        var panel = document.getElementById('autoModePanel');
-        var btn = document.getElementById('refreshProgress');
-        function refresh(){
-            fetch("{{ url_for('admin.auto_mode_status') }}").then(function(r){return r.json()}).then(function(d){
-                try {
-                    if (!panel) return;
-                    var ul = panel.querySelector('ul');
-                    ul.innerHTML = '';
-                    (d.messages || []).forEach(function(line){
-                        var li = document.createElement('li');
-                        li.className = 'text-gray-200';
-                        li.textContent = line;
-                        ul.appendChild(li);
-                    });
-                } catch (e) {}
-            }).catch(function(){ /* ignore */ });
-        }
-        if (btn) {
-            btn.addEventListener('click', function(e){ e.preventDefault(); refresh(); });
-        }
-    })();
-    </script>
-</div>
-{% endif %}
 <table class="w-full text-left text-sm">
 	<thead class="text-gray-400">
 		<tr>

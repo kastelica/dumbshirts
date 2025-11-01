@@ -586,6 +586,9 @@ def toggle_auto_mode():
 		thr.start()
 	else:
 		flash("Auto mode OFF.", "success")
+	redirect_to = request.form.get("redirect_to", "products_list")
+	if redirect_to == "auto_product":
+		return redirect(url_for("admin.auto_product_page"))
 	return redirect(url_for("admin.products_list"))
 
 
@@ -788,14 +791,20 @@ def create_product_from_design(design_id: int):
 @login_required
 def products_list():
 	products = Product.query.order_by(Product.created_at.desc()).all()
+	return render_template("admin_products.html", products=products)
+
+
+@admin_bp.get("/auto-product")
+@login_required
+def auto_product_page():
+	"""Dedicated page for auto product generation with real-time progress."""
 	msgs, _ = _get_progress_state()
 	enabled = bool(current_app.config.get("AUTO_MODE", False))
 	skip_images = bool(current_app.config.get("AUTO_MODE_SKIP_IMAGES", False))
 	continuous = bool(current_app.config.get("AUTO_MODE_CONTINUOUS", False))
 	return render_template(
-		"admin_products.html",
-		products=products,
-		auto_mode_progress=list(reversed(msgs[-10:])),
+		"admin_auto_product.html",
+		auto_mode_progress=list(reversed(msgs[-50:])),
 		auto_mode_enabled=enabled,
 		auto_mode_skip_images=skip_images,
 		auto_mode_continuous=continuous,
