@@ -15,9 +15,9 @@
 		<div class="mt-6 md:mt-0 md:col-span-2">
 			{% if hero_products and hero_products|length > 0 %}
 			<div class="relative w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden">
-				<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out" style="transform: translateX(0%);">
+				<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out" style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
 					{% for p in hero_products %}
-					<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white">
+					<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white" style="width: {{ 100 / hero_products|length }}%;">
 						{% set design_img = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 						{% if design_img %}
 							<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
@@ -165,9 +165,9 @@
 	</div>
 	{% if hero_products and hero_products|length > 0 %}
 	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
-		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out" style="transform: translateX(0%);">
+		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out" style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
 			{% for p in hero_products %}
-			<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white">
+			<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white" style="width: {{ 100 / hero_products|length }}%;">
 				{% set design_img = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 				{% if design_img %}
 					<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
@@ -331,7 +331,8 @@
 		const totalSlides = slides.length;
 		
 		function updateSlideshow(){
-			const translateX = -currentSlide * 100;
+			// Translate by percentage of container width, where each slide = 100% / totalSlides of container = 100% of viewport
+			const translateX = -(currentSlide * (100 / totalSlides));
 			slideshow.style.transform = `translateX(${translateX}%)`;
 			
 			// Update dots
