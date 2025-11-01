@@ -10,12 +10,6 @@
 		<li><strong>Status:</strong> {{ order.status }}</li>
 		<li><strong>Total:</strong> {{ '%.2f'|format(order.total_amount) }} {{ order.currency }}</li>
 		<li><strong>Estimated delivery:</strong> {{ est_delivery }}</li>
-		{% if gelato_debug %}
-		<li class="mt-2">
-			<div class="text-xs text-gray-400">Gelato debug:</div>
-			<pre class="mt-1 text-xs whitespace-pre-wrap break-all bg-gray-950 border border-gray-800 rounded p-2">{{ gelato_debug|tojson }}</pre>
-		</li>
-		{% endif %}
 	</ul>
 </div>
 
