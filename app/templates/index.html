@@ -17,7 +17,7 @@
 			<div class="relative w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden">
 				<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out" style="transform: translateX(0%);">
 					{% for p in hero_products %}
-					<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity">
+					<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white">
 						{% set design_img = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 						{% if design_img %}
 							<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
@@ -167,7 +167,7 @@
 	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
 		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out" style="transform: translateX(0%);">
 			{% for p in hero_products %}
-			<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity">
+			<a href="{{ url_for('main.product_detail', slug=p.slug) }}" class="flex-shrink-0 w-full h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white">
 				{% set design_img = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
 				{% if design_img %}
 					<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
