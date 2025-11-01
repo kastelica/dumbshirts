@@ -24,7 +24,7 @@
 							{% set design_img = p.design.image_url or p.design.preview_url or '' %}
 						{% endif %}
 						{% if design_img %}
-							<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide absolute inset-0 {% if slide_idx == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
+							<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide absolute inset-0 {% if slide_idx == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4 z-0" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
 								<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
 							</a>
 							{% set slide_idx = slide_idx + 1 %}
@@ -32,9 +32,9 @@
 					{% endfor %}
 					{% set slide_count = slide_idx %}
 					{% if slide_count > 1 %}
-						<button type="button" id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Previous slide">‹</button>
-						<button type="button" id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Next slide">›</button>
-						<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+						<button type="button" id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Previous slide">‹</button>
+						<button type="button" id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Next slide">›</button>
+						<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 pointer-events-auto">
 							{% set dot_idx = 0 %}
 							{% for p in products[:6] %}
 								{% set has_design_img = false %}
@@ -184,7 +184,7 @@
 					{% set design_img = p.design.image_url or p.design.preview_url or '' %}
 				{% endif %}
 				{% if design_img %}
-					<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide-mobile absolute inset-0 {% if slide_idx == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
+					<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide-mobile absolute inset-0 {% if slide_idx == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4 z-0" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
 						<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
 					</a>
 					{% set slide_idx = slide_idx + 1 %}
@@ -192,9 +192,9 @@
 			{% endfor %}
 			{% set slide_count = slide_idx %}
 			{% if slide_count > 1 %}
-				<button type="button" id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Previous slide">‹</button>
-				<button type="button" id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Next slide">›</button>
-				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+				<button type="button" id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Previous slide">‹</button>
+				<button type="button" id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" aria-label="Next slide">›</button>
+				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 pointer-events-auto">
 					{% set dot_idx = 0 %}
 					{% for p in products[:6] %}
 						{% set has_design_img = false %}
@@ -233,8 +233,15 @@
 			// Hide navigation if only one slide
 			if(prevBtn) prevBtn.style.display = 'none';
 			if(nextBtn) nextBtn.style.display = 'none';
+			if(dots.length > 0) {
+				dots.forEach(dot => dot.style.display = 'none');
+			}
 			return;
 		}
+		
+		// Ensure buttons are visible
+		if(prevBtn) prevBtn.style.display = 'flex';
+		if(nextBtn) nextBtn.style.display = 'flex';
 		
 		let currentIndex = 0;
 		let autoSlideInterval = null;
