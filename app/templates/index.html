@@ -13,8 +13,32 @@
 			</div>
 		</div>
 		<div class="mt-6 md:mt-0 md:col-span-2">
-			<div class="w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
-				<img src="https://placehold.co/500x250?text=So+Dumb" alt="Featured tee" class="w-full h-full object-contain" />
+			<div id="hero-slideshow" class="w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
+				{% if products %}
+					{% set color_set = ['white','black','heather','red','blue','pink'] %}
+					{% for p in products[:6] %}
+						{% set slide_color = color_set[loop.index0 % color_set|length] %}
+						{% set design_img = (p.design.image_url or p.design.preview_url) if p.design else '' %}
+						{% if design_img %}
+							<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide absolute inset-0 {% if loop.index0 == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4" data-slide-index="{{ loop.index0 }}" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
+								<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
+							</a>
+						{% endif %}
+					{% endfor %}
+					{% if products|length > 1 %}
+						<button type="button" id="hero-slide-prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Previous slide">‹</button>
+						<button type="button" id="hero-slide-next" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Next slide">›</button>
+						<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+							{% for p in products[:6] %}
+								{% if (p.design.image_url or p.design.preview_url) if p.design else '' %}
+									<button type="button" class="hero-slide-dot w-2 h-2 rounded-full {% if loop.index0 == 0 %}bg-white{% else %}bg-gray-600{% endif %} transition-colors" data-slide-index="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index0 + 1 }}"></button>
+								{% endif %}
+							{% endfor %}
+						</div>
+					{% endif %}
+				{% else %}
+					<div class="flex items-center justify-center h-full text-gray-500">No products available</div>
+				{% endif %}
 			</div>
 		</div>
 	</div>
@@ -137,14 +161,127 @@
 			<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
 		</div>
 	</div>
-	<div class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
-		<img src="https://placehold.co/500x250?text=So+Dumb" alt="Featured tee" class="w-full h-full object-contain" />
+	<div id="hero-slideshow-mobile" class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
+		{% if products %}
+			{% set color_set = ['white','black','heather','red','blue','pink'] %}
+			{% for p in products[:6] %}
+				{% set slide_color = color_set[loop.index0 % color_set|length] %}
+				{% set design_img = (p.design.image_url or p.design.preview_url) if p.design else '' %}
+				{% if design_img %}
+					<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ slide_color }}" class="hero-slide-mobile absolute inset-0 {% if loop.index0 == 0 %}opacity-100{% else %}opacity-0{% endif %} transition-opacity duration-500 flex items-center justify-center p-4" data-slide-index="{{ loop.index0 }}" style="background-color: {% if slide_color == 'white' %}#ffffff{% elif slide_color == 'black' %}#000000{% elif slide_color in ['heather','grey','gray'] %}#9ca3af{% elif slide_color == 'red' %}#ef4444{% elif slide_color == 'blue' %}#3b82f6{% elif slide_color == 'pink' %}#ec4899{% else %}#ffffff{% endif %};">
+						<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain" loading="lazy" />
+					</a>
+				{% endif %}
+			{% endfor %}
+			{% if products|length > 1 %}
+				<button type="button" id="hero-slide-prev-mobile" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Previous slide">‹</button>
+				<button type="button" id="hero-slide-next-mobile" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/80 border border-gray-800 text-white flex items-center justify-center hover:bg-gray-800 z-10" aria-label="Next slide">›</button>
+				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+					{% for p in products[:6] %}
+						{% if (p.design.image_url or p.design.preview_url) if p.design else '' %}
+							<button type="button" class="hero-slide-dot-mobile w-2 h-2 rounded-full {% if loop.index0 == 0 %}bg-white{% else %}bg-gray-600{% endif %} transition-colors" data-slide-index="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index0 + 1 }}"></button>
+						{% endif %}
+					{% endfor %}
+				</div>
+			{% endif %}
+		{% else %}
+			<div class="flex items-center justify-center h-full text-gray-500">No products available</div>
+		{% endif %}
 	</div>
 </section>
 {% endblock %}
 
 {% block head %}
 <script src="/static/js/product-gallery.js"></script>
+<script>
+// Hero slideshow functionality
+(function(){
+	function initSlideshow(containerId, prevId, nextId, slideClass, dotClass) {
+		const container = document.getElementById(containerId);
+		if(!container) return;
+		
+		const slides = container.querySelectorAll('.' + slideClass);
+		const dots = container.querySelectorAll('.' + dotClass);
+		const prevBtn = document.getElementById(prevId);
+		const nextBtn = document.getElementById(nextId);
+		
+		if(slides.length <= 1) return;
+		
+		let currentIndex = 0;
+		let autoSlideInterval = null;
+		
+		function showSlide(index) {
+			slides.forEach((slide, i) => {
+				slide.classList.toggle('opacity-0', i !== index);
+				slide.classList.toggle('opacity-100', i === index);
+			});
+			dots.forEach((dot, i) => {
+				dot.classList.toggle('bg-white', i === index);
+				dot.classList.toggle('bg-gray-600', i !== index);
+			});
+			currentIndex = index;
+		}
+		
+		function nextSlide() {
+			const next = (currentIndex + 1) % slides.length;
+			showSlide(next);
+		}
+		
+		function prevSlide() {
+			const prev = (currentIndex - 1 + slides.length) % slides.length;
+			showSlide(prev);
+		}
+		
+		function startAutoSlide() {
+			autoSlideInterval = setInterval(nextSlide, 4000); // Change slide every 4 seconds
+		}
+		
+		function stopAutoSlide() {
+			if(autoSlideInterval) {
+				clearInterval(autoSlideInterval);
+				autoSlideInterval = null;
+			}
+		}
+		
+		// Button handlers
+		if(nextBtn) {
+			nextBtn.addEventListener('click', function(){
+				stopAutoSlide();
+				nextSlide();
+				startAutoSlide();
+			});
+		}
+		
+		if(prevBtn) {
+			prevBtn.addEventListener('click', function(){
+				stopAutoSlide();
+				prevSlide();
+				startAutoSlide();
+			});
+		}
+		
+		// Dot handlers
+		dots.forEach((dot, index) => {
+			dot.addEventListener('click', function(){
+				stopAutoSlide();
+				showSlide(index);
+				startAutoSlide();
+			});
+		});
+		
+		// Pause on hover
+		container.addEventListener('mouseenter', stopAutoSlide);
+		container.addEventListener('mouseleave', startAutoSlide);
+		
+		// Start auto-sliding
+		startAutoSlide();
+	}
+	
+	// Initialize both desktop and mobile slideshows
+	initSlideshow('hero-slideshow', 'hero-slide-prev', 'hero-slide-next', 'hero-slide', 'hero-slide-dot');
+	initSlideshow('hero-slideshow-mobile', 'hero-slide-prev-mobile', 'hero-slide-next-mobile', 'hero-slide-mobile', 'hero-slide-dot-mobile');
+})();
+</script>
 <div id="promo-5off" class="fixed left-4 bottom-4 z-40">
 	<button id="promo-5off-btn" class="bg-white text-black rounded-full px-4 py-2 shadow-lg">Get 5% off</button>
 </div>
