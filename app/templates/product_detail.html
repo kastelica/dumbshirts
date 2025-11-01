@@ -219,10 +219,12 @@
 					<label class="block text-sm mb-1">Quantity</label>
 					<input type="number" min="1" name="quantity" value="1" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-24 text-gray-100" />
 				</div>
-				<div class="flex items-center space-x-3">
-					<button type="submit" class="bg-white text-black px-5 py-2 rounded">Add to cart</button>
-					<button type="submit" id="buy-now-btn" class="bg-gray-800 text-white px-5 py-2 rounded">Buy now</button>
-					<a href="#" id="size-guide-open" class="text-sm underline text-gray-300">Size guide</a>
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+					<button type="submit" class="flex-1 bg-white text-black px-6 py-3 rounded font-semibold text-lg hover:bg-gray-100 transition-colors shadow-md hover:shadow-lg">Add to Cart</button>
+					<button type="submit" id="buy-now-btn" class="flex-1 bg-gray-800 text-white px-6 py-3 rounded font-semibold text-lg hover:bg-gray-700 transition-colors border border-gray-700">Buy Now</button>
+				</div>
+				<div class="mt-2 text-center">
+					<a href="#" id="size-guide-open" class="text-sm underline text-gray-400 hover:text-gray-300">Size guide</a>
 				</div>
 			</form>
 
