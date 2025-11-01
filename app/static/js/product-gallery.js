@@ -133,9 +133,14 @@
         if (bgDiv) bgDiv.classList.add('hidden');
       } else if (frames[idx]) {
         frames[idx].classList.remove('hidden');
-        // Ensure frame image is above background (z-index)
+        // Ensure frame image is above background but below navigation buttons (z-index)
         frames[idx].style.position = 'relative';
         frames[idx].style.zIndex = '2';
+        // Ensure buttons stay on top (they have z-20 in HTML)
+        const prevBtn = galleryEl.querySelector('[data-action="prev"]');
+        const nextBtn = galleryEl.querySelector('[data-action="next"]');
+        if (prevBtn) prevBtn.style.zIndex = '20';
+        if (nextBtn) nextBtn.style.zIndex = '20';
         // Show background color when showing design-only frame
         // Get current color from attribute or use tracked color
         const savedColor = galleryEl.getAttribute('data-current-color') || currentColor;
