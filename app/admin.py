@@ -14,6 +14,9 @@ from werkzeug.utils import secure_filename
 import threading
 import json
 from datetime import datetime, timedelta
+import re
+import unicodedata
+import difflib
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -809,6 +812,194 @@ def auto_product_page():
 		auto_mode_skip_images=skip_images,
 		auto_mode_continuous=continuous,
 	)
+
+
+@admin_bp.get("/kym-import")
+@login_required
+def kym_import_page():
+	"""Dedicated page for Know Your Meme product import."""
+	return render_template("admin_kym_import.html")
+
+
+@admin_bp.post("/kym-import/run")
+@login_required
+def kym_import_run():
+	"""Import products from Know Your Meme. Runs in background thread."""
+	try:
+		limit = int(request.form.get("limit", "5"))
+	except Exception:
+		limit = 5
+	limit = max(1, min(limit, 20))  # Cap at 20 for safety
+	
+	url = (request.form.get("url", "").strip() or 
+		   "https://knowyourmeme.com/memes?kind=all&sort=views")
+	
+	def _run_kym_import(app_ctx, limit_val: int, url_val: str):
+		with app_ctx:
+			try:
+				_progress_add(f"[KYM] Starting import (limit: {limit_val}, url: {url_val})")
+				created = _import_kym_products(limit_val, url_val)
+				_progress_add(f"[KYM] Import complete. Created {created} product(s).")
+			except Exception as e:
+				current_app.logger.exception(f"[KYM] Import failed: {e}")
+				_progress_add(f"[KYM] Import failed: {e}")
+	
+	thr = threading.Thread(target=_run_kym_import, args=(current_app.app_context(), limit, url), daemon=True)
+	thr.start()
+	flash(f"KYM import started (creating up to {limit} products). Check progress below.", "success")
+	return redirect(url_for("admin.kym_import_page"))
+
+
+def _import_kym_products(limit: int = 5, url: str = "https://knowyourmeme.com/memes?kind=all&sort=views") -> int:
+	"""Import products from Know Your Meme. Returns count created."""
+	from scripts.scrape_kym_memes import fetch_html, parse_listing, parse_detail_image, BASE
+	import requests
+	
+	# Helper for duplicate detection
+	STOP = {"the", "a", "an", "meme", "shirt", "t-shirt", "tshirt", "tee"}
+	def _norm_title(s: str) -> str:
+		if not s:
+			return ""
+		s2 = unicodedata.normalize("NFKD", s)
+		s2 = s2.encode("ascii", "ignore").decode("ascii")
+		s2 = s2.lower()
+		s2 = re.sub(r"[^a-z0-9]+", " ", s2)
+		toks = [t for t in s2.split() if t and t not in STOP]
+		return " ".join(toks)
+	
+	# Load existing products for duplicate detection
+	existing_slug_rows = db.session.query(Product.slug).all()
+	existing_slugs = {row[0] for row in existing_slug_rows if row and row[0]}
+	existing_title_rows = db.session.query(Product.title).all()
+	existing_titles = [row[0] for row in existing_title_rows if row and row[0]]
+	existing_design_rows = db.session.query(Design.text).all()
+	existing_design_titles = [row[0] for row in existing_design_rows if row and row[0]]
+	existing_norm_titles = {_norm_title(t) for t in (existing_titles + existing_design_titles)}
+	
+	def _already_imported(title: str, meme_slug: str) -> bool:
+		pslug = slugify(f"{title} T-Shirt")
+		if pslug in existing_slugs:
+			return True
+		if title in existing_design_titles:
+			return True
+		if meme_slug in existing_slugs:
+			return True
+		cand_norm = _norm_title(title)
+		if not cand_norm:
+			return False
+		if cand_norm in existing_norm_titles:
+			return True
+		for t in existing_norm_titles:
+			if not t:
+				continue
+			if difflib.SequenceMatcher(None, cand_norm, t).ratio() >= 0.90:
+				return True
+		return False
+	
+	_progress_add(f"[KYM] Fetching listing from {url}")
+	try:
+		html = fetch_html(url)
+		entries = parse_listing(html)
+		_progress_add(f"[KYM] Found {len(entries)} meme entries")
+	except Exception as e:
+		_progress_add(f"[KYM] Failed to fetch listing: {e}")
+		return 0
+	
+	picked = entries[:limit]
+	created = 0
+	
+	for i, e in enumerate(picked):
+		if _already_imported(e["title"], e["slug"]):
+			_progress_add(f"[KYM] Skipping duplicate: {e['title']}")
+			continue
+		
+		_progress_add(f"[KYM] Processing {i+1}/{len(picked)}: {e['title']}")
+		
+		try:
+			dhtml = fetch_html(e["url"])
+			img = parse_detail_image(dhtml)
+		except Exception as e_img:
+			_progress_add(f"[KYM] Failed to fetch image for {e['title']}: {e_img}")
+			img = ""
+		
+		if not img:
+			_progress_add(f"[KYM] No image found for {e['title']}, skipping")
+			continue
+		
+		_progress_add(f"[KYM] Creating product: {e['title']}")
+		try:
+			p = _create_product_from_kym_image(e["title"], img)
+			db.session.commit()
+			created += 1
+			_progress_add(f"[KYM] ✓ Created product {p.id}: {p.title}")
+		except Exception as e_prod:
+			current_app.logger.exception(f"[KYM] Failed to create product: {e_prod}")
+			_progress_add(f"[KYM] ✗ Failed to create product for {e['title']}: {e_prod}")
+			db.session.rollback()
+	
+	return created
+
+
+def _create_product_from_kym_image(title: str, image_url: str) -> Product:
+	"""Create a draft shirt product with a square front design image from KYM."""
+	# 1) Design row
+	d = Design(type="image", text=title, approved=True)
+	d.image_url = image_url
+	d.preview_url = image_url
+	db.session.add(d)
+	db.session.flush()
+
+	# 2) Product row with pricing
+	base_cost = Decimal("18.00")
+	markup_percent = Decimal(str(current_app.config.get("MARKUP_PERCENT", 35)))
+	price = (base_cost * (Decimal(1) + markup_percent / Decimal(100))).quantize(Decimal("0.01"))
+
+	# Append "T-Shirt" to product titles
+	product_title = f"{title} T-Shirt"
+	base_slug = slugify(product_title) or "product"
+	slug = base_slug
+	idx = 2
+	while Product.query.filter_by(slug=slug).first():
+		slug = f"{base_slug}-{idx}"
+		idx += 1
+
+	p = Product(
+		slug=slug,
+		title=product_title,
+		description=f"Free Shipping! Shirt inspired by the meme '{title}'. 100% Cotton, Crewneck, Unisex.",
+		status="draft",
+		base_cost=base_cost,
+		price=price,
+		currency=(current_app.config.get("STORE_CURRENCY", "USD")),
+		design=d,
+	)
+	db.session.add(p)
+	db.session.flush()
+
+	# Category: Shirts
+	shirts = Category.query.filter_by(slug="shirts").first()
+	if not shirts:
+		shirts = Category(name="Shirts", slug="shirts")
+		db.session.add(shirts)
+		db.session.flush()
+	p.categories.append(shirts)
+
+	# 3) Variants: sizes S-XL, colors Black/White, printed on front
+	for size in ["S", "M", "L", "XL"]:
+		for color in ["Black", "White"]:
+			v = Variant(
+				product_id=p.id,
+				name=f"{size} / {color} / Front",
+				color=color,
+				size=size,
+				print_area="front",
+				price=p.price,
+				base_cost=p.base_cost,
+			)
+			db.session.add(v)
+	db.session.flush()
+
+	return p
 
 
 @admin_bp.post("/products/<int:product_id>/toggle")
