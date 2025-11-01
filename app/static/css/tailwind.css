@@ -1911,6 +1911,10 @@ video {
     display: block;
   }
 
+  .md\:inline-block {
+    display: inline-block;
+  }
+
   .md\:inline {
     display: inline;
   }
@@ -1941,6 +1945,10 @@ video {
 
   .md\:w-\[600px\] {
     width: 600px;
+  }
+
+  .md\:w-auto {
+    width: auto;
   }
 
   .md\:grid-cols-2 {
