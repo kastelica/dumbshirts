@@ -1,81 +1,168 @@
 {% extends "base.html" %}
 {% block title %}Shipping & Returns | Dumbshirts.store{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold mb-4">Shipping & Returns</h1>
+<h1 class="text-3xl font-bold mb-2">Shipping & Returns</h1>
+<p class="text-gray-400 mb-8">Everything you need to know about getting your order and returning items.</p>
 
-<div class="prose prose-invert max-w-none">
-  <h2>Countries & Policy</h2>
-  <h3>Countries</h3>
-  <ul>
-    <li>United States</li>
-  </ul>
-  
-  <h3>Policy URL</h3>
-  <p><a href="https://dumbshirts.store/shipping-returns" class="text-blue-400 hover:underline">https://dumbshirts.store/shipping-returns</a></p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+  <!-- Shipping Card -->
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-green-400/20 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-green-400">
+          <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25zM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 013 3 3 3 0 003-3h3a3 3 0 013 3 3 3 0 003-3h.375c1.035 0 1.875-.84 1.875-1.875V15h-9zM15 19.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM4.5 19.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold">Shipping</h2>
+    </div>
+    <ul class="space-y-3 text-gray-300">
+      <li class="flex items-start gap-2">
+        <span class="text-green-400 mt-0.5">✓</span>
+        <span><strong class="text-white">Free shipping</strong> (3–9 business days) on all domestic orders</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <span class="text-green-400 mt-0.5">✓</span>
+        <span><strong class="text-white">Express shipping</strong> (2–3 business days) available at checkout</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <span class="text-green-400 mt-0.5">✓</span>
+        <span><strong class="text-white">Production time:</strong> 1 business day. Orders print on demand</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <span class="text-green-400 mt-0.5">✓</span>
+        <span><strong class="text-white">Tracking</strong> is emailed as soon as your order ships</span>
+      </li>
+    </ul>
+  </div>
 
-  <h2 class="mt-6">Shipping</h2>
-  <ul>
-    <li>Free shipping (3–9 business days) on domestic orders.</li>
-    <li>Express shipping (2–3 business days) available at checkout.</li>
-    <li>Production time: 1 business day. Orders print on demand.</li>
-    <li>Tracking is emailed as soon as your order ships.</li>
-  </ul>
+  <!-- Returns Card -->
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-blue-400/20 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-blue-400">
+          <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold">Returns & Exchanges</h2>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Returns</h3>
+        <ul class="space-y-2 text-gray-300">
+          <li class="flex items-start gap-2">
+            <span class="text-green-400 mt-0.5">✓</span>
+            <span>Accepted for <strong class="text-white">defective or damaged products</strong></span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-green-400 mt-0.5">✓</span>
+            <span>Contact support with order number and photos for quick replacement</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-gray-500 mt-0.5">•</span>
+            <span>Custom items are printed to order; size/color exchanges not guaranteed</span>
+          </li>
+        </ul>
+      </div>
+      <div class="border-t border-gray-800 pt-4">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Exchanges</h3>
+        <p class="text-gray-300">Not accepted</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-  <h2 class="mt-6">Returns</h2>
-  <ul>
-    <li>Accept returns for defective or damaged products</li>
-    <li>Contact support with your order number and photos for a quick replacement.</li>
-    <li>Custom items are printed to order; size/color exchanges are not guaranteed.</li>
-  </ul>
+<!-- Return Policy Details Card -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-8">
+  <h2 class="text-xl font-semibold mb-4">Return Policy Details</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Product Condition</h3>
+      <p class="text-gray-300">New only</p>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Return Window</h3>
+      <p class="text-gray-300">30 days from delivery</p>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Return Method</h3>
+      <p class="text-gray-300">By mail</p>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Return Label</h3>
+      <p class="text-gray-300">Download and print — <span class="text-green-400">Free</span></p>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Restocking Fees</h3>
+      <p class="text-gray-300"><span class="text-green-400">No cost</span></p>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Refund Processing</h3>
+      <p class="text-gray-300">15 days after we receive your return</p>
+    </div>
+  </div>
+</div>
 
-  <h2 class="mt-6">Exchanges</h2>
-  <ul>
-    <li>Not accepted</li>
+<!-- Subscriptions Card -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-8">
+  <div class="flex items-center gap-3 mb-4">
+    <div class="w-10 h-10 rounded-full bg-purple-400/20 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-purple-400">
+        <path d="M4.5 6.375a4.125 4.125 0 118.25 0 4.125 4.125 0 01-8.25 0zM14.25 8.625a3.375 3.375 0 116.75 0 3.375 3.375 0 01-6.75 0zM1.5 19.125a7.125 7.125 0 0114.25 0v.004l-.001.119a.75.75 0 01-.363.63 13.067 13.067 0 01-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 01-.364-.63l-.001-.122zM17.25 19.128l-.001.144a2.25 2.25 0 01-.233.96 10.088 10.088 0 005.06-1.01.75.75 0 00.42-.643 4.875 4.875 0 00-6.957-4.611 8.586 8.586 0 011.71 5.157v.003z" />
+      </svg>
+    </div>
+    <h2 class="text-xl font-semibold">Monthly Subscription</h2>
+  </div>
+  <ul class="space-y-3 text-gray-300">
+    <li class="flex items-start gap-2">
+      <span class="text-green-400 mt-0.5">✓</span>
+      <span><strong class="text-white">$15.00 per month</strong>, billed every month</span>
+    </li>
+    <li class="flex items-start gap-2">
+      <span class="text-green-400 mt-0.5">✓</span>
+      <span><strong class="text-white">Free US shipping</strong> on every subscription shipment</span>
+    </li>
+    <li class="flex items-start gap-2">
+      <span class="text-green-400 mt-0.5">✓</span>
+      <span>Manage or cancel anytime — recurring charge continues until canceled</span>
+    </li>
+    <li class="flex items-start gap-2">
+      <span class="text-gray-500 mt-0.5">•</span>
+      <span>No discounts or sales apply to subscription pricing</span>
+    </li>
+    <li class="flex items-start gap-2">
+      <span class="text-gray-500 mt-0.5">•</span>
+      <span>Cancellations apply to future renewals; in‑process orders may still ship</span>
+    </li>
   </ul>
+</div>
 
-  <h2 class="mt-6">Product Condition & Window</h2>
-  <h3>Product Condition</h3>
-  <ul>
-    <li>New only</li>
-  </ul>
-  
-  <h3>Window</h3>
-  <ul>
-    <li>30 days</li>
-  </ul>
+<!-- Shipping Countries & Support -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+    <h2 class="text-xl font-semibold mb-4">Shipping Countries</h2>
+    <div class="flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-blue-400">
+        <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+      </svg>
+      <p class="text-gray-300 font-medium">United States</p>
+    </div>
+    <div class="mt-4 pt-4 border-t border-gray-800">
+      <h3 class="text-sm font-semibold text-gray-400 mb-2">Policy URL</h3>
+      <a href="https://dumbshirts.store/shipping-returns" class="text-blue-400 hover:underline break-all">https://dumbshirts.store/shipping-returns</a>
+    </div>
+  </div>
 
-  <h2 class="mt-6">Method & Fees</h2>
-  <h3>Method</h3>
-  <ul>
-    <li>By mail</li>
-  </ul>
-  
-  <h3>Return Label</h3>
-  <ul>
-    <li>Download and print, Free</li>
-  </ul>
-  
-  <h3>Restocking Fees</h3>
-  <ul>
-    <li>No cost</li>
-  </ul>
-  
-  <h3>Refund Processing Time</h3>
-  <ul>
-    <li>15 days</li>
-  </ul>
-
-  <h2 class="mt-6">Subscriptions</h2>
-  <ul>
-    <li>Monthly shirt subscription: $15.00 per month, billed every 1 month.</li>
-    <li>Free US shipping on every subscription shipment.</li>
-    <li>Recurring charge continues until canceled. Manage or cancel anytime.</li>
-    <li>No discounts or sales apply to subscription pricing.</li>
-    <li>Cancellations apply to future renewals; in‑process orders may ship.</li>
-  </ul>
-
-  <h2 class="mt-6">Support</h2>
-  <p>Email support at <a href="mailto:email@dumbshirts.store" class="text-blue-400 hover:underline">email@dumbshirts.store</a>.</p>
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+    <h2 class="text-xl font-semibold mb-4">Need Help?</h2>
+    <p class="text-gray-300 mb-4">Have questions about your order or need support?</p>
+    <a href="mailto:email@dumbshirts.store" class="inline-flex items-center gap-2 bg-white text-black px-5 py-2 rounded font-medium hover:bg-gray-100 transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+        <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
+        <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
+      </svg>
+      email@dumbshirts.store
+    </a>
+  </div>
 </div>
 {% endblock %}
 
