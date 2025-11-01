@@ -33,6 +33,39 @@ window.renderOptIn = function() {
     });
   });
 }
+
+// Send GA4 purchase event (backup in case it didn't fire on checkout page)
+(function(){
+	try{
+		if(typeof gtag === 'function'){
+			// Check if purchase event already sent (stored in sessionStorage to avoid duplicates)
+			const eventKey = 'ga4_purchase_' + {{ order.id|tojson }};
+			if(!sessionStorage.getItem(eventKey)){
+				const items = {{ order.items|tojson }} || [];
+				gtag('event', 'purchase', {
+					transaction_id: {{ (order.stripe_payment_intent_id or order.id)|tojson }},
+					value: {{ (order.total_amount or 0)|float|tojson }},
+					currency: {{ (order.currency or 'USD')|tojson }},
+					items: items.map(function(it){
+						return {
+							item_id: (it.product_id || '').toString(),
+							item_name: it.title || '',
+							item_brand: 'Dumbshirts.store',
+							item_category: 't-shirt',
+							item_variant: (it.variant_id || '').toString(),
+							price: parseFloat(it.unit_price || it.price || 0),
+							quantity: parseInt(it.quantity || 1),
+						};
+					})
+				});
+				sessionStorage.setItem(eventKey, '1');
+				console.log('[confirmation] GA4 purchase event sent', { transaction_id: {{ order.id|tojson }}, value: {{ (order.total_amount or 0)|float|tojson }} });
+			}
+		}
+	}catch(e){
+		console.warn('[confirmation] GA4 purchase event failed', e);
+	}
+})();
 </script>
 
 <div class="mt-6">

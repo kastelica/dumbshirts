@@ -313,7 +313,38 @@ function gtag_report_conversion(url){
 		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
 		if (paymentIntent && paymentIntent.status === 'succeeded') {
 			msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!';
+			
+			// Send GA4 purchase event
+			try{
+				if(typeof gtag === 'function' && orderId){
+					const items = ({{ (cart['items']|length)|tojson }} > 0) ? {{ cart['items']|tojson }} : [];
+					const finalTotal = currentTotal();
+					const transId = orderId.toString();
+					gtag('event', 'purchase', {
+						transaction_id: transId,
+						value: finalTotal,
+						currency: '{{ currency }}',
+						items: items.map(it => ({
+							item_id: it.product_id?.toString() || '',
+							item_name: it.title || '',
+							item_brand: 'Dumbshirts.store',
+							item_category: 't-shirt',
+							item_variant: (it.variant_id || '').toString(),
+							price: parseFloat(it.price || 0),
+							quantity: parseInt(it.quantity || 1),
+						}))
+					});
+					// Mark as sent to prevent duplicate on confirmation page
+					try{ sessionStorage.setItem('ga4_purchase_' + transId, '1'); }catch(_e){}
+					console.log('[checkout] GA4 purchase event sent', { transaction_id: transId, value: finalTotal, items_count: items.length });
+				}
+			}catch(e){ 
+				try{ console.warn('[checkout] GA4 purchase event failed', e); }catch(_e2){} 
+			}
+			
+			// Send Google Ads conversion
 			try{ gtag_report_conversion(); }catch(e){ try{ console.warn('[checkout] gtag conversion failed', e); }catch(_e2){} }
+			
 			try{ console.log('[checkout] redirecting to confirmation', { orderId }); }catch(_e){}
 			if(orderId){
 				const encEmail = encodeURIComponent(email || '');
