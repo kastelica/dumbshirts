@@ -314,12 +314,12 @@ def checkout():
 						variant = None
 				if not variant and product.variants:
 					variant = product.variants[0]
-				# Price: honor Google discount if available, otherwise site-wide 5% sale
+				# Price: honor Google discount if available, otherwise site-wide 15% sale
 				from decimal import Decimal as _D
 				if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
 					sale_price = _D(str(session["google_discount"].get("discounted_price", 0)))
 				else:
-					sale_price = (product.price * _D("95")) / _D("100")
+					sale_price = (product.price * _D("85")) / _D("100")
 				found = False
 				for it in cart.get("items", []):
 					if variant and it.get("variant_id") == variant.id:

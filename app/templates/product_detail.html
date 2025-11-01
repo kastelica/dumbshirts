@@ -174,9 +174,9 @@
 					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format(google_discount_info.discounted_price) }} {{ google_discount_info.currency }}</span>
 					<div class="text-sm text-blue-400 mt-1">Google Special Price</div>
 				{% else %}
-					{# Regular 10% off pricing #}
+					{# Regular 15% off pricing #}
 					<span class="line-through text-red-400">${{ '%.2f'|format(product.price) }}</span>
-					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format((product.price * 90) / 100) }} {{ product.currency }}</span>
+					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format((product.price * 85) / 100) }} {{ product.currency }}</span>
 				{% endif %}
 			</div>
 
@@ -466,7 +466,7 @@ function lookupProductUid(size, color){
 					const salePrice = {{ google_discount_info.discounted_price|tojson }};
 					const currency = {{ google_discount_info.currency|tojson }};
 					{% else %}
-					const salePrice = {{ (((product.price * 90) / 100)|float)|tojson }};
+					const salePrice = {{ (((product.price * 85) / 100)|float)|tojson }};
 					const currency = {{ product.currency|tojson }};
 					{% endif %}
 					if (typeof gtag === 'function') {
