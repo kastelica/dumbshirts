@@ -449,21 +449,65 @@ def shipping_returns():
 def contact_page():
     # Basic GET renders form; POST triggers an email
     if request.method == 'POST':
+        # Bot prevention: Check honeypot field
+        honeypot = (request.form.get('website') or '').strip()
+        if honeypot:
+            # Bot detected - silently reject
+            current_app.logger.warning("[contact] Bot detected via honeypot field")
+            return render_template('contact.html', sent=True)  # Return success to bot
+        
         name = (request.form.get('name') or '').strip()
         email = (request.form.get('email') or '').strip()
         msg = (request.form.get('message') or '').strip()
         subject = (request.form.get('subject') or '').strip()
+        contact_reason = (request.form.get('contact_reason') or '').strip()
+        order_number = (request.form.get('order_number') or '').strip()
+        
+        # Basic validation
+        if not name or not email or not msg or not subject:
+            return render_template('contact.html', sent=False, error='Please fill in all required fields.')
+        
+        # Validate email format
+        if '@' not in email or '.' not in email.split('@')[1]:
+            return render_template('contact.html', sent=False, error='Please enter a valid email address.')
+        
         try:
             to = (current_app.config.get('ADMIN_EMAIL') or os.getenv('ADMIN_EMAIL') or 'email@dumbshirts.store').strip()
-            html = render_simple_email('New contact message', [f'From: {name} <{email}>', f'Subject: {subject}', '', msg])
-            send_email_via_sendgrid(to, 'Contact form message', html)
+            
+            # Build email body with all details
+            email_body_lines = [
+                f'From: {name} <{email}>',
+                f'Contact Reason: {contact_reason or "Not specified"}',
+            ]
+            if order_number:
+                email_body_lines.append(f'Order Number: {order_number}')
+            email_body_lines.extend([
+                f'Subject: {subject}',
+                '',
+                'Message:',
+                msg
+            ])
+            
+            html = render_simple_email('New contact message', email_body_lines)
+            ok, msg_result = send_email_via_sendgrid(to, f'Contact form: {subject}', html)
+            
+            if not ok:
+                current_app.logger.error(f"[contact] Failed to send admin email: {msg_result}")
+            
             # Send an acknowledgement to the user as well
-            if email:
+            if email and ok:
                 ack_html = render_simple_email('We received your message', [
-                    'Thanks for reaching out to Dumbshirts.',
-                    'We will get back to you shortly.',
+                    f'Hi {name},',
+                    '',
+                    'Thanks for reaching out to Dumbshirts.store.',
+                    '',
+                    'We received your message and will get back to you as soon as possible.',
+                    'Our team typically responds within 24 hours.',
+                    '',
+                    'If your inquiry is urgent, please include "URGENT" in your next message.',
                 ])
                 send_email_via_sendgrid(email, 'Thanks — we received your message', ack_html)
+            
             # Forward to Formspree if configured
             try:
                 fs = (current_app.config.get('FORMSPREE_ENDPOINT') or os.getenv('FORMSPREE_ENDPOINT') or '').strip()
@@ -473,13 +517,17 @@ def contact_page():
                         'email': email,
                         'subject': subject,
                         'message': msg,
+                        'contact_reason': contact_reason,
+                        'order_number': order_number,
                     }
                     headers = {'Accept': 'application/json'}
                     requests.post(fs, data=payload, headers=headers, timeout=8)
             except Exception:
                 pass
-        except Exception:
-            pass
+        except Exception as e:
+            current_app.logger.exception(f"[contact] Error processing contact form: {e}")
+            return render_template('contact.html', sent=False, error='There was an error sending your message. Please try again.')
+        
         return render_template('contact.html', sent=True)
     return render_template("contact.html")
 
