@@ -155,7 +155,7 @@ def funny_tshirts():
 	return _render_category_page(
 		category_name="Funny T-Shirts",
 		category_slug="funny-tshirts",
-		category_description="Shop our collection of funny t-shirts. Discover hilarious, witty, and entertaining t-shirt designs that bring humor to your wardrobe. Free shipping on orders over $50.",
+		category_description="Shop our collection of funny t-shirts. Discover hilarious, witty, and entertaining t-shirt designs that bring humor to your wardrobe. Free shipping",
 		category_keywords="funny t-shirts, funny shirts, humorous t-shirts, comedy tees, joke t-shirts, witty t-shirts"
 	)
 
