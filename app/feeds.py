@@ -1,5 +1,8 @@
 from flask import Response, current_app
 from xml.etree.ElementTree import Element, SubElement, tostring
+import hashlib
+import csv
+import io
 
 
 def render_google_shopping_feed(items):
@@ -182,3 +185,71 @@ def render_google_promotions_feed(promotions: list) -> Response:
 
 	xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
 	return Response(xml_bytes, content_type="application/atom+xml; charset=utf-8")
+
+
+def render_google_customer_match_feed(customers: list) -> Response:
+	"""Render Google Ads Customer Match CSV feed.
+	
+	Format: Email (SHA-256), Phone (SHA-256), First Name (SHA-256), 
+	Last Name (SHA-256), Country Code, Zip Code
+	
+	All PII fields are hashed with SHA-256. Email and names are lowercased and trimmed.
+	Phone numbers are digits only.
+	"""
+	output = io.StringIO()
+	writer = csv.writer(output)
+	
+	# Write CSV header
+	writer.writerow([
+		"Email", "Phone", "First Name", "Last Name", "Country Code", "Zip Code"
+	])
+	
+	# Helper function to hash with SHA-256
+	def hash_sha256(value: str) -> str:
+		if not value:
+			return ""
+		return hashlib.sha256(value.encode('utf-8')).hexdigest()
+	
+	# Helper function to normalize phone (digits only)
+	def normalize_phone(phone: str) -> str:
+		if not phone:
+			return ""
+		# Remove all non-digit characters
+		return ''.join(filter(str.isdigit, phone))
+	
+	# Write customer rows
+	for customer in customers:
+		email = customer.get("email", "").strip().lower()
+		phone = normalize_phone(customer.get("phone", ""))
+		first_name = customer.get("first_name", "").strip().lower()
+		last_name = customer.get("last_name", "").strip().lower()
+		country = customer.get("country", "").strip().upper()[:2]  # ISO 3166-1 alpha-2
+		zip_code = customer.get("zip_code", "").strip()
+		
+		# Only include rows with at least email or phone
+		if not email and not phone:
+			continue
+		
+		# Hash PII fields
+		hashed_email = hash_sha256(email) if email else ""
+		hashed_phone = hash_sha256(phone) if phone else ""
+		hashed_first_name = hash_sha256(first_name) if first_name else ""
+		hashed_last_name = hash_sha256(last_name) if last_name else ""
+		
+		writer.writerow([
+			hashed_email,
+			hashed_phone,
+			hashed_first_name,
+			hashed_last_name,
+			country,
+			zip_code
+		])
+	
+	csv_content = output.getvalue()
+	output.close()
+	
+	return Response(
+		csv_content,
+		mimetype="text/csv",
+		headers={"Content-Disposition": "attachment; filename=customer_match.csv"}
+	)

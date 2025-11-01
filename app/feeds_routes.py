@@ -1,13 +1,11 @@
-from flask import Blueprint, url_for, current_app
+from flask import Blueprint, url_for, current_app, request, Response
 from urllib.parse import urljoin
-from .feeds import render_google_shopping_feed, render_google_promotions_feed
-from flask import Response
+from .feeds import render_google_shopping_feed, render_google_promotions_feed, render_google_customer_match_feed
 import os
 import json
-from .models import Product, Promotion
+from .models import Product, Promotion, Order, Address
 from decimal import Decimal
 import datetime
-from flask import url_for, current_app
 
 feeds_bp = Blueprint("feeds", __name__)
 
@@ -210,3 +208,77 @@ def reviews_feed():
 
     xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
     return Response(xml_bytes, content_type="application/xml; charset=utf-8")
+
+
+@feeds_bp.get("/feeds/customer-match.csv")
+def customer_match_feed():
+    """Google Ads Customer Match feed (HTTPS pull).
+    
+    Requires HTTP Basic Authentication via environment variables:
+    - GOOGLE_CUSTOMER_MATCH_USERNAME
+    - GOOGLE_CUSTOMER_MATCH_PASSWORD
+    
+    Returns CSV with hashed customer data from completed orders.
+    """
+    # HTTP Basic Auth
+    auth = request.authorization
+    if not auth:
+        # Request authorization
+        return Response(
+            "Authentication required",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Customer Match Feed"'}
+        )
+    
+    expected_username = os.getenv("GOOGLE_CUSTOMER_MATCH_USERNAME", "").strip()
+    expected_password = os.getenv("GOOGLE_CUSTOMER_MATCH_PASSWORD", "").strip()
+    
+    if not expected_username or not expected_password:
+        current_app.logger.error("[customer-match] Auth credentials not configured")
+        return Response("Feed not configured", 500)
+    
+    if auth.username != expected_username or auth.password != expected_password:
+        return Response("Invalid credentials", 401)
+    
+    # Query completed orders with shipping addresses
+    orders = Order.query.filter(
+        Order.status.in_(["paid", "submitted", "fulfilled"])
+    ).join(
+        Address, Order.shipping_address_id == Address.id
+    ).all()
+    
+    # Build customer list (deduplicate by email to send one row per unique customer)
+    customers = []
+    seen_emails = set()  # Track seen emails for deduplication
+    
+    # Sort orders by created_at descending to keep most recent data for duplicates
+    orders_sorted = sorted(orders, key=lambda o: o.created_at or datetime.datetime.min, reverse=True)
+    
+    for order in orders_sorted:
+        addr = order.shipping_address
+        if not addr:
+            continue
+        
+        email = (addr.email or "").strip().lower()
+        
+        # Skip if we've already seen this email (one row per unique customer)
+        if email and email in seen_emails:
+            continue
+        
+        # Need at least email or phone to include in feed
+        if not email and not (addr.phone and addr.phone.strip()):
+            continue
+        
+        if email:
+            seen_emails.add(email)
+        
+        customers.append({
+            "email": email,
+            "phone": addr.phone or "",
+            "first_name": addr.first_name or "",
+            "last_name": addr.last_name or "",
+            "country": addr.country or "US",
+            "zip_code": addr.post_code or ""
+        })
+    
+    return render_google_customer_match_feed(customers)
