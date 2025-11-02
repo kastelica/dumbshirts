@@ -51,8 +51,8 @@ def add_to_cart():
 			"google_offer_id": google_offer_id
 		}
 	else:
-		# Use regular 5% off pricing
-		item_price = float((product.price * Decimal("95")) / Decimal("100"))
+		# Use regular 15% off pricing (matches index.html display)
+		item_price = float((product.price * Decimal("85")) / Decimal("100"))
 		item_currency = product.currency
 		item_orig_price = float(product.price)
 		google_discount_data = {}
