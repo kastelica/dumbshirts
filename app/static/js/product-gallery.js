@@ -436,6 +436,13 @@
     // Get design source from template data
     const designSrc = productData?.designSrc || '';
     
+    // Get initial color from URL params or default
+    const initialColor = (productData?.initialColor || colorSelectEl.value || 'white').toLowerCase();
+    
+    // Ensure color select matches initial color
+    colorSelectEl.value = initialColor;
+    if (colorFieldEl) colorFieldEl.value = initialColor;
+    
     // Build swatches
     colorSwatchesEl.innerHTML = '';
     colors.forEach(c => {
@@ -445,6 +452,11 @@
       btn.style.backgroundColor = c.hex;
       btn.setAttribute('aria-label', c.key);
       btn.setAttribute('data-color', c.key);
+      
+      // Highlight initial color from URL params
+      if (c.key === initialColor) {
+        btn.classList.add('ring-2', 'ring-white');
+      }
       
       btn.addEventListener('click', () => {
         const newColor = c.key;
@@ -470,15 +482,16 @@
           updateMockup(gallery, newColor, designSrc);
           // Update background color for design frame
           updateDesignBackground(gallery, newColor);
+          // Store color on gallery for when frame switches
+          gallery.setAttribute('data-current-color', newColor.toLowerCase());
+          
           // If we're currently showing the mockup, keep it visible; otherwise stay on current frame
           const isDetailView = gallery.classList.contains('js-gallery');
           if (isDetailView) {
             // Check if we're currently on mockup view (idx -1)
-            // We'll get the gallery state and if on mockup, refresh it; otherwise leave as is
             const mock = gallery.querySelector('.mockup-wrap') || gallery.querySelector('#mockup-wrap');
             if (mock && !mock.classList.contains('hidden')) {
               // We're on mockup view, update it but keep it visible
-              // Mockup is already updated above, just ensure it's visible
               mock.classList.remove('hidden');
               // Hide any frames
               const frames = gallery.querySelectorAll('img[data-frame]');
@@ -493,12 +506,16 @@
         }
       });
       
-      if (colorSelectEl.value === c.key) {
-        btn.classList.add('ring-2', 'ring-white');
-      }
-      
       colorSwatchesEl.appendChild(btn);
     });
+    
+    // After building swatches, ensure gallery shows the correct initial color
+    if (gallery && initialColor) {
+      // Initialize gallery with initial color
+      updateMockup(gallery, initialColor, designSrc);
+      updateDesignBackground(gallery, initialColor);
+      gallery.setAttribute('data-current-color', initialColor.toLowerCase());
+    }
   }
 
   /**
@@ -530,8 +547,24 @@
     
     // Product detail page initialization
     if (document.getElementById('color-swatches') && window.PRODUCT_DATA) {
-      const defaultColor = document.getElementById('color-select')?.value || 'white';
+      // Use initial color from URL params if available, otherwise use select value or default
+      const defaultColor = window.PRODUCT_DATA.initialColor || 
+                          document.getElementById('color-select')?.value || 
+                          'white';
+      
+      // Set the color select and field to match URL param
+      const colorSelect = document.getElementById('color-select');
+      const colorField = document.getElementById('color-field');
+      if (colorSelect && defaultColor) {
+        colorSelect.value = defaultColor;
+      }
+      if (colorField && defaultColor) {
+        colorField.value = defaultColor;
+      }
+      
+      // Initialize mockup with selected color
       initDetailMockup(defaultColor, window.PRODUCT_DATA.designSrc);
+      // Initialize swatches (this will highlight the correct one)
       initDetailColorSwatches(window.PRODUCT_DATA);
     }
   }
