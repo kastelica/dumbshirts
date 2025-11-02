@@ -764,54 +764,64 @@ def order_confirm(order_id: int):
 			except Exception as _ge:
 				gelato_debug["ok"] = False
 				gelato_debug["error"] = str(_ge)
-		# Send confirmation email best-effort
-		if email:
-			try:
-				from flask import render_template as _rt
-				currency = order.currency or current_app.config.get("STORE_CURRENCY", "USD")
-				subtotal = sum([(oi.unit_price or 0) * (oi.quantity or 1) for oi in order.items])
-				shipping_amount = 0
-				amount_paid = float(order.total_amount or 0)
-				confirm_url = urljoin(current_app.config.get("BASE_URL", ""), f"/order/confirm/{order.id}")
-				html = _rt("email_order_confirmation.html", order=order, items=order.items, subtotal=float(subtotal), shipping=float(shipping_amount), amount_paid=amount_paid, currency=currency, confirm_url=confirm_url)
-				send_email_via_sendgrid(email, f"Order #{order.id} confirmed", html)
-				gelato_debug["email_sent"] = True
-			except Exception as _ee:
-				gelato_debug["email_sent"] = False
-				gelato_debug["email_error"] = str(_ee)
-		# Fallback: Notify admin of new paid/submitted order (in case webhook didn't fire or failed)
-		# Only send if order status indicates payment succeeded
-		if order.status in ("paid", "submitted"):
-			try:
-				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
-				if to_admin:
-					addr = order.shipping_address
-					cust_name = f"{(addr.first_name if addr else '')} {(addr.last_name if addr else '')}".strip()
-					cust_email = ((addr.email if addr else "") or "")
-					items_lines = []
-					try:
-						for oi in order.items:
-							total_line = float((oi.unit_price or 0) * (oi.quantity or 1))
-							items_lines.append(f"{int(oi.quantity or 1)}× {oi.title or ''} — ${total_line:.2f}")
-					except Exception:
+		# Note: Customer and admin emails are sent by the Stripe webhook handler
+		# Only send fallback emails if webhook hasn't run (check if order was just created)
+		# Only send if order was created very recently (within last 10 seconds) as fallback
+		from datetime import timedelta
+		time_since_creation = (datetime.utcnow() - (order.created_at or datetime.utcnow())).total_seconds()
+		should_send_fallback = time_since_creation < 10  # Very recent order, webhook might not have run yet
+		
+		if should_send_fallback:
+			# Send confirmation email only as fallback (webhook should handle this normally)
+			if email:
+				try:
+					from flask import render_template as _rt
+					currency = order.currency or current_app.config.get("STORE_CURRENCY", "USD")
+					subtotal = sum([(oi.unit_price or 0) * (oi.quantity or 1) for oi in order.items])
+					shipping_amount = 0
+					amount_paid = float(order.total_amount or 0)
+					confirm_url = urljoin(current_app.config.get("BASE_URL", ""), f"/order/confirm/{order.id}")
+					html = _rt("email_order_confirmation.html", order=order, items=order.items, subtotal=float(subtotal), shipping=float(shipping_amount), amount_paid=amount_paid, currency=currency, confirm_url=confirm_url)
+					send_email_via_sendgrid(email, f"Order #{order.id} confirmed", html)
+					gelato_debug["email_sent"] = True
+					current_app.logger.info(f"[order-confirm] Fallback customer email sent for order {order.id} (webhook may not have run)")
+				except Exception as _ee:
+					gelato_debug["email_sent"] = False
+					gelato_debug["email_error"] = str(_ee)
+			
+			# Fallback: Notify admin of new paid/submitted order (in case webhook didn't fire or failed)
+			# Only send if order status indicates payment succeeded
+			if order.status in ("paid", "submitted"):
+				try:
+					to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+					if to_admin:
+						addr = order.shipping_address
+						cust_name = f"{(addr.first_name if addr else '')} {(addr.last_name if addr else '')}".strip()
+						cust_email = ((addr.email if addr else "") or "")
 						items_lines = []
-					summary_lines = [
-						f"Order ID: {order.id}",
-						f"Status: {order.status}",
-						f"Amount: {float(order.total_amount or 0):.2f} {order.currency}",
-						f"Customer: {cust_name}",
-						f"Email: {cust_email}",
-						"",
-						"Items:",
-					] + items_lines
-					html = render_simple_email(f"New Order #{order.id}", summary_lines)
-					ok, msg = send_email_via_sendgrid(to_admin, f"New order #{order.id}", html)
-					if ok:
-						current_app.logger.info(f"[order-confirm] Admin email sent for order {order.id} to {to_admin}")
-					else:
-						current_app.logger.warning(f"[order-confirm] Admin email failed for order {order.id}: {msg}")
-			except Exception as e:
-				current_app.logger.exception(f"[order-confirm] Admin email exception for order {order.id}: {e}")
+						try:
+							for oi in order.items:
+								total_line = float((oi.unit_price or 0) * (oi.quantity or 1))
+								items_lines.append(f"{int(oi.quantity or 1)}× {oi.title or ''} — ${total_line:.2f}")
+						except Exception:
+							items_lines = []
+						summary_lines = [
+							f"Order ID: {order.id}",
+							f"Status: {order.status}",
+							f"Amount: {float(order.total_amount or 0):.2f} {order.currency}",
+							f"Customer: {cust_name}",
+							f"Email: {cust_email}",
+							"",
+							"Items:",
+						] + items_lines
+						html = render_simple_email(f"New Order #{order.id}", summary_lines)
+						ok, msg = send_email_via_sendgrid(to_admin, f"New order #{order.id}", html)
+						if ok:
+							current_app.logger.info(f"[order-confirm] Fallback admin email sent for order {order.id} to {to_admin} (webhook may not have run)")
+						else:
+							current_app.logger.warning(f"[order-confirm] Fallback admin email failed for order {order.id}: {msg}")
+				except Exception as e:
+					current_app.logger.exception(f"[order-confirm] Fallback admin email exception for order {order.id}: {e}")
 	except Exception:
 		pass
 	# Clear cart after confirmation
