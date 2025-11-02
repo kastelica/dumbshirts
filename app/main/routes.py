@@ -334,8 +334,8 @@ def reviews_page():
 		reviews.sort(key=lambda r: r.get("created_at", ""), reverse=True)
 	except Exception:
 		pass
-	# Map product ids to Product rows for linking
-	products = {p.id: p for p in Product.query.filter_by(status="active").all()}
+	# Map product ids to Product rows for linking (include all products, not just active, so reviews can always link)
+	products = {p.id: p for p in Product.query.all()}
 	return render_template("reviews.html", reviews=reviews, products=products)
 
 
