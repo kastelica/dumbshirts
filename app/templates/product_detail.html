@@ -414,23 +414,20 @@ function lookupProductUid(size, color){
 	}
 
     // Preselect color and variant from URL params before building swatches
-    let selectedColor = 'white';
-    let selectedSize = 'L';
+    let urlColor = 'white';
     try{
         const url = new URL(window.location.href);
         const qpColor = (url.searchParams.get('color')||'').toLowerCase();
         const qpSize = (url.searchParams.get('size')||'').toUpperCase();
         const qpVid = url.searchParams.get('vid') || url.searchParams.get('variant_id');
-        
         if(qpColor){
-            selectedColor = qpColor;
+            urlColor = qpColor;
             const colorHidden = document.getElementById('color-select');
             if(colorHidden){ colorHidden.value = qpColor; }
             const colorField = document.getElementById('color-field');
             if(colorField){ colorField.value = qpColor; }
         }
         if(qpSize){
-            selectedSize = qpSize;
             const sizeSel = document.getElementById('size-select');
             if(sizeSel){ sizeSel.value = qpSize; }
             const sizeField = document.getElementById('size-field');
@@ -455,8 +452,7 @@ function lookupProductUid(size, color){
 			{{ (((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower))|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
 			{% endfor %}
 		},
-		initialColor: selectedColor,
-		initialSize: selectedSize
+		initialColor: urlColor  // Store URL color for initialization
 	};
 
 	// GA4 add_to_cart tracking on form submit
@@ -520,41 +516,14 @@ function lookupProductUid(size, color){
 		}catch(e){}
 		updateMockup();
 	}
-	
-	// Wait for gallery to initialize, then sync variant
-	function syncVariantOnLoad() {
-		if (typeof window.ProductGallery === 'undefined') {
-			setTimeout(syncVariantOnLoad, 50);
-			return;
-		}
-		
-		// Update variant based on URL params after gallery is ready
-		const color = selectedColor;
-		const size = selectedSize;
-		
-		// Update variant select based on size+color combo
-		try {
-			const combo = SIZE_COLOR_TO_VARIANT_ID || {};
-			const simple = COLOR_TO_VARIANT_ID || {};
-			const key = `${size.toLowerCase()}|${color.toLowerCase()}`;
-			const vid = combo[key] || simple[color.toLowerCase()] || '';
-			if (vid && variantSelect) {
-				variantSelect.value = String(vid);
-			}
-		} catch(e) {}
-		
-		// Update product UID
-		updateProductUid();
-	}
-	
 	// Size changes trigger updateProductUid
 	const sizeSelect = document.getElementById('size-select');
 	if (sizeSelect) {
 		sizeSelect.addEventListener('change', updateProductUid);
 	}
 	
-	// Initial call - wait a bit for gallery to initialize
-	setTimeout(syncVariantOnLoad, 100);
+	// Initial call
+	updateProductUid();
 	// Size guide modal
 	function byId(id){ return document.getElementById(id); }
 	const sgBtn = byId('size-guide-open');

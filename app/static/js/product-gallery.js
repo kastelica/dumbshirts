@@ -285,24 +285,12 @@
     
     if (!gallery) return;
     
-    // Find the link element - cardEl might be the <a> tag itself (if it has .group class)
-    // or we need to find the parent <a> that contains the card
-    let linkEl = cardEl;
-    if (cardEl.tagName !== 'A') {
-      linkEl = cardEl.closest('a');
-      if (!linkEl) {
-        // Try to find an <a> tag within or parent
-        linkEl = cardEl.querySelector('a') || cardEl.parentElement;
-      }
-    }
-    if (!linkEl || linkEl.tagName !== 'A') {
-      console.warn('[product-gallery] Could not find link element for card', cardEl);
-      return;
-    }
+    // cardEl should be the <a> tag, but ensure we have it
+    const linkEl = cardEl.tagName === 'A' ? cardEl : cardEl.closest('a');
     
-    // Get auto-selected color from link/card data attribute
+    // Get auto-selected color from card data attribute
     let autoColor = (inputColor?.value || 'white').toLowerCase();
-    const dataAutoColor = linkEl.getAttribute('data-auto-color') || cardEl.getAttribute('data-auto-color');
+    const dataAutoColor = cardEl.getAttribute('data-auto-color');
     if (dataAutoColor) {
       autoColor = dataAutoColor.toLowerCase();
       // Update hidden color input to match auto-selected color
@@ -377,6 +365,7 @@
         // Store color on gallery for when frame switches
         gallery.setAttribute('data-current-color', c.toLowerCase());
         // Ensure mockup is visible and hide frames
+        const mock = gallery.querySelector('.mockup-wrap') || gallery.querySelector('#mockup-wrap');
         if (mock) {
           mock.classList.remove('hidden');
           const frames = gallery.querySelectorAll('img[data-frame]');
@@ -385,39 +374,20 @@
         
         // Update card link URL params
         try {
-          if (linkEl && linkEl.tagName === 'A') {
-            let href = linkEl.getAttribute('href') || '';
-            if (!href || href === '#') {
-              // If no href, try to get it from the original href or construct from data
-              const slug = linkEl.getAttribute('data-product-slug');
-              if (slug) {
-                href = `/product/${slug}`;
-              }
-            }
+          if (linkEl) {
+            const href = linkEl.getAttribute('href') || '';
             if (href && href !== '#') {
-              // Handle both absolute and relative URLs
-              let url;
-              try {
-                url = new URL(href);
-              } catch (e) {
-                // Relative URL - construct from current location
-                url = new URL(href, window.location.href);
-              }
-              // Update query params
+              const url = new URL(href, window.location.origin);
               url.searchParams.set('color', c);
               url.searchParams.set('size', inputSize?.value || 'L');
               const vid = inputVariant?.value || '';
               if (vid) url.searchParams.set('vid', String(vid));
-              // Update the href with the new URL - use pathname + search to preserve base path
-              const newHref = url.pathname + (url.search || '');
-              linkEl.setAttribute('href', newHref);
-              // Also update data-auto-color to keep it in sync
+              linkEl.setAttribute('href', url.pathname + url.search);
+              // Also update data-auto-color to reflect current selection
               linkEl.setAttribute('data-auto-color', c);
             }
           }
-        } catch (e) {
-          console.warn('[product-gallery] Failed to update card link URL', e);
-        }
+        } catch (e) {}
       });
     });
     
@@ -438,28 +408,14 @@
           if (linkEl) {
             const href = linkEl.getAttribute('href') || '';
             if (href && href !== '#') {
-              // Handle both absolute and relative URLs
-              let url;
-              try {
-                url = new URL(href);
-              } catch (e) {
-                // Relative URL - construct from current location
-                url = new URL(href, window.location.href);
-              }
+              const url = new URL(href, window.location.origin);
               url.searchParams.set('size', sizeSelect.value);
               const vid = inputVariant?.value || '';
               if (vid) url.searchParams.set('vid', String(vid));
-              // Also preserve color if it exists
-              const currentColor = (inputColor?.value || 'white').toLowerCase();
-              url.searchParams.set('color', currentColor);
-              // Update the href with the new URL
-              const newHref = url.pathname + (url.search || '');
-              linkEl.setAttribute('href', newHref);
+              linkEl.setAttribute('href', url.pathname + url.search);
             }
           }
-        } catch (e) {
-          console.warn('[product-gallery] Failed to update card link URL on size change', e);
-        }
+        } catch (e) {}
       });
     }
   }
@@ -490,13 +446,6 @@
     // Get design source from template data
     const designSrc = productData?.designSrc || '';
     
-    // Get initial color from URL params or default
-    const initialColor = (productData?.initialColor || colorSelectEl.value || 'white').toLowerCase();
-    
-    // Ensure color select matches initial color
-    colorSelectEl.value = initialColor;
-    if (colorFieldEl) colorFieldEl.value = initialColor;
-    
     // Build swatches
     colorSwatchesEl.innerHTML = '';
     colors.forEach(c => {
@@ -506,11 +455,6 @@
       btn.style.backgroundColor = c.hex;
       btn.setAttribute('aria-label', c.key);
       btn.setAttribute('data-color', c.key);
-      
-      // Highlight initial color from URL params
-      if (c.key === initialColor) {
-        btn.classList.add('ring-2', 'ring-white');
-      }
       
       btn.addEventListener('click', () => {
         const newColor = c.key;
@@ -536,16 +480,15 @@
           updateMockup(gallery, newColor, designSrc);
           // Update background color for design frame
           updateDesignBackground(gallery, newColor);
-          // Store color on gallery for when frame switches
-          gallery.setAttribute('data-current-color', newColor.toLowerCase());
-          
           // If we're currently showing the mockup, keep it visible; otherwise stay on current frame
           const isDetailView = gallery.classList.contains('js-gallery');
           if (isDetailView) {
             // Check if we're currently on mockup view (idx -1)
+            // We'll get the gallery state and if on mockup, refresh it; otherwise leave as is
             const mock = gallery.querySelector('.mockup-wrap') || gallery.querySelector('#mockup-wrap');
             if (mock && !mock.classList.contains('hidden')) {
               // We're on mockup view, update it but keep it visible
+              // Mockup is already updated above, just ensure it's visible
               mock.classList.remove('hidden');
               // Hide any frames
               const frames = gallery.querySelectorAll('img[data-frame]');
@@ -560,15 +503,24 @@
         }
       });
       
+      if (colorSelectEl.value === c.key) {
+        btn.classList.add('ring-2', 'ring-white');
+      }
+      
       colorSwatchesEl.appendChild(btn);
     });
     
-    // After building swatches, ensure gallery shows the correct initial color
-    if (gallery && initialColor) {
-      // Initialize gallery with initial color
-      updateMockup(gallery, initialColor, designSrc);
-      updateDesignBackground(gallery, initialColor);
-      gallery.setAttribute('data-current-color', initialColor.toLowerCase());
+    // Set active swatch based on initial color from URL or select value
+    const initialColor = productData?.initialColor || colorSelectEl?.value || 'white';
+    const activeBtn = colorSwatchesEl.querySelector(`[data-color="${initialColor.toLowerCase()}"]`);
+    if (activeBtn) {
+      activeBtn.classList.add('ring-2', 'ring-white');
+      // Ensure all others are not active
+      Array.from(colorSwatchesEl.children).forEach(el => {
+        if (el !== activeBtn) {
+          el.classList.remove('ring-2', 'ring-white');
+        }
+      });
     }
   }
 
@@ -595,34 +547,16 @@
     });
     
     // Initialize color swatches for product cards
-    // The .group class is on the <a> tag in templates, so card IS the link
     document.querySelectorAll('.group').forEach(card => {
-      // Only initialize if it has a gallery inside
-      if (card.querySelector('.js-card-gallery')) {
-        initCardColorSwatches(card);
-      }
+      initCardColorSwatches(card);
     });
     
     // Product detail page initialization
     if (document.getElementById('color-swatches') && window.PRODUCT_DATA) {
-      // Use initial color from URL params if available, otherwise use select value or default
+      // Use initialColor from URL params if available, otherwise use select value, otherwise default to white
       const defaultColor = window.PRODUCT_DATA.initialColor || 
-                          document.getElementById('color-select')?.value || 
-                          'white';
-      
-      // Set the color select and field to match URL param
-      const colorSelect = document.getElementById('color-select');
-      const colorField = document.getElementById('color-field');
-      if (colorSelect && defaultColor) {
-        colorSelect.value = defaultColor;
-      }
-      if (colorField && defaultColor) {
-        colorField.value = defaultColor;
-      }
-      
-      // Initialize mockup with selected color
+                          (document.getElementById('color-select')?.value || 'white');
       initDetailMockup(defaultColor, window.PRODUCT_DATA.designSrc);
-      // Initialize swatches (this will highlight the correct one)
       initDetailColorSwatches(window.PRODUCT_DATA);
     }
   }
