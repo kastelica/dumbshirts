@@ -285,9 +285,24 @@
     
     if (!gallery) return;
     
-    // Get auto-selected color from card data attribute
+    // Find the link element - cardEl might be the <a> tag itself (if it has .group class)
+    // or we need to find the parent <a> that contains the card
+    let linkEl = cardEl;
+    if (cardEl.tagName !== 'A') {
+      linkEl = cardEl.closest('a');
+      if (!linkEl) {
+        // Try to find an <a> tag within or parent
+        linkEl = cardEl.querySelector('a') || cardEl.parentElement;
+      }
+    }
+    if (!linkEl || linkEl.tagName !== 'A') {
+      console.warn('[product-gallery] Could not find link element for card', cardEl);
+      return;
+    }
+    
+    // Get auto-selected color from link/card data attribute
     let autoColor = (inputColor?.value || 'white').toLowerCase();
-    const dataAutoColor = cardEl.getAttribute('data-auto-color');
+    const dataAutoColor = linkEl.getAttribute('data-auto-color') || cardEl.getAttribute('data-auto-color');
     if (dataAutoColor) {
       autoColor = dataAutoColor.toLowerCase();
       // Update hidden color input to match auto-selected color
@@ -370,16 +385,39 @@
         
         // Update card link URL params
         try {
-          const href = cardEl.getAttribute('href') || '';
-          if (href && href !== '#') {
-            const url = new URL(href, window.location.origin);
-            url.searchParams.set('color', c);
-            url.searchParams.set('size', inputSize?.value || 'L');
-            const vid = inputVariant?.value || '';
-            if (vid) url.searchParams.set('vid', String(vid));
-            cardEl.setAttribute('href', url.pathname + url.search);
+          if (linkEl && linkEl.tagName === 'A') {
+            let href = linkEl.getAttribute('href') || '';
+            if (!href || href === '#') {
+              // If no href, try to get it from the original href or construct from data
+              const slug = linkEl.getAttribute('data-product-slug');
+              if (slug) {
+                href = `/product/${slug}`;
+              }
+            }
+            if (href && href !== '#') {
+              // Handle both absolute and relative URLs
+              let url;
+              try {
+                url = new URL(href);
+              } catch (e) {
+                // Relative URL - construct from current location
+                url = new URL(href, window.location.href);
+              }
+              // Update query params
+              url.searchParams.set('color', c);
+              url.searchParams.set('size', inputSize?.value || 'L');
+              const vid = inputVariant?.value || '';
+              if (vid) url.searchParams.set('vid', String(vid));
+              // Update the href with the new URL - use pathname + search to preserve base path
+              const newHref = url.pathname + (url.search || '');
+              linkEl.setAttribute('href', newHref);
+              // Also update data-auto-color to keep it in sync
+              linkEl.setAttribute('data-auto-color', c);
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[product-gallery] Failed to update card link URL', e);
+        }
       });
     });
     
@@ -397,15 +435,31 @@
         
         // Update card link params
         try {
-          const href = cardEl.getAttribute('href') || '';
-          if (href && href !== '#') {
-            const url = new URL(href, window.location.origin);
-            url.searchParams.set('size', sizeSelect.value);
-            const vid = inputVariant?.value || '';
-            if (vid) url.searchParams.set('vid', String(vid));
-            cardEl.setAttribute('href', url.pathname + url.search);
+          if (linkEl) {
+            const href = linkEl.getAttribute('href') || '';
+            if (href && href !== '#') {
+              // Handle both absolute and relative URLs
+              let url;
+              try {
+                url = new URL(href);
+              } catch (e) {
+                // Relative URL - construct from current location
+                url = new URL(href, window.location.href);
+              }
+              url.searchParams.set('size', sizeSelect.value);
+              const vid = inputVariant?.value || '';
+              if (vid) url.searchParams.set('vid', String(vid));
+              // Also preserve color if it exists
+              const currentColor = (inputColor?.value || 'white').toLowerCase();
+              url.searchParams.set('color', currentColor);
+              // Update the href with the new URL
+              const newHref = url.pathname + (url.search || '');
+              linkEl.setAttribute('href', newHref);
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[product-gallery] Failed to update card link URL on size change', e);
+        }
       });
     }
   }
@@ -541,8 +595,12 @@
     });
     
     // Initialize color swatches for product cards
+    // The .group class is on the <a> tag in templates, so card IS the link
     document.querySelectorAll('.group').forEach(card => {
-      initCardColorSwatches(card);
+      // Only initialize if it has a gallery inside
+      if (card.querySelector('.js-card-gallery')) {
+        initCardColorSwatches(card);
+      }
     });
     
     // Product detail page initialization
