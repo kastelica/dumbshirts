@@ -226,6 +226,17 @@ def dad_joke_shirts():
 	)
 
 
+@main_bp.get("/black-friday")
+def black_friday():
+	"""Black Friday sale page - SEO focused"""
+	return _render_category_page(
+		category_name="Black Friday Deals",
+		category_slug="black-friday",
+		category_description="Shop our Black Friday sale! Huge discounts on funny t-shirts, meme shirts, and all your favorite designs. Limited time offers on trending designs. Free shipping available.",
+		category_keywords="black friday, black friday deals, black friday t-shirts, black friday sale, black friday shirts, black friday 2025, funny t-shirts sale, meme t-shirts sale"
+	)
+
+
 @main_bp.get("/search")
 def search():
 	q = request.args.get("q", "").strip()
@@ -913,6 +924,7 @@ def sitemap_xml():
 		("/funny-saying-tshirts", iso_today, "weekly", "0.7"),
 		("/pun-shirts", iso_today, "weekly", "0.7"),
 		("/dad-joke-shirts", iso_today, "weekly", "0.7"),
+		("/black-friday", iso_today, "daily", "0.8"),
 	]
 	for path, lm, cf, pr in category_pages:
 		add_url(urljoin(base, path), lm, cf, pr)
