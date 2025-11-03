@@ -73,15 +73,24 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 			base_bytes = resp.content
 			current_app.logger.info(f"[mockup] Base tee loaded from URL, size: {len(base_bytes)} bytes")
 		else:
-			fallback_path = os.path.join(os.path.dirname(__file__), "static", "uploads", "2600.png")
-			current_app.logger.info(f"[mockup] Loading base tee from local path: {fallback_path}")
-			if os.path.exists(fallback_path):
-				with open(fallback_path, "rb") as f:
+			# Try local path - first try white t-shirt, then fallback to 2600.png for backwards compatibility
+			whitetshirt_path = os.path.join(os.path.dirname(__file__), "static", "uploads", "whitetshirt.png")
+			if os.path.exists(whitetshirt_path):
+				current_app.logger.info(f"[mockup] Loading base tee from local path: {whitetshirt_path}")
+				with open(whitetshirt_path, "rb") as f:
 					base_bytes = f.read()
 				current_app.logger.info(f"[mockup] Base tee loaded from local, size: {len(base_bytes)} bytes")
 			else:
-				current_app.logger.warning(f"[mockup] Base tee file not found at {fallback_path}")
-				return None
+				# Fallback to old filename for backwards compatibility
+				fallback_path = os.path.join(os.path.dirname(__file__), "static", "uploads", "2600.png")
+				if os.path.exists(fallback_path):
+					current_app.logger.info(f"[mockup] Loading base tee from fallback path: {fallback_path}")
+					with open(fallback_path, "rb") as f:
+						base_bytes = f.read()
+					current_app.logger.info(f"[mockup] Base tee loaded from fallback, size: {len(base_bytes)} bytes")
+				else:
+					current_app.logger.warning(f"[mockup] Base tee file not found at {whitetshirt_path} or {fallback_path}")
+					return None
 		
 		if not base_bytes or len(base_bytes) == 0:
 			current_app.logger.warning("[mockup] Base tee bytes are empty")
@@ -1386,6 +1395,11 @@ def edit_product_submit(product_id: int):
 		except Exception:
 			pass
 		mock_bytes = _compose_design_on_blank_tee(file_bytes) if file_bytes else None
+		if mock_bytes:
+			current_app.logger.info(f"[admin-upload] Mockup created successfully, size: {len(mock_bytes)} bytes")
+		else:
+			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None for product {p.id}")
+		
 		# Upload to Cloudinary if configured; fallback to local
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 		if cloud_url:
@@ -1394,11 +1408,14 @@ def edit_product_submit(product_id: int):
 			# Upload raw design
 			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
+			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary: {design_url}")
 			# Upload mockup if composed; otherwise reuse design
 			if mock_bytes:
 				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
 				mock_url = res_mock.get("secure_url") or res_mock.get("url")
+				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary: {mock_url}")
 			else:
+				current_app.logger.warning(f"[admin-upload] No mockup bytes, using design URL as fallback")
 				mock_url = design_url
 			p.design.image_url = design_url
 			p.design.preview_url = mock_url

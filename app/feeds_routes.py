@@ -113,28 +113,23 @@ def google_feed():
 			preview_is_mockup = False
 			if preview_url:
 				preview_lower = preview_url.lower()
-				# Check if URL contains "mockup" indicator
+				# Check if URL contains "mockup" indicator (most reliable)
 				if "mockup" in preview_lower or "_mockup" in preview_lower:
 					preview_is_mockup = True
+					current_app.logger.debug(f"[feed] Product {p.id}: preview_url contains 'mockup', using as main image")
 				# Also check if preview_url is different from image_url (likely a mockup)
-				elif preview_url != design_url_raw:
+				elif preview_url != design_url_raw and design_url_raw:
 					preview_is_mockup = True
+					current_app.logger.debug(f"[feed] Product {p.id}: preview_url differs from design_url, assuming mockup")
 			
 			if preview_is_mockup:
-				# preview_url is a mockup, use it
+				# preview_url is confirmed to be a mockup, use it
 				main_image = _absolute_url(preview_url)
-			elif design_url_raw:
-				# preview_url is not a mockup (or empty), try to generate mockup URL from design URL
-				# For Cloudinary: replace "_design" with "_mockup" in the URL
-				if "_design" in design_url_raw:
-					# Try to construct mockup URL from design URL (Cloudinary pattern)
-					mockup_url = design_url_raw.replace("_design", "_mockup")
-					main_image = _absolute_url(mockup_url)
-					current_app.logger.debug(f"[feed] Product {p.id}: Constructed mockup URL from design: {mockup_url}")
-				else:
-					# No way to construct mockup URL, skip this product from feed
-					current_app.logger.warning(f"[feed] Product {p.id}: No mockup available (preview_url={preview_url}, design_url={design_url_raw}), skipping from feed")
-					continue  # Skip this product, don't add to items
+			else:
+				# preview_url is not a mockup (same as design or empty)
+				# Skip products without valid mockups - don't construct URLs that might not exist
+				current_app.logger.warning(f"[feed] Product {p.id}: No valid mockup (preview_url={preview_url}, design_url={design_url_raw}), skipping from feed")
+				continue  # Skip this product, don't add to items
 			
 			if not main_image:
 				# Still no main image, skip this product
