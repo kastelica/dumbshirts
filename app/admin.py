@@ -50,7 +50,7 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 	"""Composite the design PNG onto a blank white t-shirt image and return PNG bytes.
 
 	Uses BLANK_TEE_URL from config if set; otherwise falls back to
-	`https://dumbshirts.store/static/uploads/2600.png` and finally to local `/static/uploads/2600.png`.
+	`https://dumbshirts.store/static/uploads/whitetshirt.png` and finally to local `/static/uploads/whitetshirt.png`.
 	"""
 	try:
 		from io import BytesIO as _BytesIO
