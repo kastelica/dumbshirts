@@ -13,6 +13,7 @@ This script will:
 5. Update design.preview_url with the mockup URL
 
 Only processes active products by default. Use --include-draft to include draft products.
+Use --limit N to process only the first N products.
 """
 
 import sys
@@ -134,6 +135,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate mockups for products missing them")
     parser.add_argument("--include-draft", action="store_true", help="Include draft products (default: only active)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of products to process (default: all)")
     args = parser.parse_args()
     
     app = create_app()
@@ -211,8 +213,14 @@ def main():
             print("No products need mockups!")
             return 0
         
+        # Apply limit if specified
+        if args.limit and args.limit > 0:
+            original_count = len(missing_mockups)
+            missing_mockups = missing_mockups[:args.limit]
+            print(f"Limiting to {args.limit} products (from {original_count} total)")
+        
         if args.dry_run:
-            print("\n[DRY RUN] Would generate mockups for the above products")
+            print(f"\n[DRY RUN] Would generate mockups for {len(missing_mockups)} product(s)")
             return 0
         
         print("\nStarting mockup generation...")
