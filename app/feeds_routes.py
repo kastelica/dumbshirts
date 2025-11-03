@@ -104,10 +104,45 @@ def google_feed():
 		
 		if p.design:
 			# Main image: white mockup from preview_url
-			main_image = _absolute_url(p.design.preview_url or "")
+			preview_url = p.design.preview_url or ""
+			design_url_raw = p.design.image_url or ""
+			
+			# Check if preview_url is actually a mockup (contains "mockup" or is different from design)
+			# For Cloudinary URLs, mockups typically have "_mockup" in the public_id
+			# For local files, they have "mockup" in the filename
+			preview_is_mockup = False
+			if preview_url:
+				preview_lower = preview_url.lower()
+				# Check if URL contains "mockup" indicator
+				if "mockup" in preview_lower or "_mockup" in preview_lower:
+					preview_is_mockup = True
+				# Also check if preview_url is different from image_url (likely a mockup)
+				elif preview_url != design_url_raw:
+					preview_is_mockup = True
+			
+			if preview_is_mockup:
+				# preview_url is a mockup, use it
+				main_image = _absolute_url(preview_url)
+			elif design_url_raw:
+				# preview_url is not a mockup (or empty), try to generate mockup URL from design URL
+				# For Cloudinary: replace "_design" with "_mockup" in the URL
+				if "_design" in design_url_raw:
+					# Try to construct mockup URL from design URL (Cloudinary pattern)
+					mockup_url = design_url_raw.replace("_design", "_mockup")
+					main_image = _absolute_url(mockup_url)
+					current_app.logger.debug(f"[feed] Product {p.id}: Constructed mockup URL from design: {mockup_url}")
+				else:
+					# No way to construct mockup URL, skip this product from feed
+					current_app.logger.warning(f"[feed] Product {p.id}: No mockup available (preview_url={preview_url}, design_url={design_url_raw}), skipping from feed")
+					continue  # Skip this product, don't add to items
+			
+			if not main_image:
+				# Still no main image, skip this product
+				current_app.logger.warning(f"[feed] Product {p.id}: No main image available, skipping from feed")
+				continue
 			
 			# First additional image: design-only square PNG from image_url
-			design_url = _absolute_url(p.design.image_url or "")
+			design_url = _absolute_url(design_url_raw)
 			if design_url and design_url != main_image:
 				add_imgs.append(design_url)
 			
@@ -120,6 +155,10 @@ def google_feed():
 				add_imgs.append(extra1)
 			if extra2 and extra2 != design_url and extra2 != main_image and extra2 != extra1:
 				add_imgs.append(extra2)
+		else:
+			# No design, skip this product
+			current_app.logger.warning(f"[feed] Product {p.id}: No design, skipping from feed")
+			continue
 
 		checkout_url = url_for('main.checkout', item_id=p.id, _external=True)
 		
