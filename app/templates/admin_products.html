@@ -27,7 +27,7 @@
 			<td class="py-2">
 				<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="flex items-center gap-3">
 				<div class="w-12 h-12 bg-white border border-gray-300 rounded overflow-hidden flex items-center justify-center">
-					{% set thumb = (p.design.image_url if p.design and p.design.image_url else (p.design.preview_url if p.design and p.design.preview_url else '')) %}
+					{% set thumb = p.design.image_url if p.design and p.design.image_url else '' %}
 					{% if thumb %}
 					<img src="{{ thumb }}" alt="{{ p.title }}" class="w-full h-full object-contain" />
 					{% else %}

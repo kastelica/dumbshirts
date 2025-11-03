@@ -451,7 +451,7 @@ def stripe_webhook():
 				"quantity": int(oi.quantity),
 			})
 		payload = {
-			"orderType": "draft",
+			"orderType": "order",
 			"orderReferenceId": order.stripe_payment_intent_id,
 			"customerReferenceId": pi.get("receipt_email") or "",
 			"currency": order.currency,

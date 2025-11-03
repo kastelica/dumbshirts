@@ -490,8 +490,7 @@ def _auto_mode_generate_from_serpapi(messages: list | None = None, geo: str = "U
 		design = Design(type="image", text=picked_phrase, approved=True)
 		if final_image_url:
 			design.image_url = final_image_url
-			# Keep the transparent/raw design as the first extra image for galleries
-			design.extra_image1_url = final_image_url
+			# extra_image1_url is only for manually uploaded extra images, not the design
 			# Use mockup if present for preview; else use design
 			try:
 				design.preview_url = final_mockup_url or final_image_url
@@ -1374,7 +1373,7 @@ def edit_product_submit(product_id: int):
 				mock_url = design_url
 			p.design.image_url = design_url
 			p.design.preview_url = mock_url
-			p.design.extra_image1_url = design_url
+			# extra_image1_url is only for manually uploaded extra images, not the design
 		else:
 			fname = secure_filename(image_file.filename)
 			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
@@ -1394,7 +1393,7 @@ def edit_product_submit(product_id: int):
 				mock_url = design_url
 			p.design.image_url = design_url
 			p.design.preview_url = mock_url
-			p.design.extra_image1_url = design_url
+			# extra_image1_url is only for manually uploaded extra images, not the design
 		uploaded = True
 
 	# Handle extra images upload
@@ -1518,7 +1517,7 @@ def generate_openai_image(product_id: int):
 						p2.design = d
 					p2.design.preview_url = final_url
 					p2.design.image_url = design_url
-					p2.design.extra_image1_url = design_url
+					# extra_image1_url is only for manually uploaded extra images, not the design
 					db.session.commit()
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:

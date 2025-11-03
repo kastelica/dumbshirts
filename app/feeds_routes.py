@@ -95,15 +95,31 @@ def google_feed():
 			sale = (Decimal(str(p.price)) * Decimal('0.85')).quantize(Decimal('0.01'))
 		except Exception:
 			sale = p.price
-		# Build additional images list (up to 10 allowed; we add up to 2 if present)
+		
+		# Image handling:
+		# - Main image: white t-shirt mockup from preview_url (should be mockup)
+		# - Additional images: design-only (image_url) as first, then extra_image1_url and extra_image2_url if they exist and are different
+		main_image = ""
 		add_imgs = []
-		try:
-			if p.design and getattr(p.design, 'extra_image1_url', None):
-				add_imgs.append(_absolute_url(p.design.extra_image1_url))
-			if p.design and getattr(p.design, 'extra_image2_url', None):
-				add_imgs.append(_absolute_url(p.design.extra_image2_url))
-		except Exception:
-			pass
+		
+		if p.design:
+			# Main image: white mockup from preview_url
+			main_image = _absolute_url(p.design.preview_url or "")
+			
+			# First additional image: design-only square PNG from image_url
+			design_url = _absolute_url(p.design.image_url or "")
+			if design_url and design_url != main_image:
+				add_imgs.append(design_url)
+			
+			# Additional extra images (only if different from design)
+			extra1 = _absolute_url(p.design.extra_image1_url or "") if getattr(p.design, 'extra_image1_url', None) else ""
+			extra2 = _absolute_url(p.design.extra_image2_url or "") if getattr(p.design, 'extra_image2_url', None) else ""
+			
+			# Only add extra images if they're different from design and main
+			if extra1 and extra1 != design_url and extra1 != main_image:
+				add_imgs.append(extra1)
+			if extra2 and extra2 != design_url and extra2 != main_image and extra2 != extra1:
+				add_imgs.append(extra2)
 
 		checkout_url = url_for('main.checkout', item_id=p.id, _external=True)
 		
@@ -120,7 +136,7 @@ def google_feed():
 			"cost_of_goods_sold": "8.64",
 			"auto_pricing_min_price": "18.99",
 			"availability": "in stock",
-			"image": _absolute_url(p.design.preview_url if (p.design and p.design.preview_url) else ""),
+			"image": main_image,
 			"additional_images": add_imgs,
 			"brand": "Dumbshirts.store",
 			"age_group": "adult",

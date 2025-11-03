@@ -147,7 +147,7 @@
 					</div>
 					{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
 					{% set imgs = [] %}
-					{% set design_only = (product.design.image_url or product.design.preview_url) if product.design else '' %}
+					{% set design_only = product.design.image_url if product.design and product.design.image_url else '' %}
 					{% if design_only %}
 						{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}
 					{% endif %}
@@ -399,7 +399,7 @@ function lookupProductUid(size, color){
 	function updateMockup(){
 		const color = (document.getElementById('color-select')?.value||'white').toLowerCase();
 		const gallery = document.querySelector('.js-gallery');
-		const designSrc = {{ (product.design.image_url or product.design.preview_url or '')|tojson }};
+		const designSrc = {{ (product.design.image_url or '')|tojson }};
 		if (gallery && window.ProductGallery) {
 			window.ProductGallery.updateMockup(gallery, color, designSrc);
 			// If currently viewing mockup, refresh it to show new color; otherwise stay on current view
@@ -441,7 +441,7 @@ function lookupProductUid(size, color){
 
 	// Initialize product data for unified gallery system
 	window.PRODUCT_DATA = {
-		designSrc: {{ (product.design.image_url or product.design.preview_url or '')|tojson }},
+		designSrc: {{ (product.design.image_url or '')|tojson }},
 		colorToVariantId: {
 			{% for v in product.variants %}
 			{{ ((v.color or '')|lower)|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
