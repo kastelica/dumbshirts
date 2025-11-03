@@ -56,22 +56,43 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		from io import BytesIO as _BytesIO
 		from PIL import Image as _Image
 		import requests as _req
+		
+		if not design_png_bytes or len(design_png_bytes) == 0:
+			current_app.logger.warning("[mockup] Design bytes are empty")
+			return None
+		
+		current_app.logger.info(f"[mockup] Starting composition, design size: {len(design_png_bytes)} bytes")
+		
 		# Load base tee image
-		base_url = (current_app.config.get("BLANK_TEE_URL") or "").strip() or "https://dumbshirts.store/static/uploads/2600.png"
+		base_url = (current_app.config.get("BLANK_TEE_URL") or "").strip() or "https://dumbshirts.store/static/uploads/whitetshirt.png"
 		base_bytes = None
 		if base_url.startswith("http://") or base_url.startswith("https://"):
+			current_app.logger.info(f"[mockup] Loading base tee from URL: {base_url}")
 			resp = _req.get(base_url, timeout=10)
 			resp.raise_for_status()
 			base_bytes = resp.content
+			current_app.logger.info(f"[mockup] Base tee loaded from URL, size: {len(base_bytes)} bytes")
 		else:
 			fallback_path = os.path.join(os.path.dirname(__file__), "static", "uploads", "2600.png")
+			current_app.logger.info(f"[mockup] Loading base tee from local path: {fallback_path}")
 			if os.path.exists(fallback_path):
 				with open(fallback_path, "rb") as f:
 					base_bytes = f.read()
+				current_app.logger.info(f"[mockup] Base tee loaded from local, size: {len(base_bytes)} bytes")
 			else:
+				current_app.logger.warning(f"[mockup] Base tee file not found at {fallback_path}")
 				return None
+		
+		if not base_bytes or len(base_bytes) == 0:
+			current_app.logger.warning("[mockup] Base tee bytes are empty")
+			return None
+		
 		base_img = _Image.open(_BytesIO(base_bytes)).convert("RGBA")
+		current_app.logger.info(f"[mockup] Base image loaded: {base_img.size}, mode: {base_img.mode}")
+		
 		design_img = _Image.open(_BytesIO(design_png_bytes)).convert("RGBA")
+		current_app.logger.info(f"[mockup] Design image loaded: {design_img.size}, mode: {design_img.mode}")
+		
 		bw, bh = base_img.size
 		# Target box ~35% of base width/height while preserving aspect ratio
 		max_w = int(bw * 0.35)
@@ -79,19 +100,27 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		dw, dh = design_img.size
 		scale = min(max_w / max(dw, 1), max_h / max(dh, 1))
 		sw, sh = max(1, int(dw * scale)), max(1, int(dh * scale))
+		current_app.logger.info(f"[mockup] Scaling design from {dw}x{dh} to {sw}x{sh} (scale: {scale:.2f})")
+		
 		design_resized = design_img.resize((sw, sh), _Image.LANCZOS)
 		# Center placement on chest, then shift up by ~5% of shirt height
 		x = (bw - sw) // 2
 		y = (bh - sh) // 2 - int(bh * 0.05)
 		if y < 0:
 			y = 0
+		current_app.logger.info(f"[mockup] Positioning design at ({x}, {y})")
+		
 		composite = base_img.copy()
 		composite.alpha_composite(design_resized, dest=(x, y))
 		buf = _BytesIO()
 		composite.save(buf, format="PNG")
-		return buf.getvalue()
+		result_bytes = buf.getvalue()
+		current_app.logger.info(f"[mockup] Composition complete, output size: {len(result_bytes)} bytes")
+		return result_bytes
 	except Exception as _e:
-		current_app.logger.warning(f"[auto-mode] mockup compose failed: {_e}")
+		current_app.logger.warning(f"[mockup] Composition failed: {_e}")
+		import traceback
+		current_app.logger.warning(f"[mockup] Traceback: {traceback.format_exc()}")
 		return None
 
 
@@ -1465,32 +1494,55 @@ def generate_openai_image(product_id: int):
 				res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
 				b64 = res.data[0].b64_json
 				img = b64decode(b64)
+				current_app.logger.info(f"[generate-image] OpenAI image generated, size: {len(img)} bytes")
+				
 				# Try background removal
+				img_for_mockup = img  # Keep original for mockup if bg removal fails
 				try:
 					current_app.logger.info("[bg-remove] Starting background removal for on-demand image")
 					clean = _remove_bg_hf(img)
-					if clean:
+					if clean and len(clean) > 0:
 						img = clean
-						current_app.logger.info("[bg-remove] Successfully applied background removal to on-demand image")
+						img_for_mockup = clean  # Use cleaned image for mockup too
+						current_app.logger.info(f"[bg-remove] Successfully applied background removal, new size: {len(img)} bytes")
 					else:
-						current_app.logger.warning("[bg-remove] Background removal returned None for on-demand image")
+						current_app.logger.warning("[bg-remove] Background removal returned None or empty, using original image")
+						# Try to convert to RGBA for better mockup composition even without bg removal
+						try:
+							from PIL import Image
+							from io import BytesIO
+							img_pil = Image.open(BytesIO(img)).convert("RGBA")
+							buf = BytesIO()
+							img_pil.save(buf, format='PNG')
+							img_for_mockup = buf.getvalue()
+							current_app.logger.info("[bg-remove] Converted to RGBA for mockup composition")
+						except Exception as conv_err:
+							current_app.logger.warning(f"[bg-remove] Failed to convert to RGBA: {conv_err}")
 				except Exception as e:
 					current_app.logger.warning(f"[bg-remove] Background removal failed for on-demand image: {e}")
+					import traceback
+					current_app.logger.warning(f"[bg-remove] Traceback: {traceback.format_exc()}")
+				
 				p2 = Product.query.get(pid)
 				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
 				# Upload to Cloudinary if configured; otherwise save locally
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
-					# Upload bytes directly (design)
+					# Upload bytes directly (design - should be transparent if bg removal worked)
 					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
 					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
-					# Compose mockup
-					mock_bytes = _compose_design_on_blank_tee(img)
-					if mock_bytes:
+					current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
+					
+					# Compose mockup using image (with transparency if bg removal worked)
+					current_app.logger.info("[generate-image] Starting mockup composition...")
+					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
+					if mock_bytes and len(mock_bytes) > 0:
 						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
 						final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
+						current_app.logger.info(f"[generate-image] Mockup uploaded to Cloudinary: {final_url}")
 					else:
+						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
 						final_url = design_url
 				else:
 					fname = f"{slug_base}_{int(_time.time())}.png"
@@ -1500,14 +1552,20 @@ def generate_openai_image(product_id: int):
 					with open(path_design, "wb") as f:
 						f.write(img)
 					design_url = f"/static/uploads/{fname}"
-					mock_bytes = _compose_design_on_blank_tee(img)
-					if mock_bytes:
+					current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
+					
+					# Compose mockup using image (with transparency if bg removal worked)
+					current_app.logger.info("[generate-image] Starting mockup composition...")
+					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
+					if mock_bytes and len(mock_bytes) > 0:
 						fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
 						path_m = os.path.join(upload_dir, fname_m)
 						with open(path_m, "wb") as fm:
 							fm.write(mock_bytes)
 						final_url = f"/static/uploads/{fname_m}"
+						current_app.logger.info(f"[generate-image] Mockup saved locally: {final_url}")
 					else:
+						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
 						final_url = design_url
 				if p2:
 					if not p2.design:
