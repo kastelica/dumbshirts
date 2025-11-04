@@ -8,35 +8,34 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
       <!-- T-Shirt Diagram -->
       <div class="flex justify-center">
-        <div class="relative" style="width: 200px; height: 240px;">
-          <!-- T-Shirt SVG -->
+        <div class="relative" style="width: 180px; height: 220px;">
           <svg viewBox="0 0 200 240" class="w-full h-full">
-            <!-- T-shirt outline -->
-            <path d="M 60 20 L 60 40 L 40 60 L 40 180 L 160 180 L 160 60 L 140 40 L 140 20 L 100 20 L 100 40 L 60 40 Z" 
-                  fill="none" stroke="currentColor" stroke-width="2" class="text-gray-300"/>
-            <!-- Sleeve left -->
-            <path d="M 40 60 L 20 70 L 20 90 L 40 100" 
-                  fill="none" stroke="currentColor" stroke-width="2" class="text-gray-300"/>
-            <!-- Sleeve right -->
-            <path d="M 160 60 L 180 70 L 180 90 L 160 100" 
-                  fill="none" stroke="currentColor" stroke-width="2" class="text-gray-300"/>
-            <!-- Collar -->
-            <path d="M 80 20 L 80 40 M 120 20 L 120 40" 
-                  fill="none" stroke="currentColor" stroke-width="1.5" class="text-gray-400"/>
+            <!-- T-shirt body -->
+            <path d="M 50 30 L 50 50 L 30 70 L 30 190 L 170 190 L 170 70 L 150 50 L 150 30 L 100 30 Z" 
+                  fill="none" stroke="white" stroke-width="2.5"/>
+            <!-- Left sleeve -->
+            <path d="M 30 70 L 10 80 L 10 100 L 30 110" 
+                  fill="none" stroke="white" stroke-width="2.5"/>
+            <!-- Right sleeve -->
+            <path d="M 170 70 L 190 80 L 190 100 L 170 110" 
+                  fill="none" stroke="white" stroke-width="2.5"/>
+            <!-- Collar opening -->
+            <path d="M 85 30 L 85 50 M 115 30 L 115 50" 
+                  fill="none" stroke="white" stroke-width="2"/>
             
-            <!-- A) Length line -->
-            <line x1="100" y1="20" x2="100" y2="180" 
-                  stroke="#3b82f6" stroke-width="2" stroke-dasharray="4,4"/>
-            <circle cx="100" cy="20" r="3" fill="#3b82f6"/>
-            <circle cx="100" cy="180" r="3" fill="#3b82f6"/>
-            <text x="110" y="100" fill="#3b82f6" font-size="14" font-weight="bold">A</text>
+            <!-- A) Length measurement line -->
+            <line x1="100" y1="30" x2="100" y2="190" 
+                  stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3"/>
+            <circle cx="100" cy="30" r="4" fill="#3b82f6"/>
+            <circle cx="100" cy="190" r="4" fill="#3b82f6"/>
+            <text x="115" y="110" fill="#3b82f6" font-size="16" font-weight="bold">A</text>
             
-            <!-- B) Half Chest line -->
-            <line x1="40" y1="80" x2="160" y2="80" 
-                  stroke="#3b82f6" stroke-width="2" stroke-dasharray="4,4"/>
-            <circle cx="40" cy="80" r="3" fill="#3b82f6"/>
-            <circle cx="160" cy="80" r="3" fill="#3b82f6"/>
-            <text x="85" y="75" fill="#3b82f6" font-size="14" font-weight="bold">B</text>
+            <!-- B) Half Chest measurement line -->
+            <line x1="30" y1="85" x2="170" y2="85" 
+                  stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3"/>
+            <circle cx="30" cy="85" r="4" fill="#3b82f6"/>
+            <circle cx="170" cy="85" r="4" fill="#3b82f6"/>
+            <text x="90" y="80" fill="#3b82f6" font-size="16" font-weight="bold">B</text>
           </svg>
         </div>
       </div>
