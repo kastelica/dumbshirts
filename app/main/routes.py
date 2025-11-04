@@ -237,6 +237,17 @@ def black_friday():
 	)
 
 
+@main_bp.get("/christmas-shirts")
+def christmas_shirts():
+	"""Category page for Christmas shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Christmas Shirts",
+		category_slug="christmas-shirts",
+		category_description="Get into the holiday spirit with our collection of Christmas t-shirts! Featuring festive designs, funny holiday jokes, and festive themes perfect for celebrating the season. Spread Christmas cheer with unique and humorous holiday-themed shirts.",
+		category_keywords="christmas shirts, christmas t-shirts, holiday shirts, christmas tees, festive t-shirts, holiday humor shirts, christmas joke shirts, holiday themed shirts"
+	)
+
+
 @main_bp.get("/search")
 def search():
 	q = request.args.get("q", "").strip()
@@ -923,6 +934,7 @@ def sitemap_xml():
 		("/pun-shirts", iso_today, "weekly", "0.7"),
 		("/dad-joke-shirts", iso_today, "weekly", "0.7"),
 		("/black-friday", iso_today, "daily", "0.8"),
+		("/christmas-shirts", iso_today, "weekly", "0.7"),
 	]
 	for path, lm, cf, pr in category_pages:
 		add_url(urljoin(base, path), lm, cf, pr)
