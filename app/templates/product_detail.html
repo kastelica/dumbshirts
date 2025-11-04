@@ -255,21 +255,20 @@
 				</ul>
 			</div>
 
-			<div class="mt-2 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more products</div>
-		
-
-			
 		</div>
 	</div>
 </div>
-<div class="mt-6 flex items-center justify-between">
+<div class="mt-6 flex items-center justify-between gap-4">
 	{% if prev_slug %}
-	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white" aria-label="Previous product">‹</a>
+	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white flex-shrink-0" aria-label="Previous product">‹</a>
 	{% else %}
-	<span></span>
+	<span class="w-12 flex-shrink-0"></span>
 	{% endif %}
+	<div class="flex-1 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more products</div>
 	{% if next_slug %}
-	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white" aria-label="Next product">›</a>
+	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white flex-shrink-0" aria-label="Next product">›</a>
+	{% else %}
+	<span class="w-12 flex-shrink-0"></span>
 	{% endif %}
 </div>
 <div class="mt-12" id="reviews">
