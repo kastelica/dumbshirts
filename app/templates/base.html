@@ -124,8 +124,57 @@
 	{% set show_promo = current_path == '/' or current_path.startswith('/shop') or current_path.startswith('/search') or current_path.startswith('/product/') or current_path.startswith('/funny-tshirts') or current_path.startswith('/meme-tshirts') or current_path.startswith('/sarcastic-tshirts') or current_path.startswith('/witty-shirts') or current_path.startswith('/funny-saying-tshirts') or current_path.startswith('/pun-shirts') or current_path.startswith('/dad-joke-shirts') or current_path.startswith('/black-friday') %}
 	
 	{% if show_promo %}
+	<style>
+		@keyframes shimmer-sweep {
+			0% {
+				transform: translateX(-100%) skewX(-15deg);
+			}
+			100% {
+				transform: translateX(300%) skewX(-15deg);
+			}
+		}
+		@keyframes pulse-glow {
+			0%, 100% {
+				box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+			}
+			50% {
+				box-shadow: 0 0 0 8px rgba(255, 255, 255, 0), 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+			}
+		}
+		@keyframes float {
+			0%, 100% {
+				transform: translateY(0);
+			}
+			50% {
+				transform: translateY(-5px);
+			}
+		}
+		.promo-btn-shimmer {
+			position: relative;
+			overflow: hidden;
+			background: #ffffff;
+			animation: pulse-glow 2s infinite, float 3s ease-in-out infinite;
+		}
+		.promo-btn-shimmer::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 50%;
+			height: 100%;
+			background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+			animation: shimmer-sweep 3s infinite;
+			pointer-events: none;
+		}
+		.promo-btn-shimmer:hover {
+			animation: pulse-glow 1s infinite, float 2s ease-in-out infinite;
+		}
+		.promo-btn-shimmer:hover::before {
+			animation: shimmer-sweep 1.5s infinite;
+		}
+	</style>
 	<div id="promo-5off" class="fixed left-4 bottom-4 z-40">
-		<button id="promo-5off-btn" class="bg-white text-black rounded-full px-4 py-2 shadow-lg">Extra 5% Off</button>
+		<button id="promo-5off-btn" class="promo-btn-shimmer bg-white text-black rounded-full px-5 py-3 font-semibold shadow-xl hover:scale-105 transition-transform duration-200 relative z-10">Extra 5% Off</button>
 	</div>
 	<div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
 		<div class="absolute inset-0 bg-black/70" data-close></div>
