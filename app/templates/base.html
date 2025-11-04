@@ -241,7 +241,19 @@
 	const emailInput = document.getElementById('promo-5off-email');
 	const result = document.getElementById('promo-5off-result');
 	
-	function open(){ if(modal){ modal.classList.remove('hidden'); } }
+	function open(){ 
+		if(modal){ modal.classList.remove('hidden'); }
+		
+		// GA4: Promo bar clicked
+		if(typeof gtag === 'function'){
+			gtag('event', 'promo_bar_clicked', {
+				event_category: 'Engagement',
+				event_label: 'Promo Top Bar',
+				value: 0
+			});
+			console.log('[base] GA4 promo_bar_clicked event sent');
+		}
+	}
 	function close(){ if(modal){ modal.classList.add('hidden'); } }
 	
 	if(promoBarBtn){ promoBarBtn.addEventListener('click', open); }
@@ -252,11 +264,28 @@
 			e.preventDefault();
 			const email = (emailInput?.value||'').trim();
 			if(!email) return;
+			
+			// GA4: 5% popup modal filled out
+			if(typeof gtag === 'function'){
+				gtag('event', 'promo_5off_modal_submitted', {
+					event_category: 'Lead Generation',
+					event_label: '5% Off Modal Email',
+					value: 1
+				});
+				console.log('[base] GA4 promo_5off_modal_submitted event sent');
+			}
+			
 			try{
 				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ email }) });
 				lsSet('promo_5off_captured','1');
 				if(result){ result.classList.remove('hidden'); }
-			}catch(_e){ if(result){ result.classList.remove('hidden'); } }
+			}catch(_e){ 
+				if(result){ result.classList.remove('hidden'); }
+				// Still track the event even if API call failed
+				if(typeof gtag === 'function'){
+					console.log('[base] GA4 promo_5off_modal_submitted event sent (optimistic)');
+				}
+			}
 		});
 	}
 	
@@ -289,6 +318,16 @@
 			modal.classList.remove('hidden');
 			document.body.style.overflow = 'hidden'; // Prevent scrolling
 			lsSet('exit_intent_shown', '1');
+			
+			// GA4: Exit intent popup shown
+			if(typeof gtag === 'function'){
+				gtag('event', 'exit_intent_popup_shown', {
+					event_category: 'Engagement',
+					event_label: 'Exit Intent Modal',
+					value: 0
+				});
+				console.log('[base] GA4 exit_intent_popup_shown event sent');
+			}
 		}
 	}
 	
@@ -382,6 +421,16 @@
 				// Mark as submitted
 				lsSet('exit_intent_submitted', '1');
 				
+				// GA4: Exit intent email submitted
+				if(typeof gtag === 'function'){
+					gtag('event', 'exit_intent_email_submitted', {
+						event_category: 'Lead Generation',
+						event_label: 'Exit Intent Email Capture',
+						value: 1
+					});
+					console.log('[base] GA4 exit_intent_email_submitted event sent');
+				}
+				
 				// Hide form, show success
 				if(form) form.classList.add('hidden');
 				if(successDiv) successDiv.classList.remove('hidden');
@@ -396,6 +445,17 @@
 				if(form) form.classList.add('hidden');
 				if(successDiv) successDiv.classList.remove('hidden');
 				lsSet('exit_intent_submitted', '1');
+				
+				// GA4: Exit intent email submitted (even if API call failed)
+				if(typeof gtag === 'function'){
+					gtag('event', 'exit_intent_email_submitted', {
+						event_category: 'Lead Generation',
+						event_label: 'Exit Intent Email Capture',
+						value: 1
+					});
+					console.log('[base] GA4 exit_intent_email_submitted event sent (optimistic)');
+				}
+				
 				setTimeout(closeModal, 3000);
 			}
 		});

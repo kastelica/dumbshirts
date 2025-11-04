@@ -131,7 +131,19 @@
 	const form = document.getElementById('promo-5off-form');
 	const emailInput = document.getElementById('promo-5off-email');
 	const result = document.getElementById('promo-5off-result');
-	function open(){ if(modal){ modal.classList.remove('hidden'); } }
+	function open(){ 
+		if(modal){ modal.classList.remove('hidden'); }
+		
+		// GA4: Floating button (lower left) clicked
+		if(typeof gtag === 'function'){
+			gtag('event', 'promo_5off_floating_button_clicked', {
+				event_category: 'Engagement',
+				event_label: '5% Off Floating Button',
+				value: 0
+			});
+			console.log('[search] GA4 promo_5off_floating_button_clicked event sent');
+		}
+	}
 	function close(){ if(modal){ modal.classList.add('hidden'); } }
 	if(btn){ btn.addEventListener('click', open); }
 	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
@@ -140,11 +152,25 @@
 			e.preventDefault();
 			const email = (emailInput?.value||'').trim();
 			if(!email) return;
+			
+			// GA4: 5% popup modal filled out
+			if(typeof gtag === 'function'){
+				gtag('event', 'promo_5off_modal_submitted', {
+					event_category: 'Lead Generation',
+					event_label: '5% Off Modal Email',
+					value: 1
+				});
+				console.log('[search] GA4 promo_5off_modal_submitted event sent');
+			}
+			
 			try{
 				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ email }) });
 				lsSet('promo_5off_captured','1');
 				if(result){ result.classList.remove('hidden'); }
-			}catch(_e){ if(result){ result.classList.remove('hidden'); } }
+			}catch(_e){ 
+				if(result){ result.classList.remove('hidden'); }
+				console.log('[search] GA4 promo_5off_modal_submitted event sent (optimistic)');
+			}
 		});
 	}
 	if(lsGet('promo_5off_captured')==='1'){

@@ -519,16 +519,113 @@ function lookupProductUid(size, color){
 	// Size changes trigger updateProductUid
 	const sizeSelect = document.getElementById('size-select');
 	if (sizeSelect) {
-		sizeSelect.addEventListener('change', updateProductUid);
+		sizeSelect.addEventListener('change', function(){
+			const newSize = sizeSelect.value;
+			
+			// GA4: Size changed
+			if(typeof gtag === 'function'){
+				gtag('event', 'size_changed', {
+					event_category: 'Product Interaction',
+					event_label: 'Size Selection',
+					size: newSize,
+					value: 0
+				});
+				console.log('[product_detail] GA4 size_changed event sent:', newSize);
+			}
+			
+			updateProductUid();
+		});
 	}
 	
 	// Initial call
 	updateProductUid();
+	
+	// GA4: Color swatch change tracking
+	// Watch for changes to the color-select hidden field (updated by product-gallery.js)
+	let previousColor = (document.getElementById('color-select')?.value || 'white').toLowerCase();
+	const colorSelectEl = document.getElementById('color-select');
+	if(colorSelectEl){
+		// Use MutationObserver to detect value changes
+		const colorObserver = new MutationObserver(function(mutations){
+			const currentColor = (colorSelectEl.value || 'white').toLowerCase();
+			if(currentColor !== previousColor){
+				// GA4: Color swatch changed
+				if(typeof gtag === 'function'){
+					gtag('event', 'color_swatch_changed', {
+						event_category: 'Product Interaction',
+						event_label: 'Color Selection',
+						color: currentColor,
+						value: 0
+					});
+					console.log('[product_detail] GA4 color_swatch_changed event sent:', currentColor);
+				}
+				previousColor = currentColor;
+			}
+		});
+		
+		// Also listen to input events as a backup
+		colorSelectEl.addEventListener('input', function(){
+			const currentColor = (colorSelectEl.value || 'white').toLowerCase();
+			if(currentColor !== previousColor){
+				if(typeof gtag === 'function'){
+					gtag('event', 'color_swatch_changed', {
+						event_category: 'Product Interaction',
+						event_label: 'Color Selection',
+						color: currentColor,
+						value: 0
+					});
+					console.log('[product_detail] GA4 color_swatch_changed event sent (input):', currentColor);
+				}
+				previousColor = currentColor;
+			}
+		});
+		
+		// Start observing
+		colorObserver.observe(colorSelectEl, { attributes: true, attributeFilter: ['value'] });
+		
+		// Also listen to clicks on color swatches container as additional backup
+		const colorSwatchesEl = document.getElementById('color-swatches');
+		if(colorSwatchesEl){
+			colorSwatchesEl.addEventListener('click', function(e){
+				// Small delay to let color-select value update
+				setTimeout(function(){
+					const currentColor = (colorSelectEl.value || 'white').toLowerCase();
+					if(currentColor !== previousColor){
+						if(typeof gtag === 'function'){
+							gtag('event', 'color_swatch_changed', {
+								event_category: 'Product Interaction',
+								event_label: 'Color Selection',
+								color: currentColor,
+								value: 0
+							});
+							console.log('[product_detail] GA4 color_swatch_changed event sent (click):', currentColor);
+						}
+						previousColor = currentColor;
+					}
+				}, 100);
+			});
+		}
+	}
+	
 	// Size guide modal
 	function byId(id){ return document.getElementById(id); }
 	const sgBtn = byId('size-guide-open');
 	if(sgBtn){
-		sgBtn.addEventListener('click', function(e){ e.preventDefault(); openSizeGuide(); });
+		sgBtn.addEventListener('click', function(e){ 
+			e.preventDefault(); 
+			
+			// GA4: Size guide clicked
+			if(typeof gtag === 'function'){
+				gtag('event', 'size_guide_clicked', {
+					event_category: 'Product Interaction',
+					event_label: 'Size Guide',
+					value: 0
+				});
+				console.log('[product_detail] GA4 size_guide_clicked event sent');
+			}
+			
+			openSizeGuide(); 
+		});
 	}
 	function openSizeGuide(){
 		let modal = byId('size-guide-modal');
@@ -578,7 +675,19 @@ function lookupProductUid(size, color){
 	const form = document.getElementById('promo-5off-form');
 	const emailInput = document.getElementById('promo-5off-email');
 	const result = document.getElementById('promo-5off-result');
-	function open(){ if(modal){ modal.classList.remove('hidden'); } }
+	function open(){ 
+		if(modal){ modal.classList.remove('hidden'); }
+		
+		// GA4: Floating button (lower left) clicked
+		if(typeof gtag === 'function'){
+			gtag('event', 'promo_5off_floating_button_clicked', {
+				event_category: 'Engagement',
+				event_label: '5% Off Floating Button',
+				value: 0
+			});
+			console.log('[product_detail] GA4 promo_5off_floating_button_clicked event sent');
+		}
+	}
 	function close(){ if(modal){ modal.classList.add('hidden'); } }
 	if(btn){ btn.addEventListener('click', open); }
 	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
@@ -587,11 +696,25 @@ function lookupProductUid(size, color){
 			e.preventDefault();
 			const email = (emailInput?.value||'').trim();
 			if(!email) return;
+			
+			// GA4: 5% popup modal filled out
+			if(typeof gtag === 'function'){
+				gtag('event', 'promo_5off_modal_submitted', {
+					event_category: 'Lead Generation',
+					event_label: '5% Off Modal Email',
+					value: 1
+				});
+				console.log('[product_detail] GA4 promo_5off_modal_submitted event sent');
+			}
+			
 			try{
 				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ email }) });
 				lsSet('promo_5off_captured','1');
 				if(result){ result.classList.remove('hidden'); }
-			}catch(_e){ if(result){ result.classList.remove('hidden'); } }
+			}catch(_e){ 
+				if(result){ result.classList.remove('hidden'); }
+				console.log('[product_detail] GA4 promo_5off_modal_submitted event sent (optimistic)');
+			}
 		});
 	}
 	if(lsGet('promo_5off_captured')==='1'){
