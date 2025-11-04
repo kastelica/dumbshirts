@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 
+{% block head %}
+{% set canonical_url = url_for('main.index', _external=True) %}
+<link rel="canonical" href="{{ canonical_url }}">
+{% endblock %}
+
 {% block content %}
 {# Hero section - hidden on mobile, shown on desktop #}
 <section class="hidden md:block py-10 md:py-16">
@@ -132,13 +137,13 @@
 {% if pagination and pagination.pages > 1 %}
 <div class="mt-8 flex items-center justify-center gap-2">
 	{% if pagination.has_prev %}
-		<a href="?page={{ pagination.prev_num }}" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">‹ Previous</a>
+		<a href="?page={{ pagination.prev_num }}" rel="nofollow" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">‹ Previous</a>
 	{% endif %}
 	
 	{% for page_num in pagination.iter_pages() %}
 		{% if page_num %}
 			{% if page_num != pagination.page %}
-				<a href="?page={{ page_num }}" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">{{ page_num }}</a>
+				<a href="?page={{ page_num }}" rel="nofollow" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">{{ page_num }}</a>
 			{% else %}
 				<span class="px-3 py-2 bg-white text-black rounded">{{ page_num }}</span>
 			{% endif %}
@@ -148,7 +153,7 @@
 	{% endfor %}
 	
 	{% if pagination.has_next %}
-		<a href="?page={{ pagination.next_num }}" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">Next ›</a>
+		<a href="?page={{ pagination.next_num }}" rel="nofollow" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">Next ›</a>
 	{% endif %}
 </div>
 {% endif %}
