@@ -312,6 +312,11 @@
 	const emailInput = document.getElementById('promo-5off-email');
 	const result = document.getElementById('promo-5off-result');
 	
+	// Auto-popup tracking
+	let inactivityTimer = null;
+	let inactivityDelay = 3000; // 3 seconds
+	let hasAutoShown = false;
+	
 	function open(){ 
 		if(modal){ modal.classList.remove('hidden'); }
 		
@@ -325,7 +330,11 @@
 			console.log('[base] GA4 promo_bar_clicked event sent');
 		}
 	}
-	function close(){ if(modal){ modal.classList.add('hidden'); } }
+	function close(){ 
+		if(modal){ modal.classList.add('hidden'); }
+		// Mark as shown so it doesn't auto-pop again
+		hasAutoShown = true;
+	}
 	
 	if(promoBarBtn){ promoBarBtn.addEventListener('click', open); }
 	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
@@ -363,6 +372,53 @@
 	if(lsGet('promo_5off_captured')==='1'){
 		if(form && result){ form.classList.add('hidden'); result.classList.remove('hidden'); }
 	}
+	
+	// Auto-popup after 3 seconds of inactivity
+	function resetInactivityTimer(){
+		// Clear existing timer
+		if(inactivityTimer){
+			clearTimeout(inactivityTimer);
+		}
+		
+		// Don't show if already captured or already auto-shown
+		if(lsGet('promo_5off_captured') === '1' || hasAutoShown || !modal){
+			return;
+		}
+		
+		// Don't show if modal is already visible
+		if(modal && !modal.classList.contains('hidden')){
+			return;
+		}
+		
+		// Set new timer
+		inactivityTimer = setTimeout(function(){
+			if(modal && modal.classList.contains('hidden')){
+				open();
+				hasAutoShown = true;
+				
+				// GA4: Auto-popup shown
+				if(typeof gtag === 'function'){
+					gtag('event', 'promo_5off_auto_shown', {
+						event_category: 'Engagement',
+						event_label: '5% Off Auto Popup',
+						value: 0
+					});
+					console.log('[base] GA4 promo_5off_auto_shown event sent');
+				}
+			}
+		}, inactivityDelay);
+	}
+	
+	// Track user activity
+	const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+	activityEvents.forEach(function(eventName){
+		document.addEventListener(eventName, function(){
+			resetInactivityTimer();
+		}, { passive: true });
+	});
+	
+	// Start the timer on page load
+	resetInactivityTimer();
 })();
 </script>
 
