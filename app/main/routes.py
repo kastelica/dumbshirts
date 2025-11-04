@@ -548,13 +548,11 @@ def loyalty_signup():
 		session["loyalty_email"] = email
 		session.modified = True
 		try:
-			html = render_simple_email("Welcome to Loyalty", [
-				"Thanks for joining our loyalty program.",
-				"You earn 1 point per $1 spent.",
-			])
+			# Use the styled email template instead of simple renderer
+			html = render_template("email_loyalty_welcome.html")
 			send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
-		except Exception:
-			pass
+		except Exception as e:
+			current_app.logger.warning(f"[loyalty-signup] Failed to send welcome email: {e}")
 		# Notify admin of new signup (best-effort)
 		try:
 			to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
