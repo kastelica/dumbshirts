@@ -14,6 +14,7 @@ This script will:
 
 Only processes active products by default. Use --include-draft to include draft products.
 Use --limit N to process only the first N products.
+Use --check-existing to verify existing mockup URLs are valid (checks for 404/broken links).
 """
 
 import sys
@@ -129,6 +130,22 @@ def is_mockup_url(url: str, design_url: str) -> bool:
     return False
 
 
+def is_url_valid(url: str, timeout: int = 5) -> bool:
+    """Check if a URL returns a valid HTTP response (200 OK)."""
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        return False
+    try:
+        resp = requests.head(url, timeout=timeout, allow_redirects=True)
+        return resp.status_code == 200
+    except Exception:
+        # If HEAD fails, try GET with stream=True (don't download full file)
+        try:
+            resp = requests.get(url, timeout=timeout, stream=True, allow_redirects=True)
+            return resp.status_code == 200
+        except Exception:
+            return False
+
+
 def main():
     """Main function to generate missing mockups."""
     import argparse
@@ -136,6 +153,7 @@ def main():
     parser.add_argument("--include-draft", action="store_true", help="Include draft products (default: only active)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
     parser.add_argument("--limit", type=int, default=None, help="Limit the number of products to process (default: all)")
+    parser.add_argument("--check-existing", action="store_true", help="Check if existing mockup URLs are valid (404/broken) and regenerate them")
     args = parser.parse_args()
     
     app = create_app()
@@ -191,6 +209,8 @@ def main():
         print("=" * 60)
         
         missing_mockups = []
+        broken_mockups = []
+        
         for p in products:
             if not p.design or not p.design.image_url:
                 continue
@@ -198,15 +218,32 @@ def main():
             design_url = p.design.image_url
             preview_url = p.design.preview_url or ""
             
-            # Check if mockup exists
+            # Check if mockup exists in DB
             if is_mockup_url(preview_url, design_url):
-                print(f"✓ Product {p.id} ({p.title[:50]}...): Has mockup")
+                # If --check-existing, verify the URL is actually accessible
+                if args.check_existing:
+                    print(f"  Checking mockup URL for product {p.id}...", end=" ", flush=True)
+                    if is_url_valid(preview_url):
+                        print(f"✓ Valid")
+                        print(f"✓ Product {p.id} ({p.title[:50]}...): Has valid mockup")
+                    else:
+                        print(f"✗ Broken (404 or error)")
+                        print(f"✗ Product {p.id} ({p.title[:50]}...): Mockup URL is broken")
+                        broken_mockups.append(p)
+                else:
+                    print(f"✓ Product {p.id} ({p.title[:50]}...): Has mockup")
                 continue
             
             missing_mockups.append(p)
             print(f"✗ Product {p.id} ({p.title[:50]}...): Missing mockup")
         
         print("=" * 60)
+        
+        # Combine missing and broken mockups
+        if args.check_existing and broken_mockups:
+            print(f"Products with broken mockup URLs: {len(broken_mockups)}")
+            missing_mockups.extend(broken_mockups)
+        
         print(f"Products needing mockups: {len(missing_mockups)}")
         
         if not missing_mockups:
