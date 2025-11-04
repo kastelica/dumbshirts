@@ -1,13 +1,4 @@
 {% extends "base.html" %}
-{% block head %}
-{% set base_url = url_for('main.shop', _external=True) %}
-{% if selected_cat %}
-	{% set canonical_url = base_url + '?cat=' + selected_cat %}
-{% else %}
-	{% set canonical_url = base_url %}
-{% endif %}
-<link rel="canonical" href="{{ canonical_url }}">
-{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">Shop</h1>
 <form method="get" class="mb-4 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
@@ -117,13 +108,13 @@
 {% if pagination and pagination.pages > 1 %}
 <div class="mt-8 flex items-center justify-center gap-2">
 	{% if pagination.has_prev %}
-		<a href="?page={{ pagination.prev_num }}{% if selected_cat %}&cat={{ selected_cat }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_price %}&min={{ min_price }}{% endif %}{% if max_price %}&max={{ max_price }}{% endif %}" rel="nofollow" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">‹ Previous</a>
+		<a href="?page={{ pagination.prev_num }}{% if selected_cat %}&cat={{ selected_cat }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_price %}&min={{ min_price }}{% endif %}{% if max_price %}&max={{ max_price }}{% endif %}" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">‹ Previous</a>
 	{% endif %}
 	
 	{% for page_num in pagination.iter_pages() %}
 		{% if page_num %}
 			{% if page_num != pagination.page %}
-				<a href="?page={{ page_num }}{% if selected_cat %}&cat={{ selected_cat }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_price %}&min={{ min_price }}{% endif %}{% if max_price %}&max={{ max_price }}{% endif %}" rel="nofollow" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">{{ page_num }}</a>
+				<a href="?page={{ page_num }}{% if selected_cat %}&cat={{ selected_cat }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_price %}&min={{ min_price }}{% endif %}{% if max_price %}&max={{ max_price }}{% endif %}" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">{{ page_num }}</a>
 			{% else %}
 				<span class="px-3 py-2 bg-white text-black rounded">{{ page_num }}</span>
 			{% endif %}
@@ -133,7 +124,7 @@
 	{% endfor %}
 	
 	{% if pagination.has_next %}
-		<a href="?page={{ pagination.next_num }}{% if selected_cat %}&cat={{ selected_cat }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_price %}&min={{ min_price }}{% endif %}{% if max_price %}&max={{ max_price }}{% endif %}" rel="nofollow" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">Next ›</a>
+		<a href="?page={{ pagination.next_num }}{% if selected_cat %}&cat={{ selected_cat }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_price %}&min={{ min_price }}{% endif %}{% if max_price %}&max={{ max_price }}{% endif %}" class="px-3 py-2 bg-gray-900 border border-gray-800 rounded text-gray-200 hover:bg-gray-800">Next ›</a>
 	{% endif %}
 </div>
 {% endif %}
