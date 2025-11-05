@@ -430,6 +430,12 @@ function lookupProductUid(size, color){
 		initialColor: urlColor  // Store URL color for initialization
 	};
 
+	// Bing Ads UET conversion reporting function
+	function uet_report_conversion() {
+		window.uetq = window.uetq || [];
+		window.uetq.push('event', 'add_to_cart', {});
+	}
+
 	// GA4 add_to_cart tracking on form submit
 	try{
 		const addForm = document.getElementById('add-form');
@@ -461,6 +467,8 @@ function lookupProductUid(size, color){
 							}]
 						});
 					}
+					// Bing Ads UET: Report add_to_cart conversion
+					uet_report_conversion();
 				}catch(e){}
 			});
 		}
