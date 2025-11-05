@@ -328,6 +328,33 @@ def product_detail(slug: str):
 	# Prev/Next products by created_at among active products
 	prev_p = Product.query.filter(Product.status == "active", Product.created_at < product.created_at).order_by(Product.created_at.desc()).first()
 	next_p = Product.query.filter(Product.status == "active", Product.created_at > product.created_at).order_by(Product.created_at.asc()).first()
+	
+	# Load reviews for this product from reviews.json
+	product_reviews = []
+	try:
+		path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "reviews.json")
+		with open(path, "r", encoding="utf-8") as f:
+			all_reviews = json.load(f) or []
+		# Filter reviews for this product and sort by rating descending (highest first)
+		product_reviews = [
+			r for r in all_reviews 
+			if r.get("product_id") and str(r.get("product_id")) == str(product.id)
+		]
+		# Sort by rating descending (highest first), then by created_at descending for same ratings
+		try:
+			# First sort by date descending (most recent first) for secondary sort
+			product_reviews.sort(key=lambda r: r.get("created_at", "") or "", reverse=True)
+			# Then sort by rating descending (highest first) - this is the primary sort
+			product_reviews.sort(key=lambda r: r.get("rating", 0) or 0, reverse=True)
+		except Exception:
+			# Fallback: simple sort by rating descending
+			try:
+				product_reviews.sort(key=lambda r: r.get("rating", 0) or 0, reverse=True)
+			except Exception:
+				pass
+	except Exception:
+		product_reviews = []
+	
 	return render_template(
 		"product_detail.html",
 		product=product,
@@ -337,6 +364,7 @@ def product_detail(slug: str):
 		prev_slug=(prev_p.slug if prev_p else None),
 		next_slug=(next_p.slug if next_p else None),
 		google_discount_info=google_discount_info,
+		reviews=product_reviews,
 	)
 
 
