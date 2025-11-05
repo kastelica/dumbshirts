@@ -248,6 +248,17 @@ def christmas_shirts():
 	)
 
 
+@main_bp.get("/weird-shirts")
+def weird_shirts():
+	"""Category page for weird shirts - SEO focused"""
+	return _render_category_page(
+		category_name="Weird Shirts",
+		category_slug="weird-shirts",
+		category_description="Discover our collection of weird and unusual t-shirts! Featuring bizarre designs, odd humor, and unconventional styles for those who love to stand out. Find unique and quirky t-shirts that break the mold.",
+		category_keywords="weird shirts, weird t-shirts, unusual shirts, quirky t-shirts, bizarre shirts, odd t-shirts, unconventional shirts, strange t-shirts"
+	)
+
+
 @main_bp.get("/search")
 def search():
 	q = request.args.get("q", "").strip()
@@ -935,6 +946,7 @@ def sitemap_xml():
 		("/dad-joke-shirts", iso_today, "weekly", "0.7"),
 		("/black-friday", iso_today, "daily", "0.8"),
 		("/christmas-shirts", iso_today, "weekly", "0.7"),
+		("/weird-shirts", iso_today, "weekly", "0.7"),
 	]
 	for path, lm, cf, pr in category_pages:
 		add_url(urljoin(base, path), lm, cf, pr)
