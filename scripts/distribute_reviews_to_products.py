@@ -132,6 +132,9 @@ def distribute_reviews(reviews, product_ids, dry_run=False):
     else:
         reviews_for_validation = reviews
     
+    # Track changes for summary
+    changes = []
+    
     # Second pass: assign product_ids to reviews that need them
     assigned_count = 0
     product_index = 0
@@ -143,7 +146,14 @@ def distribute_reviews(reviews, product_ids, dry_run=False):
                 product_index = 0  # Cycle through if we run out
             
             new_pid = product_priority[product_index]
-            old_pid = review.get("product_id", "")
+            old_pid = review.get("product_id", "") or "(empty)"
+            
+            # Track this change
+            changes.append({
+                "review_id": review.get("review_id", "unknown"),
+                "old_pid": old_pid,
+                "new_pid": new_pid
+            })
             
             if not dry_run:
                 review["product_id"] = new_pid
@@ -164,6 +174,21 @@ def distribute_reviews(reviews, product_ids, dry_run=False):
         print(f"\n📋 Would assign {assigned_count} reviews to products")
     else:
         print(f"\n✅ Assigned {assigned_count} reviews to products")
+        
+        # Show summary of changes
+        if changes:
+            print(f"\n📝 Summary of changes:")
+            for change in changes:
+                print(f"   Review {change['review_id']}: {change['old_pid']} → {change['new_pid']}")
+            
+            # Group by old_pid to show mapping
+            print(f"\n🗺️  Product ID mapping (invalid → valid):")
+            old_to_new = defaultdict(set)
+            for change in changes:
+                old_to_new[change['old_pid']].add(change['new_pid'])
+            for old_pid, new_pids in sorted(old_to_new.items()):
+                new_pids_str = ", ".join(sorted(new_pids, key=int))
+                print(f"   {old_pid} → {new_pids_str}")
     
     # Show final distribution (use validation copy in dry-run)
     final_distribution = defaultdict(int)
