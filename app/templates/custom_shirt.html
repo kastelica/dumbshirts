@@ -274,7 +274,7 @@
 	const aiMsg = document.getElementById('ai-msg');
 	const generationCountEl = document.getElementById('generation-count');
 	
-		if (aiGenerate) {
+	if (aiGenerate) {
 		aiGenerate.addEventListener('click', async function(e) {
 			e.preventDefault();
 			const prompt = (aiPrompt?.value || '').trim();
