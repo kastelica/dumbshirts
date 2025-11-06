@@ -203,13 +203,15 @@
 		// Hide no-image message
 		if (noImage) noImage.classList.add('hidden');
 		
-		// Update base tee by color
+		// Update base tee by color (use relative paths)
 		const baseColors = {
-			'white': 'https://dumbshirts.store/static/uploads/whitetshirt.png',
-			'black': 'https://dumbshirts.store/static/uploads/whitetshirt.png', // You may need different base images for different colors
-			'heather': 'https://dumbshirts.store/static/uploads/whitetshirt.png',
-			'red': 'https://dumbshirts.store/static/uploads/whitetshirt.png',
-			'blue': 'https://dumbshirts.store/static/uploads/whitetshirt.png'
+			'white': '/static/uploads/whitetshirt.png',
+			'black': '/static/uploads/blacktshirt.png',
+			'heather': '/static/uploads/heathertshirt.png',
+			'gray': '/static/uploads/heathertshirt.png',
+			'grey': '/static/uploads/heathertshirt.png',
+			'red': '/static/uploads/redtshirt.png',
+			'blue': '/static/uploads/bluetshirt.png'
 		};
 		mockupBase.src = baseColors[color] || baseColors['white'];
 		
@@ -272,7 +274,7 @@
 	const aiMsg = document.getElementById('ai-msg');
 	const generationCountEl = document.getElementById('generation-count');
 	
-	if (aiGenerate) {
+		if (aiGenerate) {
 		aiGenerate.addEventListener('click', async function(e) {
 			e.preventDefault();
 			const prompt = (aiPrompt?.value || '').trim();
@@ -290,42 +292,78 @@
 			aiMsg.textContent = 'Generating...';
 			
 			try {
-				const response = await fetch('/custom-shirt/generate-image', {
+				// Start generation (returns immediately with job_id)
+				const startResponse = await fetch('/custom-shirt/generate-image', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ prompt })
 				});
 				
-				const data = await response.json();
+				const startData = await startResponse.json();
 				
-				if (data.success) {
-					currentDesignUrl = data.design_url;
-					currentMockupUrl = data.mockup_url || data.design_url;
-					document.getElementById('design-url-input').value = currentDesignUrl;
-					document.getElementById('add-to-cart-btn').disabled = false;
-					document.getElementById('buy-now-btn').disabled = false;
-					generationCount = maxGenerations - data.generations_remaining;
-					aiMsg.textContent = '✓ Image generated!';
-					aiMsg.classList.remove('text-gray-400');
-					aiMsg.classList.add('text-green-400');
-					if (generationCountEl) {
-						generationCountEl.textContent = `Generations remaining: ${data.generations_remaining} / ${maxGenerations}`;
-						if (data.generations_remaining === 0) {
-							generationCountEl.innerHTML = `<span class="text-yellow-400">⚠️ You've used all ${maxGenerations} generations. Refresh the page to reset.</span>`;
-							aiGenerate.disabled = true;
-						}
-					}
-					updateMockup();
-				} else {
-					aiMsg.textContent = '✗ ' + (data.error || 'Generation failed');
-					aiMsg.classList.remove('text-gray-400');
-					aiMsg.classList.add('text-red-400');
+				if (!startResponse.ok || !startData.ok) {
+					throw new Error(startData.error || 'Failed to start generation');
 				}
+				
+				// Poll for status
+				const jobId = startData.job_id;
+				aiMsg.textContent = 'Generating in background...';
+				
+				let attempts = 0;
+				const maxAttempts = 60; // 2 minutes max (60 * 2 seconds)
+				const pollStatus = setInterval(async () => {
+					attempts++;
+					try {
+						const statusResponse = await fetch(`/custom-shirt/generate-status?job_id=${encodeURIComponent(jobId)}`, {
+							cache: 'no-store'
+						});
+						const statusData = await statusResponse.json();
+						
+						if (statusData.ready) {
+							clearInterval(pollStatus);
+							currentDesignUrl = statusData.design_url;
+							currentMockupUrl = statusData.mockup_url || statusData.design_url;
+							document.getElementById('design-url-input').value = currentDesignUrl;
+							document.getElementById('add-to-cart-btn').disabled = false;
+							document.getElementById('buy-now-btn').disabled = false;
+							generationCount = maxGenerations - statusData.generations_remaining;
+							aiMsg.textContent = '✓ Image generated!';
+							aiMsg.classList.remove('text-gray-400');
+							aiMsg.classList.add('text-green-400');
+							if (generationCountEl) {
+								generationCountEl.textContent = `Generations remaining: ${statusData.generations_remaining} / ${maxGenerations}`;
+								if (statusData.generations_remaining === 0) {
+									generationCountEl.innerHTML = `<span class="text-yellow-400">⚠️ You've used all ${maxGenerations} generations. Refresh the page to reset.</span>`;
+									aiGenerate.disabled = true;
+								}
+							}
+							updateMockup();
+							aiGenerate.disabled = false;
+						} else if (statusData.error) {
+							clearInterval(pollStatus);
+							aiMsg.textContent = '✗ ' + statusData.error;
+							aiMsg.classList.remove('text-gray-400');
+							aiMsg.classList.add('text-red-400');
+							aiGenerate.disabled = false;
+						} else if (attempts >= maxAttempts) {
+							clearInterval(pollStatus);
+							aiMsg.textContent = 'Still processing... Please refresh in a moment.';
+							aiMsg.classList.remove('text-gray-400');
+							aiMsg.classList.add('text-yellow-400');
+							aiGenerate.disabled = false;
+						}
+					} catch (pollError) {
+						clearInterval(pollStatus);
+						aiMsg.textContent = '✗ Failed to check status. Please try again.';
+						aiMsg.classList.remove('text-gray-400');
+						aiMsg.classList.add('text-red-400');
+						aiGenerate.disabled = false;
+					}
+				}, 2000); // Poll every 2 seconds
 			} catch (error) {
 				aiMsg.textContent = '✗ Generation failed. Please try again.';
 				aiMsg.classList.remove('text-gray-400');
 				aiMsg.classList.add('text-red-400');
-			} finally {
 				aiGenerate.disabled = false;
 			}
 		});

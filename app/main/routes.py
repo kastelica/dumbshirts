@@ -4,6 +4,8 @@ import os
 import json
 import hashlib
 import requests
+import threading
+import time
 from . import main_bp
 from ..models import Product, Category, Variant, Trend
 from decimal import Decimal
@@ -381,12 +383,7 @@ def custom_shirt_upload():
 
 @main_bp.post("/custom-shirt/generate-image")
 def custom_shirt_generate():
-	"""Generate an image using OpenAI for custom shirt design."""
-	from base64 import b64decode
-	import time
-	import cloudinary.uploader as cu
-	from ..admin import _remove_bg_hf, _compose_design_on_blank_tee
-	
+	"""Generate an image using OpenAI for custom shirt design (runs in background to avoid timeout)."""
 	prompt = (request.json or {}).get("prompt", "").strip()
 	if not prompt:
 		return jsonify({"error": "Missing prompt"}), 400
@@ -400,57 +397,131 @@ def custom_shirt_generate():
 	if not api_key:
 		return jsonify({"error": "Image generation is currently unavailable"}), 500
 	
-	try:
-		import os
-		os.environ["OPENAI_API_KEY"] = api_key
-		from openai import OpenAI
-		client = OpenAI().with_options(timeout=60.0)
-		
-		# Generate image
-		res = client.images.generate(model="gpt-image-1-mini", prompt=prompt, size="1024x1024")
-		b64 = res.data[0].b64_json
-		img_bytes = b64decode(b64)
-		
-		# Try background removal
-		img_for_mockup = img_bytes
-		try:
-			clean_bytes = _remove_bg_hf(img_bytes)
-			if clean_bytes:
-				img_for_mockup = clean_bytes
-		except Exception:
-			pass
-		
-		# Upload to Cloudinary
-		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
-		if cloud_url:
-			public_id = f"custom_shirt_ai_{int(time.time())}_{hashlib.md5(img_bytes[:1000]).hexdigest()[:8]}"
-			design_res = cu.upload(img_bytes, folder="custom_shirts", public_id=public_id, overwrite=True, resource_type="image")
-			design_url = design_res.get("secure_url") or design_res.get("url")
-			
-			# Generate mockup
-			mockup_bytes = _compose_design_on_blank_tee(img_for_mockup)
-			if mockup_bytes:
-				mockup_public_id = f"{public_id}_mockup"
-				mockup_res = cu.upload(mockup_bytes, folder="custom_shirts", public_id=mockup_public_id, overwrite=True, resource_type="image")
-				mockup_url = mockup_res.get("secure_url") or mockup_res.get("url")
-			else:
-				mockup_url = design_url
-			
-			# Increment generation count
-			session["custom_shirt_generations"] = generation_count + 1
-			session.modified = True
-			
-			return jsonify({
-				"success": True,
-				"design_url": design_url,
-				"mockup_url": mockup_url,
-				"generations_remaining": max(0, 2 - (generation_count + 1))
-			})
-		else:
-			return jsonify({"error": "Cloudinary not configured"}), 500
-	except Exception as e:
-		current_app.logger.error(f"Custom shirt generation error: {e}")
-		return jsonify({"error": str(e)}), 500
+	# Create unique job ID for this generation
+	job_id = f"custom_{int(time.time())}_{hashlib.md5((prompt + str(time.time())).encode()).hexdigest()[:8]}"
+	
+	# Initialize job status in session
+	if "custom_shirt_jobs" not in session:
+		session["custom_shirt_jobs"] = {}
+	session["custom_shirt_jobs"][job_id] = {"status": "processing", "error": None}
+	session.modified = True
+	
+	# Run in background thread to avoid 30s Heroku router timeout
+	def _worker(app_ctx, job_id_inner: str, prompt_inner: str, gen_count: int):
+		with app_ctx:
+			try:
+				from base64 import b64decode
+				import cloudinary.uploader as cu
+				from ..admin import _remove_bg_hf, _compose_design_on_blank_tee
+				
+				import os as _os
+				_os.environ["OPENAI_API_KEY"] = api_key
+				from openai import OpenAI
+				client = OpenAI().with_options(timeout=60.0)
+				
+				current_app.logger.info(f"[custom-shirt] Starting generation for job {job_id_inner}")
+				
+				# Generate image
+				res = client.images.generate(model="gpt-image-1-mini", prompt=prompt_inner, size="1024x1024")
+				b64 = res.data[0].b64_json
+				img_bytes = b64decode(b64)
+				current_app.logger.info(f"[custom-shirt] OpenAI image generated, size: {len(img_bytes)} bytes")
+				
+				# Try background removal
+				img_for_mockup = img_bytes
+				try:
+					current_app.logger.info("[custom-shirt] Attempting background removal")
+					clean_bytes = _remove_bg_hf(img_bytes)
+					if clean_bytes:
+						img_for_mockup = clean_bytes
+						current_app.logger.info("[custom-shirt] Background removal successful")
+					else:
+						# Try RGBA conversion for better mockup
+						try:
+							from PIL import Image
+							from io import BytesIO
+							img_pil = Image.open(BytesIO(img_bytes)).convert("RGBA")
+							buf = BytesIO()
+							img_pil.save(buf, format='PNG')
+							img_for_mockup = buf.getvalue()
+							current_app.logger.info("[custom-shirt] Converted to RGBA for mockup")
+						except Exception:
+							pass
+				except Exception as bg_err:
+					current_app.logger.warning(f"[custom-shirt] Background removal failed: {bg_err}")
+				
+				# Upload to Cloudinary
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					public_id = f"custom_shirt_ai_{int(time.time())}_{hashlib.md5(img_bytes[:1000]).hexdigest()[:8]}"
+					design_res = cu.upload(img_bytes, folder="custom_shirts", public_id=public_id, overwrite=True, resource_type="image")
+					design_url = design_res.get("secure_url") or design_res.get("url")
+					current_app.logger.info(f"[custom-shirt] Design uploaded: {design_url}")
+					
+					# Generate mockup
+					current_app.logger.info("[custom-shirt] Starting mockup composition")
+					mockup_bytes = _compose_design_on_blank_tee(img_for_mockup)
+					if mockup_bytes:
+						mockup_public_id = f"{public_id}_mockup"
+						mockup_res = cu.upload(mockup_bytes, folder="custom_shirts", public_id=mockup_public_id, overwrite=True, resource_type="image")
+						mockup_url = mockup_res.get("secure_url") or mockup_res.get("url")
+						current_app.logger.info(f"[custom-shirt] Mockup uploaded: {mockup_url}")
+					else:
+						mockup_url = design_url
+						current_app.logger.warning("[custom-shirt] Mockup composition returned None, using design URL")
+					
+					# Update session with result
+					if "custom_shirt_jobs" not in session:
+						session["custom_shirt_jobs"] = {}
+					session["custom_shirt_jobs"][job_id_inner] = {
+						"status": "ready",
+						"design_url": design_url,
+						"mockup_url": mockup_url,
+						"generations_remaining": max(0, 2 - (gen_count + 1))
+					}
+					session["custom_shirt_generations"] = gen_count + 1
+					session.modified = True
+					current_app.logger.info(f"[custom-shirt] Generation completed for job {job_id_inner}")
+				else:
+					raise Exception("Cloudinary not configured")
+			except Exception as e_all:
+				current_app.logger.error(f"[custom-shirt] Generation failed for job {job_id_inner}: {e_all}")
+				if "custom_shirt_jobs" not in session:
+					session["custom_shirt_jobs"] = {}
+				session["custom_shirt_jobs"][job_id_inner] = {
+					"status": "error",
+					"error": str(e_all)
+				}
+				session.modified = True
+	
+	thr = threading.Thread(target=_worker, args=(current_app.app_context(), job_id, prompt, generation_count), daemon=True)
+	thr.start()
+	return jsonify({"ok": True, "started": True, "job_id": job_id})
+
+
+@main_bp.get("/custom-shirt/generate-status")
+def custom_shirt_generate_status():
+	"""Check status of custom shirt image generation."""
+	job_id = request.args.get("job_id", "").strip()
+	if not job_id:
+		return jsonify({"error": "Missing job_id"}), 400
+	
+	job_data = session.get("custom_shirt_jobs", {}).get(job_id, {})
+	
+	if job_data.get("status") == "ready":
+		return jsonify({
+			"ready": True,
+			"design_url": job_data.get("design_url", ""),
+			"mockup_url": job_data.get("mockup_url", ""),
+			"generations_remaining": job_data.get("generations_remaining", 0)
+		})
+	elif job_data.get("status") == "error":
+		return jsonify({
+			"ready": False,
+			"error": job_data.get("error", "Generation failed")
+		}), 500
+	else:
+		return jsonify({"ready": False})
 
 
 @main_bp.post("/custom-shirt/add-to-cart")
