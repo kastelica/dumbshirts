@@ -485,12 +485,9 @@ def custom_shirt_generate():
 							"status": "ready",
 							"design_url": design_url,
 							"mockup_url": mockup_url,
-							"generations_remaining": max(0, 2 - (gen_count + 1))
+							"generations_remaining": max(0, 2 - (gen_count + 1)),
+							"generation_count": gen_count + 1  # Store for session update later
 						}
-					
-					# Update session for generation count (this is safe as it's just a counter)
-					session["custom_shirt_generations"] = gen_count + 1
-					session.modified = True
 					current_app.logger.info(f"[custom-shirt] Generation completed for job {job_id_inner}")
 				else:
 					raise Exception("Cloudinary not configured")
@@ -523,6 +520,11 @@ def custom_shirt_generate_status():
 		job_data = jobs.get(job_id, {})
 	
 	if job_data.get("status") == "ready":
+		# Update session generation count when we return the result (in request context)
+		if "generation_count" in job_data:
+			session["custom_shirt_generations"] = job_data["generation_count"]
+			session.modified = True
+		
 		return jsonify({
 			"ready": True,
 			"design_url": job_data.get("design_url", ""),
