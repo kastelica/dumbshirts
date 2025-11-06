@@ -54,13 +54,13 @@
 					<a href="/reviews" class="hover:underline">Reviews</a>
 					<div class="relative inline-block group">
 						<button class="hover:underline inline-flex items-center">Extras</button>
-						<div class="absolute right-0 top-full pt-2 pointer-events-none group-hover:pointer-events-auto z-[9999]">
+						<div class="absolute left-1/2 -translate-x-1/2 top-full pt-2 pointer-events-none group-hover:pointer-events-auto z-[9999]">
 							<div class="bg-gray-900 border border-gray-800 rounded shadow-lg min-w-[200px] py-2 z-[9999] opacity-0 group-hover:opacity-100 transition-opacity invisible group-hover:visible">
 								
-								<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Rewards</a>
-								<a href="/subscribe/monthly-shirt" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Monthly Shirt</a>
-								<a href="/referrals" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">Referrals</a>
-								<a href="/about" class="block px-4 py-2 hover:bg-gray-800 hover:text-white">About</a>
+								<a href="/loyalty" class="block px-4 py-2 hover:bg-gray-800 hover:text-white text-center">Rewards</a>
+								<a href="/subscribe/monthly-shirt" class="block px-4 py-2 hover:bg-gray-800 hover:text-white text-center">Monthly Shirt</a>
+								<a href="/referrals" class="block px-4 py-2 hover:bg-gray-800 hover:text-white text-center">Referrals</a>
+								<a href="/about" class="block px-4 py-2 hover:bg-gray-800 hover:text-white text-center">About</a>
 								
 							</div>
 						</div>
@@ -118,6 +118,18 @@
 				<input type="text" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search products" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100 placeholder-gray-500">
 				<button class="bg-white text-black px-4 py-2 rounded">Search</button>
 			</form>
+			<div class="mt-2 flex flex-wrap items-center gap-2">
+				<span class="text-xs text-gray-500 mr-1">Trending:</span>
+				<a href="/search?q=cats" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Cats</a>
+				<a href="/search?q=dogs" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Dogs</a>
+				<a href="/search?q=funny" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Funny</a>
+				<a href="/search?q=meme" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Meme</a>
+				<a href="/search?q=sarcastic" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Sarcastic</a>
+				<a href="/search?q=pun" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Pun</a>
+				<a href="/search?q=dad+joke" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Dad Joke</a>
+				<a href="/search?q=christmas" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Christmas</a>
+				<a href="/search?q=weird" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Weird</a>
+			</div>
 		</div>
 	</header>
 	<main class="max-w-6xl mx-auto px-4 py-6">
