@@ -22,9 +22,9 @@
 			<div class="relative js-gallery">
 				<div class="relative aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
 					{# Live mockup container: base tee by color + design overlay #}
-					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none">
-						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
-						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
+					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none hidden">
+						<img id="mockup-base" src="/static/uploads/whitetshirt.png" alt="Tee base" class="w-full h-full object-contain" />
+						<img id="mockup-design" src="" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
 					</div>
 					{# Design-only view (hidden by default) #}
 					<img id="design-only-img" src="" alt="Design" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
@@ -227,6 +227,36 @@
 	const colorSelect = document.getElementById('color-select');
 	const colorField = document.getElementById('color-field');
 	
+	// Initialize mockup base image on page load (even if no design yet)
+	function initializeMockupBase() {
+		const mockupBase = document.getElementById('mockup-base');
+		const mockupDesign = document.getElementById('mockup-design');
+		const color = (colorSelect?.value || 'white').toLowerCase();
+		const baseColors = {
+			'white': '/static/uploads/whitetshirt.png',
+			'black': '/static/uploads/blacktshirt.png',
+			'heather': '/static/uploads/heathertshirt.png',
+			'gray': '/static/uploads/heathertshirt.png',
+			'grey': '/static/uploads/heathertshirt.png',
+			'red': '/static/uploads/redtshirt.png',
+			'blue': '/static/uploads/bluetshirt.png'
+		};
+		if (mockupBase) {
+			mockupBase.onerror = function() {
+				this.onerror = null;
+				this.src = '/static/uploads/whitetshirt.png'; // Fallback to white
+			};
+			mockupBase.src = baseColors[color] || baseColors['white'];
+		}
+		// Design overlay starts empty (no src attribute) until design is uploaded/generated
+		if (mockupDesign) {
+			mockupDesign.src = '';
+		}
+	}
+	
+	// Initialize base image immediately
+	initializeMockupBase();
+	
 	function buildColorSwatches() {
 		if (!colorSwatches) return;
 		colorSwatches.innerHTML = '';
@@ -261,15 +291,7 @@
 		const mockupDesign = document.getElementById('mockup-design');
 		const noImage = document.getElementById('no-image');
 		
-		if (!currentDesignUrl || !gallery || !mockupWrap || !mockupBase || !mockupDesign) {
-			if (noImage) noImage.classList.remove('hidden');
-			return;
-		}
-		
-		// Hide no-image message
-		if (noImage) noImage.classList.add('hidden');
-		
-		// Update base tee by color (use relative paths)
+		// Update base tee by color (use relative paths) - always set this even if no design yet
 		const baseColors = {
 			'white': '/static/uploads/whitetshirt.png',
 			'black': '/static/uploads/blacktshirt.png',
@@ -279,13 +301,38 @@
 			'red': '/static/uploads/redtshirt.png',
 			'blue': '/static/uploads/bluetshirt.png'
 		};
-		mockupBase.src = baseColors[color] || baseColors['white'];
 		
-		// Update design overlay
-		mockupDesign.src = currentDesignUrl;
+		// Always set base image source and add error handler
+		if (mockupBase) {
+			mockupBase.onerror = function() {
+				this.onerror = null;
+				this.src = '/static/uploads/whitetshirt.png'; // Fallback to white
+			};
+			mockupBase.src = baseColors[color] || baseColors['white'];
+		}
+		
+		if (!currentDesignUrl || !gallery || !mockupWrap || !mockupDesign) {
+			if (noImage) noImage.classList.remove('hidden');
+			if (mockupWrap) mockupWrap.classList.add('hidden');
+			return;
+		}
+		
+		// Hide no-image message
+		if (noImage) noImage.classList.add('hidden');
+		
+		// Update design overlay with error handling
+		if (mockupDesign) {
+			mockupDesign.onerror = function() {
+				this.onerror = null;
+				// If design fails to load, show no-image message
+				if (noImage) noImage.classList.remove('hidden');
+				mockupWrap.classList.add('hidden');
+			};
+			mockupDesign.src = currentDesignUrl;
+		}
 		
 		// Show mockup
-		mockupWrap.classList.remove('hidden');
+		if (mockupWrap) mockupWrap.classList.remove('hidden');
 	}
 	
 	// Helper function to show accept design button
