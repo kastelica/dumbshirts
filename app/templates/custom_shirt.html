@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% block head %}
+	<title>Design Your Own Custom T-Shirt | Dumbshirts.store</title>
+	<meta name="description" content="Upload your own image or create one with AI to design your custom t-shirt. Personalize your shirt with your own design today!">
+	<link rel="canonical" href="{{ url_for('main.custom_shirt', _external=True) }}">
+{% endblock %}
+{% block title %}Design Your Own Custom T-Shirt | Dumbshirts.store{% endblock %}
+{% block content %}
+<div class="relative">
+	<nav class="mb-3 text-sm text-gray-400 flex items-center gap-2">
+		<a href="/" aria-label="Home" class="text-gray-300 hover:text-white">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M2.25 12l9-7.5 9 7.5V20a1 1 0 01-1 1h-5.25v-6h-5.5v6H3.25a1 1 0 01-1-1v-8z"/></svg>
+		</a>
+		<span>›</span>
+		<a href="/shop" class="hover:underline">Shop</a>
+		<span>›</span>
+		<span class="text-gray-200">Design Your Own</span>
+	</nav>
+
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+		<div>
+			<div class="relative js-gallery">
+				<div class="relative aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					{# Live mockup container: base tee by color + design overlay #}
+					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none">
+						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
+						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
+					</div>
+					{# Design-only view (hidden by default) #}
+					<img id="design-only-img" src="" alt="Design" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
+					<div id="no-image" class="w-full h-full flex items-center justify-center text-gray-500">
+						<div class="text-center">
+							<p class="text-sm">Upload an image or generate one with AI</p>
+						</div>
+					</div>
+				</div>
+				<button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto hidden" data-action="prev">‹</button>
+				<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto hidden" data-action="next">›</button>
+			</div>
+		</div>
+		<div>
+			<h1 class="text-3xl font-semibold">Design Your Own Custom T-Shirt</h1>
+			<p class="text-gray-300 mt-3">Upload your own image or create one with AI. See your design on a t-shirt mockup in real-time!</p>
+			
+			<div class="mt-6 text-2xl">
+				<span class="text-green-400 font-semibold">$19.99</span>
+				<span class="text-gray-400 text-base ml-2">USD</span>
+			</div>
+
+			{# Upload Image Section #}
+			<div class="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+				<h3 class="text-lg font-semibold mb-3">Upload Your Image</h3>
+				<div class="space-y-2">
+					<input type="file" id="image-upload" accept="image/*" class="block text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-white file:text-black hover:file:bg-gray-100" />
+					<p class="text-xs text-gray-400">PNG, JPG, or GIF. Transparent background recommended.</p>
+					<div id="upload-status" class="text-sm text-gray-400 hidden"></div>
+				</div>
+			</div>
+
+			{# AI Generation Section #}
+			<div class="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+				<h3 class="text-lg font-semibold mb-3">Or Create with AI</h3>
+				<div class="space-y-3">
+					<div>
+						<label class="block text-sm mb-2 text-gray-300">Describe your design</label>
+						<textarea id="ai-prompt" rows="4" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 placeholder-gray-500" placeholder="Example: A minimalist cat silhouette in black on transparent background"></textarea>
+						<div class="mt-1 text-xs text-gray-400">
+							💡 <strong>Tip:</strong> Describe what you want in simple terms. For best results, mention "transparent background" and "solid colors only, no gradients".
+						</div>
+					</div>
+					<div class="flex items-center gap-2">
+						<button id="ai-generate" class="bg-gray-800 text-white px-4 py-2 rounded font-semibold hover:bg-gray-700 transition-colors">
+							Generate with AI
+						</button>
+						<span id="ai-msg" class="text-sm text-gray-400"></span>
+					</div>
+					<div id="generation-count" class="text-xs text-gray-500">
+						{% if generation_count >= max_generations %}
+							<span class="text-yellow-400">⚠️ You've used all {{ max_generations }} generations. Refresh the page to reset.</span>
+						{% else %}
+							Generations remaining: {{ max_generations - generation_count }} / {{ max_generations }}
+						{% endif %}
+					</div>
+				</div>
+			</div>
+
+			{# Add to Cart Form #}
+			<form id="add-form" class="mt-6 space-y-4" method="post" action="/custom-shirt/add-to-cart">
+				<input type="hidden" id="buy-now-flag" name="buy_now" value="">
+				<input type="hidden" id="design-url-input" name="design_url" value="">
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class="block text-sm mb-1">Size</label>
+						<select id="size-select" name="size" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
+							<option value="S">S</option>
+							<option value="M">M</option>
+							<option value="L" selected>L</option>
+							<option value="XL">XL</option>
+						</select>
+					</div>
+					<div>
+						<label class="block text-sm mb-1">Color</label>
+						<div id="color-swatches" class="grid grid-cols-5 gap-2"></div>
+						<input type="hidden" id="color-select" value="white">
+						<input type="hidden" name="color" id="color-field" value="white">
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm mb-1">Quantity</label>
+					<input type="number" min="1" name="quantity" value="1" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-24 text-gray-100" />
+				</div>
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+					<button type="submit" id="add-to-cart-btn" class="flex-1 bg-white text-black px-6 py-3 rounded font-semibold text-lg hover:bg-gray-100 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>Add to Cart</button>
+					<button type="submit" id="buy-now-btn" class="flex-1 bg-gray-800 text-white px-6 py-3 rounded font-semibold text-lg hover:bg-gray-700 transition-colors border border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Buy Now</button>
+				</div>
+				<div class="mt-2 text-center">
+					<a href="/size-guide" class="text-sm underline text-gray-400 hover:text-gray-300">Size guide</a>
+				</div>
+			</form>
+
+			<div class="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+				<h3 class="text-lg font-semibold mb-3">T-Shirt Features</h3>
+				<ul class="space-y-2 text-sm text-gray-300">
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Premium quality materials</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Free shipping on all orders</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>30-day return policy</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Available in multiple sizes and colors</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Fast 3-5 business day delivery</span>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script src="/static/js/product-gallery.js"></script>
+<script>
+(function(){
+	let currentDesignUrl = '';
+	let currentMockupUrl = '';
+	const maxGenerations = {{ max_generations }};
+	let generationCount = {{ generation_count }};
+	
+	// Color swatches (same as product_detail.html)
+	const colors = ['white', 'black', 'heather', 'red', 'blue'];
+	const colorSwatches = document.getElementById('color-swatches');
+	const colorSelect = document.getElementById('color-select');
+	const colorField = document.getElementById('color-field');
+	
+	function buildColorSwatches() {
+		if (!colorSwatches) return;
+		colorSwatches.innerHTML = '';
+		colors.forEach(color => {
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'w-8 h-8 rounded border-2 border-gray-700 hover:border-gray-500 transition-colors';
+			btn.setAttribute('aria-label', color);
+			btn.setAttribute('data-color', color);
+			btn.style.backgroundColor = color === 'black' ? 'black' : (color === 'white' ? 'white' : (color === 'red' ? 'red' : (color === 'blue' ? 'blue' : 'gray')));
+			if (color === 'white') {
+				btn.classList.add('border-white');
+			}
+			btn.addEventListener('click', () => {
+				colorSwatches.querySelectorAll('button').forEach(b => b.classList.remove('border-white', 'ring-2', 'ring-offset-2', 'ring-gray-300'));
+				btn.classList.add('border-white', 'ring-2', 'ring-offset-2', 'ring-gray-300');
+				if (colorSelect) colorSelect.value = color;
+				if (colorField) colorField.value = color;
+				updateMockup();
+			});
+			colorSwatches.appendChild(btn);
+		});
+	}
+	buildColorSwatches();
+	
+	// Mockup update function
+	function updateMockup() {
+		const color = (colorSelect?.value || 'white').toLowerCase();
+		const gallery = document.querySelector('.js-gallery');
+		const mockupWrap = document.getElementById('mockup-wrap');
+		const mockupBase = document.getElementById('mockup-base');
+		const mockupDesign = document.getElementById('mockup-design');
+		const noImage = document.getElementById('no-image');
+		
+		if (!currentDesignUrl || !gallery || !mockupWrap || !mockupBase || !mockupDesign) {
+			if (noImage) noImage.classList.remove('hidden');
+			return;
+		}
+		
+		// Hide no-image message
+		if (noImage) noImage.classList.add('hidden');
+		
+		// Update base tee by color
+		const baseColors = {
+			'white': 'https://dumbshirts.store/static/uploads/whitetshirt.png',
+			'black': 'https://dumbshirts.store/static/uploads/whitetshirt.png', // You may need different base images for different colors
+			'heather': 'https://dumbshirts.store/static/uploads/whitetshirt.png',
+			'red': 'https://dumbshirts.store/static/uploads/whitetshirt.png',
+			'blue': 'https://dumbshirts.store/static/uploads/whitetshirt.png'
+		};
+		mockupBase.src = baseColors[color] || baseColors['white'];
+		
+		// Update design overlay
+		mockupDesign.src = currentDesignUrl;
+		
+		// Show mockup
+		mockupWrap.classList.remove('hidden');
+	}
+	
+	// Image upload handler
+	const imageUpload = document.getElementById('image-upload');
+	const uploadStatus = document.getElementById('upload-status');
+	
+	if (imageUpload) {
+		imageUpload.addEventListener('change', async function(e) {
+			const file = e.target.files[0];
+			if (!file) return;
+			
+			uploadStatus.textContent = 'Uploading...';
+			uploadStatus.classList.remove('hidden');
+			
+			const formData = new FormData();
+			formData.append('image', file);
+			
+			try {
+				const response = await fetch('/custom-shirt/upload-image', {
+					method: 'POST',
+					body: formData
+				});
+				
+				const data = await response.json();
+				
+				if (data.success) {
+					currentDesignUrl = data.design_url;
+					currentMockupUrl = data.mockup_url || data.design_url;
+					document.getElementById('design-url-input').value = currentDesignUrl;
+					document.getElementById('add-to-cart-btn').disabled = false;
+					document.getElementById('buy-now-btn').disabled = false;
+					uploadStatus.textContent = '✓ Image uploaded successfully!';
+					uploadStatus.classList.remove('text-gray-400');
+					uploadStatus.classList.add('text-green-400');
+					updateMockup();
+				} else {
+					uploadStatus.textContent = '✗ ' + (data.error || 'Upload failed');
+					uploadStatus.classList.remove('text-gray-400');
+					uploadStatus.classList.add('text-red-400');
+				}
+			} catch (error) {
+				uploadStatus.textContent = '✗ Upload failed. Please try again.';
+				uploadStatus.classList.remove('text-gray-400');
+				uploadStatus.classList.add('text-red-400');
+			}
+		});
+	}
+	
+	// AI generation handler
+	const aiGenerate = document.getElementById('ai-generate');
+	const aiPrompt = document.getElementById('ai-prompt');
+	const aiMsg = document.getElementById('ai-msg');
+	const generationCountEl = document.getElementById('generation-count');
+	
+	if (aiGenerate) {
+		aiGenerate.addEventListener('click', async function(e) {
+			e.preventDefault();
+			const prompt = (aiPrompt?.value || '').trim();
+			if (!prompt) {
+				aiMsg.textContent = 'Enter a prompt';
+				return;
+			}
+			
+			if (generationCount >= maxGenerations) {
+				aiMsg.textContent = 'Maximum generations reached. Refresh the page to reset.';
+				return;
+			}
+			
+			aiGenerate.disabled = true;
+			aiMsg.textContent = 'Generating...';
+			
+			try {
+				const response = await fetch('/custom-shirt/generate-image', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ prompt })
+				});
+				
+				const data = await response.json();
+				
+				if (data.success) {
+					currentDesignUrl = data.design_url;
+					currentMockupUrl = data.mockup_url || data.design_url;
+					document.getElementById('design-url-input').value = currentDesignUrl;
+					document.getElementById('add-to-cart-btn').disabled = false;
+					document.getElementById('buy-now-btn').disabled = false;
+					generationCount = maxGenerations - data.generations_remaining;
+					aiMsg.textContent = '✓ Image generated!';
+					aiMsg.classList.remove('text-gray-400');
+					aiMsg.classList.add('text-green-400');
+					if (generationCountEl) {
+						generationCountEl.textContent = `Generations remaining: ${data.generations_remaining} / ${maxGenerations}`;
+						if (data.generations_remaining === 0) {
+							generationCountEl.innerHTML = `<span class="text-yellow-400">⚠️ You've used all ${maxGenerations} generations. Refresh the page to reset.</span>`;
+							aiGenerate.disabled = true;
+						}
+					}
+					updateMockup();
+				} else {
+					aiMsg.textContent = '✗ ' + (data.error || 'Generation failed');
+					aiMsg.classList.remove('text-gray-400');
+					aiMsg.classList.add('text-red-400');
+				}
+			} catch (error) {
+				aiMsg.textContent = '✗ Generation failed. Please try again.';
+				aiMsg.classList.remove('text-gray-400');
+				aiMsg.classList.add('text-red-400');
+			} finally {
+				aiGenerate.disabled = false;
+			}
+		});
+	}
+	
+	// Buy Now button handler
+	const buyNowBtn = document.getElementById('buy-now-btn');
+	const buyNowFlag = document.getElementById('buy-now-flag');
+	if (buyNowBtn && buyNowFlag) {
+		buyNowBtn.addEventListener('click', () => {
+			buyNowFlag.value = '1';
+		});
+	}
+	
+	// Form submit handler - GA4 and Bing Ads tracking
+	const addForm = document.getElementById('add-form');
+	if (addForm) {
+		addForm.addEventListener('submit', function() {
+			if (!currentDesignUrl) {
+				alert('Please upload or generate an image first');
+				return false;
+			}
+			
+			// GA4 tracking
+			try {
+				const qty = parseInt(document.querySelector('input[name="quantity"]')?.value || '1', 10) || 1;
+				const size = document.getElementById('size-select').value;
+				const color = document.getElementById('color-select').value;
+				const price = 19.99;
+				
+				if (typeof gtag === 'function') {
+					gtag('event', 'add_to_cart', {
+						currency: 'USD',
+						value: price * qty,
+						items: [{
+							item_id: 'custom_shirt',
+							item_name: 'Custom T-Shirt',
+							item_brand: 'Dumbshirts.store',
+							item_category: 't-shirt',
+							item_variant: size + ' / ' + (color.charAt(0).toUpperCase() + color.slice(1)) + ' / Crewneck',
+							price: price,
+							quantity: qty
+						}]
+					});
+				}
+				
+				// Bing Ads UET
+				if (typeof window !== 'undefined' && window.uetq) {
+					window.uetq = window.uetq || [];
+					window.uetq.push('event', 'add_to_cart', {});
+				}
+			} catch(e) {}
+		});
+	}
+	
+	// Initialize mockup
+	updateMockup();
+})();
+</script>
+{% endblock %}
+

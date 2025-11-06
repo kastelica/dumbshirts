@@ -1,4 +1,5 @@
-from flask import render_template, current_app, request, abort, session, Response, jsonify
+from flask import render_template, current_app, request, abort, session, Response, jsonify, redirect, url_for
+from werkzeug.utils import secure_filename
 import os
 import json
 import hashlib
@@ -305,6 +306,199 @@ def search():
 			or_(*conditions)
 		).order_by(Product.created_at.desc()).all()
 	return render_template("search.html", q=q, results=results, trend_bubbles=trend_bubbles)
+
+
+@main_bp.get("/personalized-t-shirt-printing-design-your-own-custom-photo-shirt")
+def custom_shirt():
+	"""Custom shirt design page where users can upload or generate their own design."""
+	# Track OpenAI generations in session (limit to 2)
+	generation_count = session.get("custom_shirt_generations", 0)
+	return render_template("custom_shirt.html", generation_count=generation_count, max_generations=2)
+
+
+@main_bp.post("/custom-shirt/upload-image")
+def custom_shirt_upload():
+	"""Upload a custom image for custom shirt design."""
+	from io import BytesIO
+	from PIL import Image
+	import cloudinary.uploader as cu
+	
+	if "image" not in request.files:
+		return jsonify({"error": "No image file provided"}), 400
+	
+	file = request.files["image"]
+	if file.filename == "":
+		return jsonify({"error": "No file selected"}), 400
+	
+	try:
+		# Read and validate image
+		file_bytes = file.read()
+		if len(file_bytes) == 0:
+			return jsonify({"error": "Empty file"}), 400
+		
+		# Validate it's an image
+		img = Image.open(BytesIO(file_bytes))
+		img.verify()
+		
+		# Reopen for processing (verify closes the file)
+		img = Image.open(BytesIO(file_bytes))
+		img = img.convert("RGBA")
+		
+		# Save to BytesIO
+		buf = BytesIO()
+		img.save(buf, format="PNG")
+		img_bytes = buf.getvalue()
+		
+		# Upload to Cloudinary
+		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		if cloud_url:
+			import time
+			public_id = f"custom_shirt_{int(time.time())}_{hashlib.md5(img_bytes[:1000]).hexdigest()[:8]}"
+			res = cu.upload(img_bytes, folder="custom_shirts", public_id=public_id, overwrite=True, resource_type="image")
+			design_url = res.get("secure_url") or res.get("url")
+			
+			# Generate mockup
+			from ..admin import _compose_design_on_blank_tee
+			mockup_bytes = _compose_design_on_blank_tee(img_bytes)
+			if mockup_bytes:
+				mockup_public_id = f"{public_id}_mockup"
+				mockup_res = cu.upload(mockup_bytes, folder="custom_shirts", public_id=mockup_public_id, overwrite=True, resource_type="image")
+				mockup_url = mockup_res.get("secure_url") or mockup_res.get("url")
+			else:
+				mockup_url = design_url
+			
+			return jsonify({
+				"success": True,
+				"design_url": design_url,
+				"mockup_url": mockup_url
+			})
+		else:
+			return jsonify({"error": "Cloudinary not configured"}), 500
+	except Exception as e:
+		current_app.logger.error(f"Custom shirt upload error: {e}")
+		return jsonify({"error": str(e)}), 500
+
+
+@main_bp.post("/custom-shirt/generate-image")
+def custom_shirt_generate():
+	"""Generate an image using OpenAI for custom shirt design."""
+	from base64 import b64decode
+	import time
+	import cloudinary.uploader as cu
+	from ..admin import _remove_bg_hf, _compose_design_on_blank_tee
+	
+	prompt = (request.json or {}).get("prompt", "").strip()
+	if not prompt:
+		return jsonify({"error": "Missing prompt"}), 400
+	
+	# Check generation limit (2 per session)
+	generation_count = session.get("custom_shirt_generations", 0)
+	if generation_count >= 2:
+		return jsonify({"error": "Maximum 2 generations per session. Please refresh the page to reset."}), 400
+	
+	api_key = current_app.config.get("OPENAI_API_KEY", "")
+	if not api_key:
+		return jsonify({"error": "Image generation is currently unavailable"}), 500
+	
+	try:
+		import os
+		os.environ["OPENAI_API_KEY"] = api_key
+		from openai import OpenAI
+		client = OpenAI().with_options(timeout=60.0)
+		
+		# Generate image
+		res = client.images.generate(model="gpt-image-1-mini", prompt=prompt, size="1024x1024")
+		b64 = res.data[0].b64_json
+		img_bytes = b64decode(b64)
+		
+		# Try background removal
+		img_for_mockup = img_bytes
+		try:
+			clean_bytes = _remove_bg_hf(img_bytes)
+			if clean_bytes:
+				img_for_mockup = clean_bytes
+		except Exception:
+			pass
+		
+		# Upload to Cloudinary
+		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		if cloud_url:
+			public_id = f"custom_shirt_ai_{int(time.time())}_{hashlib.md5(img_bytes[:1000]).hexdigest()[:8]}"
+			design_res = cu.upload(img_bytes, folder="custom_shirts", public_id=public_id, overwrite=True, resource_type="image")
+			design_url = design_res.get("secure_url") or design_res.get("url")
+			
+			# Generate mockup
+			mockup_bytes = _compose_design_on_blank_tee(img_for_mockup)
+			if mockup_bytes:
+				mockup_public_id = f"{public_id}_mockup"
+				mockup_res = cu.upload(mockup_bytes, folder="custom_shirts", public_id=mockup_public_id, overwrite=True, resource_type="image")
+				mockup_url = mockup_res.get("secure_url") or mockup_res.get("url")
+			else:
+				mockup_url = design_url
+			
+			# Increment generation count
+			session["custom_shirt_generations"] = generation_count + 1
+			session.modified = True
+			
+			return jsonify({
+				"success": True,
+				"design_url": design_url,
+				"mockup_url": mockup_url,
+				"generations_remaining": max(0, 2 - (generation_count + 1))
+			})
+		else:
+			return jsonify({"error": "Cloudinary not configured"}), 500
+	except Exception as e:
+		current_app.logger.error(f"Custom shirt generation error: {e}")
+		return jsonify({"error": str(e)}), 500
+
+
+@main_bp.post("/custom-shirt/add-to-cart")
+def custom_shirt_add_to_cart():
+	"""Add custom shirt to cart."""
+	design_url = request.form.get("design_url", "").strip()
+	color = request.form.get("color", "white").strip()
+	size = request.form.get("size", "L").strip()
+	qty = int(request.form.get("quantity", "1"))
+	buy_now = request.form.get("buy_now") == "1"
+	
+	if not design_url:
+		return redirect(request.referrer or url_for("main.custom_shirt"))
+	
+	# Fixed price: $19.99
+	price = 19.99
+	currency = "USD"
+	
+	cart = session.get("cart", {"items": []})
+	if not cart.get("items"):
+		cart["items"] = []
+	
+	# Create custom cart item
+	cart_item = {
+		"is_custom": True,
+		"title": "Custom T-Shirt",
+		"design_url": design_url,
+		"orig_price": price,
+		"price": price,
+		"currency": currency,
+		"quantity": qty,
+		"color": color,
+		"size": size,
+		"image": design_url,
+	}
+	
+	cart["items"].append(cart_item)
+	session["cart"] = cart
+	session.modified = True
+	
+	# GA4 tracking
+	try:
+		if hasattr(request, "gtag") or True:  # Always try if gtag is available
+			pass  # Will be handled in template
+	except:
+		pass
+	
+	return redirect(url_for("main.checkout") if buy_now else url_for("cart.view_cart"))
 
 
 @main_bp.get("/product/<slug>")

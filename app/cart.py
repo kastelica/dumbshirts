@@ -96,17 +96,39 @@ def add_to_cart():
 
 @cart_bp.post("/cart/update")
 def update_cart():
-	variant_id = int(request.form.get("variant_id", "0"))
+	variant_id = request.form.get("variant_id", "0")
+	custom_index = request.form.get("custom_index", "")
 	qty = max(0, int(request.form.get("quantity", "1")))
 	cart = _get_cart()
 	new_items = []
-	for it in cart["items"]:
-		if it["variant_id"] == variant_id:
-			if qty > 0:
-				it["quantity"] = qty
-				new_items.append(it)
-		else:
-			new_items.append(it)
+	
+	# Handle custom items by index
+	if custom_index:
+		try:
+			idx = int(custom_index)
+			for i, it in enumerate(cart["items"]):
+				if i == idx and it.get("is_custom"):
+					if qty > 0:
+						it["quantity"] = qty
+						new_items.append(it)
+				else:
+					new_items.append(it)
+		except (ValueError, IndexError):
+			pass
+	else:
+		# Handle regular items by variant_id
+		try:
+			variant_id_int = int(variant_id)
+			for it in cart["items"]:
+				if it.get("variant_id") == variant_id_int and not it.get("is_custom"):
+					if qty > 0:
+						it["quantity"] = qty
+						new_items.append(it)
+				else:
+					new_items.append(it)
+		except (ValueError, TypeError):
+			pass
+	
 	cart["items"] = new_items
 	_save_cart(cart)
 	return redirect(url_for("cart.view_cart"))
@@ -114,9 +136,25 @@ def update_cart():
 
 @cart_bp.post("/cart/remove")
 def remove_from_cart():
-	variant_id = int(request.form.get("variant_id", "0"))
+	variant_id = request.form.get("variant_id", "0")
+	custom_index = request.form.get("custom_index", "")
 	cart = _get_cart()
-	cart["items"] = [it for it in cart["items"] if it["variant_id"] != variant_id]
+	
+	# Handle custom items by index
+	if custom_index:
+		try:
+			idx = int(custom_index)
+			cart["items"] = [it for i, it in enumerate(cart["items"]) if not (i == idx and it.get("is_custom"))]
+		except (ValueError, IndexError):
+			pass
+	else:
+		# Handle regular items by variant_id
+		try:
+			variant_id_int = int(variant_id)
+			cart["items"] = [it for it in cart["items"] if not (it.get("variant_id") == variant_id_int and not it.get("is_custom"))]
+		except (ValueError, TypeError):
+			pass
+	
 	_save_cart(cart)
 	return redirect(url_for("cart.view_cart"))
 

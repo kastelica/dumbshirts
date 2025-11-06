@@ -25,7 +25,11 @@
 				{% endif %}
 			</div>
 			<div class="flex-1">
-				<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium">{{ it.title }}</a>
+				{% if it.is_custom %}
+					<span class="font-medium">{{ it.title }}</span>
+				{% else %}
+					<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium">{{ it.title }}</a>
+				{% endif %}
 				{% if it.color %}
 				<div class="text-xs text-gray-400 mt-0.5">Color: {{ it.color }}</div>
 				{% endif %}
@@ -35,12 +39,20 @@
 				<div class="text-gray-300 mt-1"><span class="line-through text-gray-500">${{ '%.2f'|format(it.orig_price or it.price) }}</span> <span class="ml-1">${{ '%.2f'|format(it.price) }} {{ it.currency }}</span></div>
 				<div class="mt-2 flex items-center gap-2">
 					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
-						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
 						<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
 						<button class="bg-gray-800 text-gray-200 px-3 py-1 rounded border border-gray-700 hover:bg-gray-700">Update</button>
 					</form>
 					<form method="post" action="/cart/remove" class="inline">
-						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
 						<button class="underline text-gray-300">Remove</button>
 					</form>
 				</div>
@@ -88,7 +100,11 @@
 			{% for it in cart['items'] %}
 			<tr class="border-t border-gray-800">
 				<td class="py-2">
-					<a class="flex items-center gap-3" href="{{ url_for('main.product_detail', slug=it.slug) }}">
+					{% if it.is_custom %}
+						<div class="flex items-center gap-3">
+					{% else %}
+						<a class="flex items-center gap-3" href="{{ url_for('main.product_detail', slug=it.slug) }}">
+					{% endif %}
 						<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
 							{% set color_key = (it.color or 'white')|lower %}
 							{% set base_map = {
@@ -114,11 +130,19 @@
 							<div class="text-xs text-gray-400">Size: {{ it.size }}</div>
 							{% endif %}
 						</span>
-					</a>
+					{% if it.is_custom %}
+						</div>
+					{% else %}
+						</a>
+					{% endif %}
 				</td>
 				<td class="py-2">
 					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
-						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
 						<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
 						<button class="bg-gray-800 text-gray-200 px-3 py-1 rounded border border-gray-700 hover:bg-gray-700">Update</button>
 					</form>
@@ -126,7 +150,11 @@
 			<td class="py-2"><span class="line-through text-gray-500">${{ '%.2f'|format(it.orig_price or it.price) }}</span> <span class="ml-1">${{ '%.2f'|format(it.price) }} {{ it.currency }}</span></td>
 				<td class="py-2">
 					<form method="post" action="/cart/remove" class="inline">
-						<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
 						<button class="underline text-gray-300">Remove</button>
 					</form>
 				</td>
