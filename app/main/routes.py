@@ -381,6 +381,15 @@ def custom_shirt_upload():
 		return jsonify({"error": str(e)}), 500
 
 
+def _get_custom_shirt_jobs():
+	"""Return (jobs_dict, lock). Initializes if missing."""
+	if "CUSTOM_SHIRT_JOBS" not in current_app.config:
+		current_app.config["CUSTOM_SHIRT_JOBS"] = {}
+	if "CUSTOM_SHIRT_LOCK" not in current_app.config:
+		current_app.config["CUSTOM_SHIRT_LOCK"] = threading.Lock()
+	return current_app.config["CUSTOM_SHIRT_JOBS"], current_app.config["CUSTOM_SHIRT_LOCK"]
+
+
 @main_bp.post("/custom-shirt/generate-image")
 def custom_shirt_generate():
 	"""Generate an image using OpenAI for custom shirt design (runs in background to avoid timeout)."""
@@ -400,11 +409,10 @@ def custom_shirt_generate():
 	# Create unique job ID for this generation
 	job_id = f"custom_{int(time.time())}_{hashlib.md5((prompt + str(time.time())).encode()).hexdigest()[:8]}"
 	
-	# Initialize job status in session
-	if "custom_shirt_jobs" not in session:
-		session["custom_shirt_jobs"] = {}
-	session["custom_shirt_jobs"][job_id] = {"status": "processing", "error": None}
-	session.modified = True
+	# Initialize job status in memory cache (thread-safe)
+	jobs, lock = _get_custom_shirt_jobs()
+	with lock:
+		jobs[job_id] = {"status": "processing", "error": None}
 	
 	# Run in background thread to avoid 30s Heroku router timeout
 	def _worker(app_ctx, job_id_inner: str, prompt_inner: str, gen_count: int):
@@ -470,15 +478,17 @@ def custom_shirt_generate():
 						mockup_url = design_url
 						current_app.logger.warning("[custom-shirt] Mockup composition returned None, using design URL")
 					
-					# Update session with result
-					if "custom_shirt_jobs" not in session:
-						session["custom_shirt_jobs"] = {}
-					session["custom_shirt_jobs"][job_id_inner] = {
-						"status": "ready",
-						"design_url": design_url,
-						"mockup_url": mockup_url,
-						"generations_remaining": max(0, 2 - (gen_count + 1))
-					}
+					# Update in-memory cache with result (thread-safe)
+					jobs, lock = _get_custom_shirt_jobs()
+					with lock:
+						jobs[job_id_inner] = {
+							"status": "ready",
+							"design_url": design_url,
+							"mockup_url": mockup_url,
+							"generations_remaining": max(0, 2 - (gen_count + 1))
+						}
+					
+					# Update session for generation count (this is safe as it's just a counter)
 					session["custom_shirt_generations"] = gen_count + 1
 					session.modified = True
 					current_app.logger.info(f"[custom-shirt] Generation completed for job {job_id_inner}")
@@ -486,13 +496,14 @@ def custom_shirt_generate():
 					raise Exception("Cloudinary not configured")
 			except Exception as e_all:
 				current_app.logger.error(f"[custom-shirt] Generation failed for job {job_id_inner}: {e_all}")
-				if "custom_shirt_jobs" not in session:
-					session["custom_shirt_jobs"] = {}
-				session["custom_shirt_jobs"][job_id_inner] = {
-					"status": "error",
-					"error": str(e_all)
-				}
-				session.modified = True
+				import traceback
+				current_app.logger.error(f"[custom-shirt] Traceback: {traceback.format_exc()}")
+				jobs, lock = _get_custom_shirt_jobs()
+				with lock:
+					jobs[job_id_inner] = {
+						"status": "error",
+						"error": str(e_all)
+					}
 	
 	thr = threading.Thread(target=_worker, args=(current_app.app_context(), job_id, prompt, generation_count), daemon=True)
 	thr.start()
@@ -506,7 +517,10 @@ def custom_shirt_generate_status():
 	if not job_id:
 		return jsonify({"error": "Missing job_id"}), 400
 	
-	job_data = session.get("custom_shirt_jobs", {}).get(job_id, {})
+	# Read from in-memory cache (thread-safe)
+	jobs, lock = _get_custom_shirt_jobs()
+	with lock:
+		job_data = jobs.get(job_id, {})
 	
 	if job_data.get("status") == "ready":
 		return jsonify({
