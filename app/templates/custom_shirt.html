@@ -22,13 +22,13 @@
 			<div class="relative js-gallery">
 				<div class="relative aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
 					{# Live mockup container: base tee by color + design overlay #}
-					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none hidden">
+					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none">
 						<img id="mockup-base" src="/static/uploads/whitetshirt.png" alt="Tee base" class="w-full h-full object-contain" />
 						<img id="mockup-design" alt="Design overlay" class="absolute object-contain hidden" style="width:35%; left:32%; top: 26%;" />
 					</div>
 					{# Design-only view (hidden by default) #}
 					<img id="design-only-img" src="" alt="Design" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
-					<div id="no-image" class="w-full h-full flex items-center justify-center text-gray-500">
+					<div id="no-image" class="absolute inset-0 z-20 w-full h-full flex items-center justify-center text-gray-500">
 						<div class="text-center">
 							<p class="text-sm">Upload an image or generate one with AI</p>
 						</div>
@@ -196,6 +196,11 @@
 				const acceptedIndicator = document.getElementById('accepted-design-indicator');
 				if (acceptedIndicator) acceptedIndicator.classList.remove('hidden');
 			}, 100);
+		} else {
+			// No accepted design, show blank shirt with text overlay
+			setTimeout(() => {
+				updateMockup();
+			}, 100);
 		}
 	{% else %}
 		// Also check localStorage as fallback
@@ -214,10 +219,24 @@
 						const acceptedIndicator = document.getElementById('accepted-design-indicator');
 						if (acceptedIndicator) acceptedIndicator.classList.remove('hidden');
 					}, 100);
+				} else {
+					// No accepted design in localStorage, show blank shirt with text overlay
+					setTimeout(() => {
+						updateMockup();
+					}, 100);
 				}
 			} catch (e) {
 				console.error('Failed to parse stored accepted design:', e);
+				// On error, show blank shirt with text overlay
+				setTimeout(() => {
+					updateMockup();
+				}, 100);
 			}
+		} else {
+			// No stored design, show blank shirt with text overlay
+			setTimeout(() => {
+				updateMockup();
+			}, 100);
 		}
 	{% endif %}
 	
@@ -312,10 +331,12 @@
 			mockupBase.src = baseColors[color] || baseColors['white'];
 		}
 		
-		// If no design, hide mockup and show no-image message
+		// If no design, show blank shirt with text overlay on top
 		if (!currentDesignUrl || !gallery || !mockupWrap || !mockupDesign) {
+			// Show the blank shirt (mockup-wrap) so user can see the canvas
+			if (mockupWrap) mockupWrap.classList.remove('hidden');
+			// Show the text message on top of the blank shirt
 			if (noImage) noImage.classList.remove('hidden');
-			if (mockupWrap) mockupWrap.classList.add('hidden');
 			// Ensure design overlay is hidden when no design
 			if (mockupDesign) {
 				mockupDesign.classList.add('hidden');
