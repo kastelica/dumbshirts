@@ -118,17 +118,19 @@
 				<input type="text" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search products" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100 placeholder-gray-500">
 				<button class="bg-white text-black px-4 py-2 rounded">Search</button>
 			</form>
-			<div class="mt-2 flex flex-wrap items-center gap-2">
-				<span class="text-xs text-gray-500 mr-1">Trending:</span>
-				<a href="/search?q=cats" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Cats</a>
-				<a href="/search?q=dogs" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Dogs</a>
-				<a href="/search?q=funny" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Funny</a>
-				<a href="/search?q=meme" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Meme</a>
-				<a href="/search?q=sarcastic" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Sarcastic</a>
-				<a href="/search?q=pun" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Pun</a>
-				<a href="/search?q=dad+joke" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Dad Joke</a>
-				<a href="/search?q=christmas" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Christmas</a>
-				<a href="/search?q=weird" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors">Weird</a>
+			<div class="mt-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+				<div class="flex items-center gap-2 md:flex-wrap whitespace-nowrap">
+					<span class="text-xs text-gray-500 mr-1 flex-shrink-0">Trending:</span>
+					<a href="/search?q=67" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Cats</a>
+					<a href="/search?q=meowl" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Dogs</a>
+					<a href="/search?q=funny" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Funny</a>
+					<a href="/search?q=meme" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Meme</a>
+					<a href="/search?q=sarcastic" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Sarcastic</a>
+					<a href="/search?q=pun" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Pun</a>
+					<a href="/search?q=dad+joke" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Dad Joke</a>
+					<a href="/search?q=christmas" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Christmas</a>
+					<a href="/search?q=weird" class="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-1.5 rounded transition-colors flex-shrink-0">Weird</a>
+				</div>
 			</div>
 		</div>
 	</header>

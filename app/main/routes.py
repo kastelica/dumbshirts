@@ -268,9 +268,41 @@ def search():
 	# Recent approved trends for bubbles
 	trend_bubbles = Trend.query.filter_by(status="approved").order_by(Trend.created_at.desc()).limit(10).all()
 	if q:
-		like = f"%{q}%"
+		# Split query into words for fuzzy matching
+		query_words = q.lower().split()
+		
+		# Build a filter that matches if ANY word from the query appears in title or description
+		from sqlalchemy import or_
+		conditions = []
+		
+		for word in query_words:
+			# Match word as substring (handles plurals: "cats" will match "cat" in "nyan cat")
+			word_pattern = f"%{word}%"
+			conditions.append(Product.title.ilike(word_pattern))
+			conditions.append(Product.description.ilike(word_pattern))
+			
+			# Also try singular/plural variations for better matching
+			# If word ends with 's', try without it (cats -> cat)
+			if word.endswith('s') and len(word) > 1:
+				singular_word = word[:-1]
+				singular_pattern = f"%{singular_word}%"
+				conditions.append(Product.title.ilike(singular_pattern))
+				conditions.append(Product.description.ilike(singular_pattern))
+			# If word doesn't end with 's', try with 's' (cat -> cats)
+			elif not word.endswith('s'):
+				plural_word = f"{word}s"
+				plural_pattern = f"%{plural_word}%"
+				conditions.append(Product.title.ilike(plural_pattern))
+				conditions.append(Product.description.ilike(plural_pattern))
+		
+		# Combine all conditions with OR (matches if any word matches)
+		# Also include the full query as a substring match for exact phrase matching
+		full_query_pattern = f"%{q}%"
+		conditions.append(Product.title.ilike(full_query_pattern))
+		conditions.append(Product.description.ilike(full_query_pattern))
+		
 		results = Product.query.filter(Product.status == "active").filter(
-			(Product.title.ilike(like)) | (Product.description.ilike(like))
+			or_(*conditions)
 		).order_by(Product.created_at.desc()).all()
 	return render_template("search.html", q=q, results=results, trend_bubbles=trend_bubbles)
 
