@@ -315,7 +315,12 @@ def custom_shirt():
 	"""Custom shirt design page where users can upload or generate their own design."""
 	# Track OpenAI generations in session (limit to 2)
 	generation_count = session.get("custom_shirt_generations", 0)
-	return render_template("custom_shirt.html", generation_count=generation_count, max_generations=2)
+	# Check for accepted design in session
+	accepted_design = session.get("custom_shirt_accepted", {})
+	return render_template("custom_shirt.html", 
+		generation_count=generation_count, 
+		max_generations=2,
+		accepted_design=accepted_design)
 
 
 @main_bp.post("/custom-shirt/upload-image")
@@ -567,6 +572,33 @@ def custom_shirt_generate_status():
 		}), 500
 	else:
 		return jsonify({"ready": False})
+
+
+@main_bp.post("/custom-shirt/accept-design")
+def custom_shirt_accept_design():
+	"""Accept and persist a design so it persists across page refreshes."""
+	design_url = (request.json or {}).get("design_url", "").strip()
+	mockup_url = (request.json or {}).get("mockup_url", "").strip()
+	
+	if not design_url:
+		return jsonify({"error": "Missing design_url"}), 400
+	
+	# Store in session for persistence
+	session["custom_shirt_accepted"] = {
+		"design_url": design_url,
+		"mockup_url": mockup_url or design_url,
+		"accepted_at": time.time()
+	}
+	session.modified = True
+	
+	return jsonify({"success": True, "message": "Design accepted"})
+
+@main_bp.post("/custom-shirt/clear-accepted")
+def custom_shirt_clear_accepted():
+	"""Clear the accepted design."""
+	session.pop("custom_shirt_accepted", None)
+	session.modified = True
+	return jsonify({"success": True})
 
 
 @main_bp.post("/custom-shirt/add-to-cart")
