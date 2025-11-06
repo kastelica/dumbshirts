@@ -138,16 +138,23 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 
 	Uses the transformers pipeline approach for reliable background removal.
 	Returns processed bytes on success, otherwise None. Non-fatal on failure.
+	
+	Note: Requires 'transformers' package. If not available, returns None gracefully.
 	"""
 	try:
-		# Use the working pipeline approach instead of API calls
-		from transformers import pipeline
+		# Check if transformers is available
+		try:
+			from transformers import pipeline
+		except ImportError:
+			current_app.logger.debug("[bg-remove] transformers module not available, skipping background removal")
+			return None
+		
 		from PIL import Image
 		from io import BytesIO
 		
 		current_app.logger.info("[bg-remove] Loading HF pipeline...")
 		
-		# Load the pipeline
+		# Load the pipeline (this can take time on first load)
 		pipe = pipeline("image-segmentation", model="briaai/RMBG-1.4", trust_remote_code=True)
 		
 		current_app.logger.info("[bg-remove] Pipeline loaded, processing image...")
@@ -169,6 +176,10 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 		current_app.logger.info(f"[bg-remove] Successfully removed background via HF pipeline, output size: {len(result_bytes)} bytes")
 		return result_bytes
 		
+	except ImportError as import_err:
+		# Specifically handle missing transformers module gracefully
+		current_app.logger.debug(f"[bg-remove] transformers module not installed: {import_err}")
+		return None
 	except Exception as _e:
 		current_app.logger.warning(f"[bg-remove] HF pipeline failed: {_e}")
 		import traceback

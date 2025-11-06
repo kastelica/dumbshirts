@@ -429,21 +429,48 @@ def custom_shirt_generate():
 				
 				current_app.logger.info(f"[custom-shirt] Starting generation for job {job_id_inner}")
 				
+				# Enhance prompt to always request transparent background
+				enhanced_prompt = prompt_inner
+				transparent_keywords = ["transparent background", "transparent bg", "no background", "transparent", "on transparent"]
+				has_transparent = any(kw.lower() in enhanced_prompt.lower() for kw in transparent_keywords)
+				if not has_transparent:
+					enhanced_prompt = f"{enhanced_prompt}. Output on transparent background, no white background."
+					current_app.logger.info("[custom-shirt] Enhanced prompt with transparent background instruction")
+				
 				# Generate image
-				res = client.images.generate(model="gpt-image-1-mini", prompt=prompt_inner, size="1024x1024")
+				res = client.images.generate(model="gpt-image-1-mini", prompt=enhanced_prompt, size="1024x1024")
 				b64 = res.data[0].b64_json
 				img_bytes = b64decode(b64)
 				current_app.logger.info(f"[custom-shirt] OpenAI image generated, size: {len(img_bytes)} bytes")
 				
-				# Try background removal
+				# Try background removal with timeout protection
 				img_for_mockup = img_bytes
 				try:
 					current_app.logger.info("[custom-shirt] Attempting background removal")
-					clean_bytes = _remove_bg_hf(img_bytes)
-					if clean_bytes:
-						img_for_mockup = clean_bytes
+					# Use threading with timeout to prevent hanging
+					import threading as _threading
+					clean_result = [None]
+					clean_exception = [None]
+					
+					def _bg_remove_worker():
+						try:
+							clean_result[0] = _remove_bg_hf(img_bytes)
+						except Exception as e:
+							clean_exception[0] = e
+					
+					bg_thread = _threading.Thread(target=_bg_remove_worker, daemon=True)
+					bg_thread.start()
+					bg_thread.join(timeout=30)  # 30 second timeout
+					
+					if bg_thread.is_alive():
+						current_app.logger.warning("[custom-shirt] Background removal timed out after 30s, continuing with original")
+					elif clean_exception[0]:
+						current_app.logger.warning(f"[custom-shirt] Background removal exception: {clean_exception[0]}")
+					elif clean_result[0]:
+						img_for_mockup = clean_result[0]
 						current_app.logger.info("[custom-shirt] Background removal successful")
 					else:
+						current_app.logger.info("[custom-shirt] Background removal returned None, trying RGBA conversion")
 						# Try RGBA conversion for better mockup
 						try:
 							from PIL import Image
@@ -457,6 +484,8 @@ def custom_shirt_generate():
 							pass
 				except Exception as bg_err:
 					current_app.logger.warning(f"[custom-shirt] Background removal failed: {bg_err}")
+					import traceback
+					current_app.logger.warning(f"[custom-shirt] Traceback: {traceback.format_exc()}")
 				
 				# Upload to Cloudinary
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
