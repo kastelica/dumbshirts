@@ -168,7 +168,7 @@ def google_feed():
 			"price": f"{p.price}",
 			"sale_price": f"{sale}",
 			"cost_of_goods_sold": "8.64",
-			"auto_pricing_min_price": "18.99",
+			"auto_pricing_min_price": "15.99",
 			"availability": "in stock",
 			"image": main_image,
 			"additional_images": add_imgs,

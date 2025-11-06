@@ -76,7 +76,7 @@
 					</div>
 					<div id="generation-count" class="text-xs text-gray-500">
 						{% if generation_count >= max_generations %}
-							<span class="text-yellow-400">⚠️ You've used all {{ max_generations }} generations. Refresh the page to reset.</span>
+							<span class="text-yellow-400">⚠️ You've used your {{ max_generations }} free generations.</span>
 						{% else %}
 							Generations remaining: {{ max_generations - generation_count }} / {{ max_generations }}
 						{% endif %}
