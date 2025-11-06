@@ -24,7 +24,7 @@
 					{# Live mockup container: base tee by color + design overlay #}
 					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none hidden">
 						<img id="mockup-base" src="/static/uploads/whitetshirt.png" alt="Tee base" class="w-full h-full object-contain" />
-						<img id="mockup-design" src="" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
+						<img id="mockup-design" alt="Design overlay" class="absolute object-contain hidden" style="width:35%; left:32%; top: 26%;" />
 					</div>
 					{# Design-only view (hidden by default) #}
 					<img id="design-only-img" src="" alt="Design" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
@@ -248,9 +248,10 @@
 			};
 			mockupBase.src = baseColors[color] || baseColors['white'];
 		}
-		// Design overlay starts empty (no src attribute) until design is uploaded/generated
+		// Design overlay starts hidden (no src attribute) until design is uploaded/generated
 		if (mockupDesign) {
-			mockupDesign.src = '';
+			mockupDesign.classList.add('hidden');
+			mockupDesign.removeAttribute('src');
 		}
 	}
 	
@@ -311,27 +312,39 @@
 			mockupBase.src = baseColors[color] || baseColors['white'];
 		}
 		
+		// If no design, hide mockup and show no-image message
 		if (!currentDesignUrl || !gallery || !mockupWrap || !mockupDesign) {
 			if (noImage) noImage.classList.remove('hidden');
 			if (mockupWrap) mockupWrap.classList.add('hidden');
+			// Ensure design overlay is hidden when no design
+			if (mockupDesign) {
+				mockupDesign.classList.add('hidden');
+				mockupDesign.removeAttribute('src');
+			}
 			return;
 		}
 		
-		// Hide no-image message
+		// Hide no-image message when we have a design
 		if (noImage) noImage.classList.add('hidden');
 		
 		// Update design overlay with error handling
 		if (mockupDesign) {
 			mockupDesign.onerror = function() {
 				this.onerror = null;
+				this.classList.add('hidden');
 				// If design fails to load, show no-image message
 				if (noImage) noImage.classList.remove('hidden');
-				mockupWrap.classList.add('hidden');
+				if (mockupWrap) mockupWrap.classList.add('hidden');
+			};
+			mockupDesign.onload = function() {
+				// Show design overlay when it successfully loads
+				this.classList.remove('hidden');
 			};
 			mockupDesign.src = currentDesignUrl;
+			mockupDesign.classList.remove('hidden');
 		}
 		
-		// Show mockup
+		// Show mockup only when we have a design
 		if (mockupWrap) mockupWrap.classList.remove('hidden');
 	}
 	
