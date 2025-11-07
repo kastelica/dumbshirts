@@ -1,6 +1,6 @@
 import os
 import click
-from flask import Flask, session
+from flask import Flask, session, render_template
 from .config import get_config
 from .extensions import db, migrate, login_manager
 import cloudinary
@@ -54,6 +54,15 @@ def create_app() -> Flask:
 	@app.context_processor
 	def inject_forms():
 		return {"FORMSPREE_ENDPOINT": app.config.get("FORMSPREE_ENDPOINT", "")}
+
+	# Error handlers
+	@app.errorhandler(404)
+	def not_found_error(error):
+		return render_template('404.html'), 404
+
+	@app.errorhandler(500)
+	def internal_error(error):
+		return render_template('500.html'), 500
 
 	# CLI commands
 	register_commands(app)
