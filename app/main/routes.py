@@ -21,7 +21,7 @@ from ..extensions import db
 @main_bp.get("/")
 def index():
 	page = request.args.get("page", 1, type=int)
-	per_page = 9
+	per_page = 15
 	
 	products_query = Product.query.filter_by(status="active").order_by(Product.created_at.desc())
 	products_pagination = products_query.paginate(
