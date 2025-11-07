@@ -214,8 +214,21 @@ def logout():
 @admin_bp.get("/")
 @login_required
 def dashboard():
-	pending = Design.query.filter_by(approved=False).order_by(Design.created_at.desc()).all()
-	return render_template("admin_dashboard.html", pending=pending)
+	# Get product stats
+	total_products = Product.query.count()
+	active_products = Product.query.filter_by(status="active").count()
+	draft_products = Product.query.filter_by(status="draft").count()
+	
+	# Get recent products (last 20)
+	recent_products = Product.query.order_by(Product.created_at.desc()).limit(20).all()
+	
+	stats = {
+		"total_products": total_products,
+		"active_products": active_products,
+		"draft_products": draft_products,
+	}
+	
+	return render_template("admin_dashboard_new.html", stats=stats, recent_products=recent_products)
 
 
 @admin_bp.get("/trends")
@@ -1961,3 +1974,414 @@ def test_google_jwt_submit():
 			result["message"] = f"Error validating token: {str(e)}"
 	
 	return render_template("admin_test_jwt.html", result=result)
+
+
+# -----------------------------
+# New Dashboard Routes
+# -----------------------------
+
+@admin_bp.post("/image/generate")
+@login_required
+def generate_image():
+	"""Generate an image using OpenAI from a prompt. Returns URL."""
+	data = request.get_json(silent=True) or {}
+	prompt = (data.get("prompt") or "").strip()
+	if not prompt:
+		return jsonify({"error": "Missing prompt"}), 400
+	
+	api_key = current_app.config.get("OPENAI_API_KEY", "")
+	if not api_key:
+		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+	
+	# Run in background
+	def _worker(app_ctx, prm: str):
+		with app_ctx:
+			try:
+				import os as _os
+				_os.environ["OPENAI_API_KEY"] = api_key
+				from openai import OpenAI
+				from base64 import b64decode
+				import time as _time
+				client = OpenAI().with_options(timeout=60.0)
+				
+				# Enhance prompt for transparent background
+				enhanced_prompt = f"{prm}. Output on transparent background, no white background, PNG format."
+				
+				res = client.images.generate(model="gpt-image-1-mini", prompt=enhanced_prompt, size="1024x1024")
+				b64 = res.data[0].b64_json
+				img_bytes = b64decode(b64)
+				
+				# Try background removal
+				try:
+					clean = _remove_bg_hf(img_bytes)
+					if clean:
+						img_bytes = clean
+				except Exception:
+					pass
+				
+				# Upload to Cloudinary or save locally
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					public_id = f"generated_{int(_time.time())}"
+					res_up = cu.upload(img_bytes, folder="products", public_id=public_id, overwrite=True, resource_type="image")
+					final_url = res_up.get("secure_url") or res_up.get("url")
+				else:
+					fname = f"generated_{int(_time.time())}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img_bytes)
+					final_url = f"/static/uploads/{fname}"
+				
+				# Store in cache for retrieval
+				if "GENERATED_IMAGES" not in current_app.config:
+					current_app.config["GENERATED_IMAGES"] = {}
+				current_app.config["GENERATED_IMAGES"][prm] = final_url
+			except Exception as e:
+				current_app.logger.exception(f"[generate-image] Failed: {e}")
+	
+	thr = threading.Thread(target=_worker, args=(current_app.app_context(), prompt), daemon=True)
+	thr.start()
+	
+	# Return immediately - client should poll or we store in cache
+	return jsonify({"ok": True, "started": True})
+
+
+@admin_bp.get("/image/generate-status")
+@login_required
+def generate_image_status():
+	"""Check status of image generation by prompt."""
+	prompt = request.args.get("prompt", "").strip()
+	if not prompt:
+		return jsonify({"error": "Missing prompt"}), 400
+	
+	cache = current_app.config.get("GENERATED_IMAGES", {})
+	url = cache.get(prompt, "")
+	return jsonify({"ready": bool(url), "url": url})
+
+
+@admin_bp.post("/image/upload")
+@login_required
+def upload_image():
+	"""Upload and optionally process an image (remove background)."""
+	image_file = request.files.get("image")
+	if not image_file or not image_file.filename:
+		return jsonify({"error": "No image file provided"}), 400
+	
+	remove_bg = request.form.get("remove_bg") == "1"
+	
+	try:
+		file_bytes = image_file.read()
+		
+		# Remove background if requested
+		if remove_bg:
+			try:
+				clean = _remove_bg_hf(file_bytes)
+				if clean:
+					file_bytes = clean
+			except Exception:
+				pass
+		
+		# Upload to Cloudinary or save locally
+		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		if cloud_url:
+			import cloudinary.uploader as cu
+			import time as _time
+			public_id = f"uploaded_{int(_time.time())}"
+			res_up = cu.upload(file_bytes, folder="products", public_id=public_id, overwrite=True, resource_type="image")
+			final_url = res_up.get("secure_url") or res_up.get("url")
+		else:
+			fname = secure_filename(image_file.filename)
+			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+			os.makedirs(upload_dir, exist_ok=True)
+			path = os.path.join(upload_dir, fname)
+			with open(path, "wb") as f:
+				f.write(file_bytes)
+			final_url = f"/static/uploads/{fname}"
+		
+		return jsonify({"ok": True, "url": final_url})
+	except Exception as e:
+		current_app.logger.exception(f"[upload-image] Failed: {e}")
+		return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.get("/kym/search")
+@login_required
+def kym_search():
+	"""Search Know Your Meme for memes."""
+	query = request.args.get("q", "").strip()
+	if not query:
+		return jsonify({"error": "Missing search query"}), 400
+	
+	try:
+		from scripts.scrape_kym_memes import fetch_html, parse_listing, parse_detail_image, BASE
+		import requests
+		
+		# Search KYM - for now, fetch listing and filter by query
+		url = f"https://knowyourmeme.com/memes?kind=all&sort=views"
+		html = fetch_html(url)
+		entries = parse_listing(html)
+		
+		# Filter by query (simple text match in title)
+		query_lower = query.lower()
+		filtered = [e for e in entries if query_lower in e.get("title", "").lower()][:20]
+		
+		# Fetch images for filtered results
+		results = []
+		for e in filtered:
+			try:
+				dhtml = fetch_html(e["url"])
+				img = parse_detail_image(dhtml)
+			except Exception:
+				img = ""
+			results.append({
+				"title": e.get("title", ""),
+				"slug": e.get("slug", ""),
+				"url": e.get("url", ""),
+				"image": img
+			})
+		
+		return jsonify({"ok": True, "memes": results})
+	except Exception as e:
+		current_app.logger.exception(f"[kym-search] Failed: {e}")
+		return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.post("/kym/import-selected")
+@login_required
+def kym_import_selected():
+	"""Import selected KYM memes as products."""
+	data = request.get_json(silent=True) or {}
+	memes = data.get("memes", [])
+	if not memes:
+		return jsonify({"error": "No memes selected"}), 400
+	
+	created = 0
+	for meme in memes:
+		title = (meme.get("title") or "").strip()
+		image_url = (meme.get("image") or "").strip()
+		
+		if not title or not image_url:
+			continue
+		
+		# Check for duplicates
+		existing = Product.query.filter(Product.title.ilike(f"%{title}%")).first()
+		if existing:
+			continue
+		
+		try:
+			p = _create_product_from_kym_image(title, image_url)
+			db.session.commit()
+			created += 1
+		except Exception as e:
+			current_app.logger.exception(f"[kym-import-selected] Failed for {title}: {e}")
+			db.session.rollback()
+	
+	return jsonify({"ok": True, "created": created})
+
+
+@admin_bp.post("/products/bulk-publish")
+@login_required
+def bulk_publish_products():
+	"""Bulk publish products."""
+	data = request.get_json(silent=True) or {}
+	product_ids = data.get("product_ids", [])
+	if not product_ids:
+		return jsonify({"error": "No product IDs provided"}), 400
+	
+	updated = 0
+	for pid in product_ids:
+		try:
+			p = Product.query.get(int(pid))
+			if p:
+				p.status = "active"
+				updated += 1
+		except Exception:
+			pass
+	
+	db.session.commit()
+	return jsonify({"ok": True, "updated": updated})
+
+
+@admin_bp.post("/products/bulk-unpublish")
+@login_required
+def bulk_unpublish_products():
+	"""Bulk unpublish products."""
+	data = request.get_json(silent=True) or {}
+	product_ids = data.get("product_ids", [])
+	if not product_ids:
+		return jsonify({"error": "No product IDs provided"}), 400
+	
+	updated = 0
+	for pid in product_ids:
+		try:
+			p = Product.query.get(int(pid))
+			if p:
+				p.status = "draft"
+				updated += 1
+		except Exception:
+			pass
+	
+	db.session.commit()
+	return jsonify({"ok": True, "updated": updated})
+
+
+@admin_bp.post("/products/bulk-delete")
+@login_required
+def bulk_delete_products():
+	"""Bulk delete products."""
+	data = request.get_json(silent=True) or {}
+	product_ids = data.get("product_ids", [])
+	if not product_ids:
+		return jsonify({"error": "No product IDs provided"}), 400
+	
+	deleted = 0
+	from .models import OrderItem
+	
+	for pid in product_ids:
+		try:
+			p = Product.query.get(int(pid))
+			if not p:
+				continue
+			
+			# Delete order items
+			OrderItem.query.filter(OrderItem.product_id == p.id).delete()
+			
+			# Delete variants
+			for variant in p.variants:
+				db.session.delete(variant)
+			
+			# Remove associations
+			p.categories.clear()
+			p.trends.clear()
+			
+			# Delete design if only used by this product
+			if p.design and len(p.design.products) <= 1:
+				db.session.delete(p.design)
+			
+			# Delete product
+			db.session.delete(p)
+			deleted += 1
+		except Exception as e:
+			current_app.logger.exception(f"[bulk-delete] Failed for {pid}: {e}")
+			db.session.rollback()
+	
+	db.session.commit()
+	return jsonify({"ok": True, "deleted": deleted})
+
+
+@admin_bp.post("/products/bulk-create")
+@login_required
+def bulk_create_products():
+	"""Create multiple products from a list of terms."""
+	data = request.get_json(silent=True) or {}
+	terms = data.get("terms", [])
+	generate_ai = data.get("generate_ai", False)
+	
+	if not terms or not isinstance(terms, list):
+		return jsonify({"error": "Invalid terms list"}), 400
+	
+	created = 0
+	api_key = current_app.config.get("OPENAI_API_KEY", "") if generate_ai else ""
+	
+	for term in terms:
+		term = (term or "").strip()
+		if not term:
+			continue
+		
+		# Check for duplicates
+		existing = Product.query.filter(Product.title.ilike(f"%{term}%")).first()
+		if existing:
+			continue
+		
+		try:
+			# Create design
+			d = Design(type="image", text=term, approved=True)
+			db.session.add(d)
+			db.session.flush()
+			
+			# Create product
+			product = _create_product_for_design(d)
+			product.status = "draft"
+			_ensure_single_variant(product)
+			
+			# Generate AI image if requested
+			if generate_ai and api_key:
+				def _gen_worker(app_ctx, pid: int, txt: str):
+					with app_ctx:
+						try:
+							import os as _os
+							_os.environ["OPENAI_API_KEY"] = api_key
+							from openai import OpenAI
+							from base64 import b64decode
+							import time as _time
+							client = OpenAI().with_options(timeout=60.0)
+							
+							prompt = f"Minimal bold graphic for a T-shirt inspired by '{txt}'. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition."
+							res = client.images.generate(model="gpt-image-1-mini", prompt=prompt, size="1024x1024")
+							b64 = res.data[0].b64_json
+							img_bytes = b64decode(b64)
+							
+							# Try background removal
+							try:
+								clean = _remove_bg_hf(img_bytes)
+								if clean:
+									img_bytes = clean
+							except Exception:
+								pass
+							
+							# Upload
+							cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+							if cloud_url:
+								import cloudinary.uploader as cu
+								public_id = slugify(txt or "design")
+								res_up = cu.upload(img_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+								design_url = res_up.get("secure_url") or res_up.get("url")
+								
+								# Create mockup
+								mock_bytes = _compose_design_on_blank_tee(img_bytes)
+								if mock_bytes:
+									res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+									mock_url = res_mock.get("secure_url") or res_mock.get("url")
+								else:
+									mock_url = design_url
+							else:
+								fname = f"bulk_{int(_time.time())}.png"
+								upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+								os.makedirs(upload_dir, exist_ok=True)
+								path = os.path.join(upload_dir, fname)
+								with open(path, "wb") as f:
+									f.write(img_bytes)
+								design_url = f"/static/uploads/{fname}"
+								
+								mock_bytes = _compose_design_on_blank_tee(img_bytes)
+								if mock_bytes:
+									fname2 = f"bulk_mockup_{int(_time.time())}.png"
+									path2 = os.path.join(upload_dir, fname2)
+									with open(path2, "wb") as f2:
+										f2.write(mock_bytes)
+									mock_url = f"/static/uploads/{fname2}"
+								else:
+									mock_url = design_url
+							
+							# Update product
+							p2 = Product.query.get(pid)
+							if p2 and p2.design:
+								p2.design.image_url = design_url
+								p2.design.preview_url = mock_url
+								db.session.commit()
+						except Exception as e:
+							current_app.logger.exception(f"[bulk-create] AI generation failed for {txt}: {e}")
+				
+				thr = threading.Thread(target=_gen_worker, args=(current_app.app_context(), product.id, term), daemon=True)
+				thr.start()
+			
+			db.session.commit()
+			created += 1
+		except Exception as e:
+			current_app.logger.exception(f"[bulk-create] Failed for {term}: {e}")
+			db.session.rollback()
+	
+	return jsonify({"ok": True, "created": created})
