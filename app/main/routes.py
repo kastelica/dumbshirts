@@ -1117,8 +1117,13 @@ def about_page():
 @main_bp.get("/order/confirm/<int:order_id>")
 def order_confirm(order_id: int):
 	"""Order confirmation page hosting Google Customer Reviews opt-in snippet."""
-	order = Order.query.get_or_404(order_id)
-	addr = order.shipping_address
+	try:
+		order = Order.query.get_or_404(order_id)
+	except Exception as e:
+		current_app.logger.exception(f"[order-confirm] Failed to load order {order_id}: {e}")
+		abort(404)
+	
+	addr = order.shipping_address if order else None
 	# Prefer email passed via query param (from checkout) if present
 	qp_email = (request.args.get("email") or "").strip()
 	email = qp_email or ((addr.email if addr else "") or "")
@@ -1255,37 +1260,56 @@ def order_confirm(order_id: int):
 							current_app.logger.warning(f"[order-confirm] Fallback admin email failed for order {order.id}: {msg}")
 				except Exception as e:
 					current_app.logger.exception(f"[order-confirm] Fallback admin email exception for order {order.id}: {e}")
-	except Exception:
-		pass
-	# Clear cart after confirmation
-	session["cart"] = {"items": []}
-	session.modified = True
+	except Exception as e:
+		current_app.logger.exception(f"[order-confirm] Error in fallback processing for order {order_id}: {e}")
+		# Continue to render page even if fallback processing fails
+	
+	# Clear cart after confirmation (best-effort)
+	try:
+		session["cart"] = {"items": []}
+		session.modified = True
+	except Exception as e:
+		current_app.logger.warning(f"[order-confirm] Failed to clear cart for order {order_id}: {e}")
 	
 	# Convert OrderItem objects to dictionaries for JSON serialization
 	order_items_dict = []
-	for oi in order.items:
-		order_items_dict.append({
-			"id": oi.id,
-			"order_id": oi.order_id,
-			"product_id": oi.product_id,
-			"variant_id": oi.variant_id,
-			"title": oi.title,
-			"quantity": oi.quantity,
-			"unit_price": float(oi.unit_price) if oi.unit_price else 0,
-			"product_uid": oi.product_uid,
-		})
+	try:
+		items = order.items if order and hasattr(order, 'items') else []
+		for oi in items:
+			try:
+				order_items_dict.append({
+					"id": getattr(oi, 'id', None),
+					"order_id": getattr(oi, 'order_id', None),
+					"product_id": getattr(oi, 'product_id', None),
+					"variant_id": getattr(oi, 'variant_id', None),
+					"title": getattr(oi, 'title', '') or '',
+					"quantity": getattr(oi, 'quantity', 1) or 1,
+					"unit_price": float(oi.unit_price) if oi.unit_price else 0.0,
+					"product_uid": getattr(oi, 'product_uid', '') or '',
+				})
+			except Exception as e:
+				current_app.logger.warning(f"[order-confirm] Failed to serialize order item for order {order_id}: {e}")
+				continue
+	except Exception as e:
+		current_app.logger.exception(f"[order-confirm] Failed to process order items for order {order_id}: {e}")
+		# Continue with empty list
 	
-	return render_template(
-		"order_confirmation.html",
-		order=order,
-		order_items=order_items_dict,
-		email=email,
-		country=country,
-		est_delivery=est_date,
-		products=products,
-		gelato_debug=gelato_debug,
-		merchant_id=114634997,
-	)
+	try:
+		return render_template(
+			"order_confirmation.html",
+			order=order,
+			order_items=order_items_dict,
+			email=email,
+			country=country,
+			est_delivery=est_date,
+			products=products,
+			gelato_debug=gelato_debug,
+			merchant_id=114634997,
+		)
+	except Exception as e:
+		current_app.logger.exception(f"[order-confirm] Failed to render template for order {order_id}: {e}")
+		# Re-raise to trigger 500 handler, but with better logging
+		raise
 
 
 @main_bp.get("/terms")
