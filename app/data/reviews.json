@@ -528,6 +528,66 @@
     "review_url": "",
     "rating": 5,
     "created_at": "2025-08-31T16:20:00Z"
+  },
+  {
+    "review_id": "R-1054",
+    "product_id": "260",
+    "title": "Perfect addition to my wardrobe",
+    "content": "This shirt has become one of my favorites. The design is unique and the quality is outstanding. Fits perfectly and looks great!",
+    "reviewer_name": "Brooke",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-30T10:15:00Z"
+  },
+  {
+    "review_id": "R-1055",
+    "product_id": "262",
+    "title": "Great quality for the price",
+    "content": "Really impressed with this purchase. The material is soft, the print is clear, and it's held up well after several washes. Would buy again!",
+    "reviewer_name": "Carter",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-29T14:30:00Z"
+  },
+  {
+    "review_id": "R-1056",
+    "product_id": "279",
+    "title": "Love the vibrant colors",
+    "content": "The colors are even more vibrant in person than in the photos. Comfortable fit and excellent print quality. Shipping was fast too!",
+    "reviewer_name": "Dakota",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-28T09:45:00Z"
+  },
+  {
+    "review_id": "R-1057",
+    "product_id": "202",
+    "title": "Exactly as described",
+    "content": "Received exactly what I ordered. The shirt fits well, the design is crisp, and the quality is solid. Very satisfied with my purchase!",
+    "reviewer_name": "Ellis",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-27T16:20:00Z"
+  },  
+  {
+    "review_id": "R-1058",
+    "product_id": "202",
+    "title": "Exactly as described",
+    "content": "Received exactly what I ordered. The shirt fits well, the design is crisp, and the quality is solid. Very satisfied with my purchase!",
+    "reviewer_name": "Ellis",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-27T16:20:00Z"
+  },  
+  {
+    "review_id": "R-1059",
+    "product_id": "202",
+    "title": "Exactly as described",
+    "content": "Received exactly what I ordered. The shirt fits well, the design is crisp, and the quality is solid. Very satisfied with my purchase!",
+    "reviewer_name": "Ellis",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-27T16:20:00Z"
   }
 ]
 
