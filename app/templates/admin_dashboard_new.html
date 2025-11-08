@@ -199,6 +199,9 @@
 			</table>
 		</div>
 	</div>
+	<div class="mt-4">
+		<button id="show-more-products" class="w-full bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 hidden">Show more</button>
+	</div>
 </div>
 
 <script>
@@ -207,23 +210,54 @@
 	const searchInput = document.getElementById('product-search');
 	const statusFilter = document.getElementById('status-filter');
 	const tbody = document.getElementById('products-tbody');
+	const showMoreBtn = document.getElementById('show-more-products');
+	
+	let visibleCount = 20;
+	const SHOW_INCREMENT = 20;
 	
 	function filterProducts() {
 		const search = (searchInput?.value || '').toLowerCase();
 		const status = statusFilter?.value || '';
 		const rows = tbody?.querySelectorAll('tr') || [];
 		
+		let shown = 0;
+		let matchesTotal = 0;
+		
 		rows.forEach(row => {
 			const text = row.textContent?.toLowerCase() || '';
 			const rowStatus = row.dataset.status || '';
 			const matchesSearch = !search || text.includes(search);
 			const matchesStatus = !status || rowStatus === status;
-			row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+			const matches = (matchesSearch && matchesStatus);
+			
+			if (matches) {
+				matchesTotal++;
+				if (shown < visibleCount) {
+					row.style.display = '';
+					shown++;
+				} else {
+					row.style.display = 'none';
+				}
+			} else {
+				row.style.display = 'none';
+			}
 		});
+		
+		// Toggle Show more button
+		if (showMoreBtn) {
+			showMoreBtn.classList.toggle('hidden', shown >= matchesTotal);
+		}
 	}
 	
 	searchInput?.addEventListener('input', filterProducts);
 	statusFilter?.addEventListener('change', filterProducts);
+	showMoreBtn?.addEventListener('click', function () {
+		visibleCount += SHOW_INCREMENT;
+		filterProducts();
+	});
+	
+	// Initialize pagination on load
+	filterProducts();
 	
 	// Select all checkbox
 	const selectAll = document.getElementById('select-all');
