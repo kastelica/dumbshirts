@@ -124,19 +124,34 @@ class GelatoClient:
 		Returns a list of packages with trackingCode, trackingUrl, id, and orderItemIds.
 		"""
 		tracking: List[Dict[str, Any]] = []
-		try:
-			shipment = order.get("shipment") or {}
-			packages = shipment.get("packages") or []
-			for pkg in packages:
-				tracking.append({
-					"packageId": pkg.get("id") or "",
-					"trackingCode": pkg.get("trackingCode") or "",
-					"trackingUrl": pkg.get("trackingUrl") or "",
-					"orderItemIds": pkg.get("orderItemIds") or [],
-					"shipmentMethodName": shipment.get("shipmentMethodName") or "",
-				})
-		except Exception:
-			pass
+		
+		def _collect_from_one(o: Dict[str, Any]) -> None:
+			try:
+				# Some responses use "shipment", others could use "shipments" (array) in future
+				shipment = o.get("shipment") or {}
+				if not shipment and isinstance(o.get("shipments"), list) and o["shipments"]:
+					# take first shipment if list provided
+					shipment = (o["shipments"][0] or {})
+				packages = shipment.get("packages") or []
+				for pkg in packages:
+					tracking.append({
+						"packageId": pkg.get("id") or "",
+						"trackingCode": pkg.get("trackingCode") or "",
+						"trackingUrl": pkg.get("trackingUrl") or "",
+						"orderItemIds": pkg.get("orderItemIds") or [],
+						"shipmentMethodName": shipment.get("shipmentMethodName") or "",
+					})
+			except Exception:
+				return
+		
+		# Handle both single-order object and "orders": [...] wrapper
+		if isinstance(order.get("orders"), list) and order["orders"]:
+			for o in order["orders"]:
+				if isinstance(o, dict):
+					_collect_from_one(o)
+		else:
+			_collect_from_one(order or {})
+		
 		return tracking
 
 	def get_shipping_rates(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
