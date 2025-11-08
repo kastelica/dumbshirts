@@ -199,25 +199,25 @@
 	</div>
 	<div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
 		<div class="absolute inset-0 bg-black/70" data-close></div>
-		<div class="relative bg-gray-900 border-2 border-gray-700 rounded-lg shadow-2xl w-11/12 md:w-[480px] mx-auto mt-[12vh] overflow-hidden">
-			<div class="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-b border-gray-700 px-6 py-4">
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-3">
-						<div class="bg-white text-black rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold">5%</div>
-						<div>
-							<div class="text-xl font-bold text-white">Get an Extra 5% Off</div>
+		<div class="relative bg-gray-900 border-2 border-gray-700 rounded-lg shadow-2xl w-[95%] max-w-[480px] mx-auto mt-[5vh] mb-4 overflow-hidden">
+			<div class="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-b border-gray-700 px-4 md:px-6 py-4">
+				<div class="flex items-center justify-between gap-2">
+					<div class="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+						<div class="bg-white text-black rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold flex-shrink-0">5%</div>
+						<div class="min-w-0">
+							<div class="text-lg md:text-xl font-bold text-white truncate">Get an Extra 5% Off</div>
 							<div class="text-xs text-gray-300 mt-0.5">On top of sale prices</div>
 						</div>
 					</div>
-					<button class="bg-gray-800 hover:bg-gray-700 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors text-lg leading-none" data-close aria-label="Close">×</button>
+					<button class="bg-gray-800 hover:bg-gray-700 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors text-lg leading-none flex-shrink-0" data-close aria-label="Close">×</button>
 				</div>
 			</div>
-			<div class="p-6">
+			<div class="p-4 md:p-6">
 				<div class="text-sm text-gray-300 mb-5 leading-relaxed">Enter your email to unlock your exclusive coupon code. Save even more on every purchase!</div>
 				<form id="promo-5off-form" class="space-y-3">
-					<div class="flex gap-2">
-						<input id="promo-5off-email" type="email" placeholder="Enter your email" class="flex-1 bg-gray-950 border-2 border-gray-700 focus:border-white focus:outline-none rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 transition-colors" required />
-						<button type="submit" class="bg-white hover:bg-gray-100 text-black font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shadow-lg">Reveal</button>
+					<div class="flex flex-col sm:flex-row gap-2">
+						<input id="promo-5off-email" type="email" placeholder="Enter your email" class="flex-1 bg-gray-950 border-2 border-gray-700 focus:border-white focus:outline-none rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 transition-colors min-w-0" required />
+						<button type="submit" class="bg-white hover:bg-gray-100 text-black font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shadow-lg flex-shrink-0">Reveal</button>
 					</div>
 				</form>
 				<div id="promo-5off-result" class="hidden mt-5 pt-5 border-t border-gray-700">
