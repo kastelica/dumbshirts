@@ -34,9 +34,9 @@
 				{% set design_only = p.design.image_url if p.design and p.design.image_url else '' %}
 				{% if design_only %}
 					<img src="{{ design_only }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
-				{% else %}
-					<span class="text-gray-600 text-sm">No image</span>
-				{% endif %}
+			{% else %}
+			<span class="text-gray-600 text-sm">No image</span>
+			{% endif %}
 			</div>
 			<button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-lg flex items-center justify-center z-10" data-action="prev">‹</button>
 			<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-lg flex items-center justify-center z-10" data-action="next">›</button>

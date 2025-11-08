@@ -2110,7 +2110,7 @@ def upload_image():
 @admin_bp.get("/kym/search")
 @login_required
 def kym_search():
-	"""Search Know Your Meme for memes."""
+	"""Search Know Your Meme for memes with fuzzy matching."""
 	query = request.args.get("q", "").strip()
 	if not query:
 		return jsonify({"error": "Missing search query"}), 400
@@ -2118,15 +2118,81 @@ def kym_search():
 	try:
 		from scripts.scrape_kym_memes import fetch_html, parse_listing, parse_detail_image, BASE
 		import requests
+		import unicodedata
 		
-		# Search KYM - for now, fetch listing and filter by query
+		# Search KYM - fetch listing
 		url = f"https://knowyourmeme.com/memes?kind=all&sort=views"
 		html = fetch_html(url)
 		entries = parse_listing(html)
 		
-		# Filter by query (simple text match in title)
-		query_lower = query.lower()
-		filtered = [e for e in entries if query_lower in e.get("title", "").lower()][:20]
+		# Normalize query for fuzzy matching
+		query_lower = query.lower().strip()
+		query_words = [w for w in re.sub(r"[^a-z0-9]+", " ", query_lower).split() if w and len(w) > 1]
+		
+		# Score and filter entries using fuzzy matching
+		def score_entry(entry):
+			title = (entry.get("title", "") or "").lower()
+			slug = (entry.get("slug", "") or "").lower()
+			score = 0
+			
+			# Exact phrase match in title (highest score)
+			if query_lower in title:
+				score += 100
+			# Exact phrase match in slug
+			if query_lower in slug:
+				score += 80
+			
+			# Word-level matching
+			for word in query_words:
+				# Word appears in title
+				if word in title:
+					score += 30
+				# Word appears in slug
+				if word in slug:
+					score += 20
+				# Word starts title (bonus)
+				if title.startswith(word):
+					score += 10
+			
+			# Fuzzy similarity using difflib
+			title_norm = re.sub(r"[^a-z0-9]+", " ", title).strip()
+			slug_norm = re.sub(r"[^a-z0-9]+", " ", slug).strip()
+			query_norm = re.sub(r"[^a-z0-9]+", " ", query_lower).strip()
+			
+			if title_norm:
+				title_ratio = difflib.SequenceMatcher(None, query_norm, title_norm).ratio()
+				if title_ratio > 0.5:  # Only count if reasonably similar
+					score += int(title_ratio * 40)
+			
+			if slug_norm:
+				slug_ratio = difflib.SequenceMatcher(None, query_norm, slug_norm).ratio()
+				if slug_ratio > 0.5:
+					score += int(slug_ratio * 30)
+			
+			# Partial word matches (e.g., "cat" matches "cats", "category")
+			for word in query_words:
+				if len(word) >= 3:  # Only for words 3+ chars
+					# Check if word is contained in any title word
+					title_words = re.sub(r"[^a-z0-9]+", " ", title).split()
+					for tw in title_words:
+						if word in tw or tw in word:
+							score += 15
+							break
+					# Check slug
+					slug_words = re.sub(r"[^a-z0-9]+", " ", slug).split()
+					for sw in slug_words:
+						if word in sw or sw in word:
+							score += 10
+							break
+			
+			return score
+		
+		# Score all entries
+		scored = [(score_entry(e), e) for e in entries]
+		# Filter to only entries with score > 0 and sort by score descending
+		filtered = sorted([(score, e) for score, e in scored if score > 0], key=lambda x: x[0], reverse=True)
+		# Take top 20
+		filtered = [e for score, e in filtered[:20]]
 		
 		# Fetch images for filtered results
 		results = []
