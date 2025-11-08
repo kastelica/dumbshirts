@@ -209,7 +209,7 @@
 <script>
 (function(){
 	// Shared default prompt for AI image generation
-	const DEFAULT_TEE_PROMPT = `Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+	const DEFAULT_TEE_PROMPT = `Bold interesting graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
 	// Ensure the main AI textarea shows this as the editable placeholder
 	(function(){
 		const aiInput = document.getElementById('ai-prompt-input');
@@ -687,7 +687,7 @@
 			const titleFromAttr = this.dataset.productTitle || '';
 			const titleFromRow = this.closest('tr')?.querySelector('span.font-medium')?.textContent?.trim() || '';
 			const productTitle = titleFromAttr || titleFromRow || 'T-Shirt';
-			const buildDefaultPrompt = (t) => `Design for "${t}" T-Shirt. Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+			const buildDefaultPrompt = (t) => `Design for "${t}". Bold interesting graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
 			
 			const userPrompt = window.prompt('Enter image generation prompt (you can edit):', buildDefaultPrompt(productTitle));
 			if (userPrompt === null) return; // User cancelled
@@ -696,7 +696,7 @@
 			if (!finalPrompt) {
 				finalPrompt = buildDefaultPrompt(productTitle);
 			} else if (!finalPrompt.toLowerCase().includes(productTitle.toLowerCase())) {
-				finalPrompt = `Design for "${productTitle}" T-Shirt. ` + finalPrompt;
+				finalPrompt = `Design for "${productTitle}". ` + finalPrompt;
 			}
 			
 			this.textContent = 'Generating...';
