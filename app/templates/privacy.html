@@ -1,26 +1,289 @@
 {% extends "base.html" %}
+{% block title %}Privacy Policy | Dumbshirts.store{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold mb-4">Privacy Policy</h1>
-<div class="prose prose-invert max-w-none text-gray-300">
-  <p>We respect your privacy. We collect only the data needed to process your orders, improve our products, and support your experience.</p>
-  <h2>Information we collect</h2>
-  <ul>
-    <li>Contact and shipping details you provide at checkout</li>
-    <li>Order history and support communications</li>
-    <li>Usage data from cookies/analytics for site performance</li>
-  </ul>
-  <h2>How we use information</h2>
-  <ul>
-    <li>Fulfill and support your orders</li>
-    <li>Improve products and the shopping experience</li>
-    <li>Fraud prevention and security</li>
-  </ul>
-  <h2>Sharing</h2>
-  <p>We share data only with service providers (payments, printing, shipping) needed to fulfill your order. We do not sell your personal data.</p>
-  <h2>Contact</h2>
-  <p>Email us via the Contact page for privacy questions or requests.</p>
-  <p class="text-xs text-gray-500 mt-6">Effective: {{ 2025 }}</p>
+<nav class="mb-3 text-sm text-gray-400 flex items-center gap-2">
+	<a href="/" aria-label="Home" class="text-gray-300 hover:text-white">
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M2.25 12l9-7.5 9 7.5V20a1 1 0 01-1 1h-5.25v-6h-5.5v6H3.25a1 1 0 01-1-1v-8z"/></svg>
+	</a>
+	<span>›</span>
+	<span class="text-gray-200">Privacy Policy</span>
+</nav>
+
+<div class="max-w-4xl mx-auto">
+	<h1 class="text-3xl font-bold mb-2">Privacy Policy</h1>
+	<p class="text-gray-400 mb-8">Last updated: January 2025</p>
+	
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
+		<div class="mb-4 pb-4 border-b border-gray-700">
+			<h2 class="text-xl font-bold text-white mb-2">Data Controller</h2>
+			<p class="text-lg text-gray-200 leading-relaxed">
+				<strong class="text-white">Dumbshirts.store</strong> ("we," "us," or "our") is the company collecting and processing your personal information. We are responsible for how your personal data is collected, used, and protected.
+			</p>
+		</div>
+		<p class="text-lg text-gray-200 leading-relaxed">
+			At <strong class="text-white">Dumbshirts.store</strong>, we respect your privacy and are committed to protecting your personal information. This policy explains how we collect, use, and safeguard your data when you visit our website or make a purchase.
+		</p>
+	</div>
+
+	<div class="space-y-6">
+		<!-- Information We Collect -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path d="M4.5 6.375a4.125 4.125 0 118.25 0 4.125 4.125 0 01-8.25 0zM14.25 8.625a3.375 3.375 0 116.75 0 3.375 3.375 0 01-6.75 0zM1.5 19.125a7.125 7.125 0 1114.25 0 7.125 7.125 0 01-14.25 0zM17.25 19.125l-.75.75-.75-.75a1.5 1.5 0 00-2.25 1.032c-.036.175-.036.35 0 .525l1.68 1.68 1.68-1.68a1.5 1.5 0 00-2.25-1.032z"/>
+				</svg>
+				Information We Collect and Purpose
+			</h2>
+			<div class="mb-4 p-4 bg-gray-950 border border-gray-700 rounded">
+				<p class="text-white font-semibold mb-2">Purpose of Collection:</p>
+				<p class="text-gray-300 text-sm leading-relaxed">
+					<strong class="text-white">Dumbshirts.store</strong> collects personal information for the following specific purposes:
+				</p>
+				<ul class="list-disc list-inside space-y-1 ml-2 mt-2 text-sm text-gray-300">
+					<li>To process and fulfill your orders and deliver products to you</li>
+					<li>To communicate with you about your orders, account, and customer service inquiries</li>
+					<li>To process payments and prevent fraud</li>
+					<li>To improve our website, products, and services</li>
+					<li>To send marketing communications (only with your consent)</li>
+					<li>To comply with legal obligations and protect our rights</li>
+				</ul>
+			</div>
+			<div class="space-y-4 text-gray-300">
+				<div>
+					<h3 class="font-semibold text-white mb-2">Information You Provide</h3>
+					<ul class="list-disc list-inside space-y-1 ml-2">
+						<li>Contact information (name, email address, phone number) - <span class="text-gray-400 text-sm">Purpose: Order fulfillment, customer service, order updates</span></li>
+						<li>Shipping and billing addresses - <span class="text-gray-400 text-sm">Purpose: Product delivery, payment processing, tax compliance</span></li>
+						<li>Payment information (processed securely through Stripe) - <span class="text-gray-400 text-sm">Purpose: Payment processing, fraud prevention</span></li>
+						<li>Order history and preferences - <span class="text-gray-400 text-sm">Purpose: Order management, personalized recommendations, customer service</span></li>
+						<li>Customer service communications - <span class="text-gray-400 text-sm">Purpose: Customer support, issue resolution</span></li>
+					</ul>
+				</div>
+				<div>
+					<h3 class="font-semibold text-white mb-2">Automatically Collected Information</h3>
+					<ul class="list-disc list-inside space-y-1 ml-2">
+						<li>Device information (browser type, operating system) - <span class="text-gray-400 text-sm">Purpose: Website optimization, compatibility</span></li>
+						<li>IP address and location data - <span class="text-gray-400 text-sm">Purpose: Fraud prevention, security, regional compliance</span></li>
+						<li>Website usage data (pages visited, time spent, clicks) - <span class="text-gray-400 text-sm">Purpose: Website improvement, analytics, user experience enhancement</span></li>
+						<li>Cookies and similar tracking technologies - <span class="text-gray-400 text-sm">Purpose: Website functionality, analytics, personalization (see Cookies section for opt-out)</span></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		<!-- How We Use Information -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd"/>
+				</svg>
+				How We Use Your Information
+			</h2>
+			<p class="text-gray-300 mb-4 leading-relaxed">
+				<strong class="text-white">Dumbshirts.store</strong> uses your personal information for the following purposes:
+			</p>
+			<ul class="space-y-3 text-gray-300">
+				<li class="flex items-start gap-3">
+					<span class="text-white font-semibold">•</span>
+					<span><strong class="text-white">Order Fulfillment:</strong> Process and ship your orders, send order confirmations and tracking information</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="text-white font-semibold">•</span>
+					<span><strong class="text-white">Customer Service:</strong> Respond to your inquiries, provide support, and handle returns or refunds</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="text-white font-semibold">•</span>
+					<span><strong class="text-white">Improvements:</strong> Analyze website usage to improve our products, services, and user experience</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="text-white font-semibold">•</span>
+					<span><strong class="text-white">Marketing:</strong> Send promotional emails (only with your consent) and personalize your shopping experience. <span class="text-green-400 text-sm">You can opt-out at any time using the unsubscribe link in emails or by contacting us.</span></span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="text-white font-semibold">•</span>
+					<span><strong class="text-white">Security:</strong> Detect and prevent fraud, unauthorized access, and other security threats</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="text-white font-semibold">•</span>
+					<span><strong class="text-white">Legal Compliance:</strong> Comply with applicable laws, regulations, and legal processes</span>
+				</li>
+			</ul>
+		</div>
+
+		<!-- Data Sharing -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path d="M4.5 6.375a4.125 4.125 0 118.25 0 4.125 4.125 0 01-8.25 0zM14.25 8.625a3.375 3.375 0 116.75 0 3.375 3.375 0 01-6.75 0zM1.5 19.125a7.125 7.125 0 1114.25 0 7.125 7.125 0 01-14.25 0zM17.25 19.125l-.75.75-.75-.75a1.5 1.5 0 00-2.25 1.032c-.036.175-.036.35 0 .525l1.68 1.68 1.68-1.68a1.5 1.5 0 00-2.25-1.032z"/>
+				</svg>
+				Data Sharing and Disclosure
+			</h2>
+			<div class="space-y-4 text-gray-300">
+				<p class="leading-relaxed">
+					We do <strong class="text-white">not sell</strong> your personal information. We only share your data with trusted service providers who help us operate our business:
+				</p>
+				<ul class="list-disc list-inside space-y-2 ml-2">
+					<li><strong class="text-white">Payment Processors:</strong> Stripe (for secure payment processing)</li>
+					<li><strong class="text-white">Print-on-Demand Partners:</strong> Gelato (for order fulfillment and shipping)</li>
+					<li><strong class="text-white">Email Services:</strong> SendGrid (for order confirmations and customer communications)</li>
+					<li><strong class="text-white">Analytics:</strong> Google Analytics (for website performance and usage analysis)</li>
+					<li><strong class="text-white">Cloud Storage:</strong> Cloudinary (for image hosting and management)</li>
+				</ul>
+				<p class="leading-relaxed mt-4">
+					These partners are contractually obligated to protect your information and use it only for the purposes we specify. We may also disclose information if required by law or to protect our rights and safety.
+				</p>
+			</div>
+		</div>
+
+		<!-- Cookies -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757l1.59-1.591a.75.75 0 10-1.061-1.06l-1.59 1.591a.75.75 0 001.06 1.06z"/>
+				</svg>
+				Cookies and Tracking Technologies
+			</h2>
+			<div class="space-y-3 text-gray-300">
+				<p class="leading-relaxed">
+					We use cookies and similar technologies to enhance your browsing experience, analyze site traffic, and personalize content. Types of cookies we use:
+				</p>
+				<ul class="list-disc list-inside space-y-2 ml-2">
+					<li><strong class="text-white">Essential Cookies:</strong> Required for the website to function properly (e.g., shopping cart, authentication)</li>
+					<li><strong class="text-white">Analytics Cookies:</strong> Help us understand how visitors interact with our website</li>
+					<li><strong class="text-white">Marketing Cookies:</strong> Used to deliver relevant advertisements and track campaign performance</li>
+				</ul>
+				<div class="bg-gray-950 border border-gray-700 rounded p-4 mt-4">
+					<h3 class="font-semibold text-white mb-2">How to Opt-Out of Cookies and Tracking:</h3>
+					<ul class="list-disc list-inside space-y-2 ml-2 text-sm">
+						<li><strong class="text-white">Browser Settings:</strong> You can control cookies through your browser settings. Most browsers allow you to refuse or delete cookies. Note that disabling certain cookies may affect website functionality.</li>
+						<li><strong class="text-white">Marketing Emails:</strong> You can opt-out of marketing emails by clicking the "unsubscribe" link at the bottom of any marketing email we send, or by contacting us directly.</li>
+						<li><strong class="text-white">Google Analytics:</strong> To opt-out of Google Analytics tracking, you can install the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline">Google Analytics Opt-out Browser Add-on</a>.</li>
+						<li><strong class="text-white">Ad Personalization:</strong> You can opt-out of personalized ads by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline">Google's Ad Settings</a> or the <a href="https://www.youronlinechoices.com/" target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline">Your Online Choices</a> website.</li>
+						<li><strong class="text-white">Do Not Track:</strong> Some browsers have a "Do Not Track" feature. While we do not currently respond to Do Not Track signals, you can enable this feature in your browser settings.</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		<!-- Your Rights -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path fill-rule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 003 3h4.5a3 3 0 003-3v-3a5.25 5.25 0 00-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clip-rule="evenodd"/>
+					<path d="M10.5 21.75a3 3 0 003-3v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 00-.75.75v4.5a3 3 0 003 3zM4.5 21.75a3 3 0 01-3-3v-4.5a.75.75 0 011.5 0v4.5a1.5 1.5 0 003 0v-4.5a.75.75 0 011.5 0v4.5a3 3 0 01-3 3zM19.5 21.75a3 3 0 003-3v-4.5a.75.75 0 00-1.5 0v4.5a1.5 1.5 0 01-3 0v-4.5a.75.75 0 00-1.5 0v4.5a3 3 0 003 3z"/>
+				</svg>
+				Your Privacy Rights and Opt-Out Options
+			</h2>
+			<div class="space-y-3 text-gray-300">
+				<p class="leading-relaxed">You have the following rights regarding your personal information:</p>
+				<ul class="list-disc list-inside space-y-2 ml-2">
+					<li><strong class="text-white">Access:</strong> Request a copy of the personal information we hold about you</li>
+					<li><strong class="text-white">Correction:</strong> Update or correct inaccurate information</li>
+					<li><strong class="text-white">Deletion:</strong> Request deletion of your personal information (subject to legal requirements)</li>
+					<li><strong class="text-white">Data Portability:</strong> Request your data in a portable format</li>
+					<li><strong class="text-white">Objection:</strong> Object to processing of your personal information in certain circumstances</li>
+					<li><strong class="text-white">Restriction:</strong> Request restriction of processing in certain circumstances</li>
+				</ul>
+				<div class="bg-gray-950 border border-gray-700 rounded p-4 mt-4">
+					<h3 class="font-semibold text-white mb-2">How to Opt-Out:</h3>
+					<ul class="list-disc list-inside space-y-2 ml-2 text-sm">
+						<li><strong class="text-white">Marketing Emails:</strong> Click the "unsubscribe" link at the bottom of any marketing email, or contact us directly to opt-out</li>
+						<li><strong class="text-white">Cookies:</strong> Adjust your browser settings to refuse or delete cookies (see Cookies section above for detailed instructions)</li>
+						<li><strong class="text-white">Analytics:</strong> Use browser extensions or settings to opt-out of analytics tracking</li>
+						<li><strong class="text-white">Data Processing:</strong> Contact us to request restriction or objection to specific data processing activities</li>
+					</ul>
+				</div>
+				<p class="leading-relaxed mt-4">
+					To exercise these rights or opt-out of specific data uses, please contact us using the information provided in the Contact section below. We will respond to your request within 30 days.
+				</p>
+			</div>
+		</div>
+
+		<!-- Data Security -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002 9.75c0 5.942 4.064 10.933 9.563 12.348a.75.75 0 00.874-.348 12.74 12.74 0 009.563-12.348c0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd"/>
+				</svg>
+				Data Security
+			</h2>
+			<p class="text-gray-300 leading-relaxed">
+				We implement industry-standard security measures to protect your personal information, including encryption, secure payment processing, and regular security assessments. However, no method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.
+			</p>
+		</div>
+
+		<!-- Children's Privacy -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4">Children's Privacy</h2>
+			<p class="text-gray-300 leading-relaxed">
+				Our website is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child under 13, please contact us immediately.
+			</p>
+		</div>
+
+		<!-- Changes to Policy -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4">Changes to This Policy</h2>
+			<p class="text-gray-300 leading-relaxed">
+				We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last updated" date. Your continued use of our website after such changes constitutes acceptance of the updated policy.
+			</p>
+		</div>
+
+		<!-- Contact -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+					<path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z"/>
+					<path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z"/>
+				</svg>
+				Contact Us
+			</h2>
+			<div class="space-y-3 text-gray-300">
+				<p class="leading-relaxed">
+					If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
+				</p>
+				<div class="bg-gray-950 border border-gray-700 rounded p-4 mt-4">
+					<p class="mb-2"><strong class="text-white">Email:</strong> <a href="/contact" class="text-green-400 hover:underline">Contact Page</a></p>
+					<p class="text-sm text-gray-400">We aim to respond to all privacy inquiries within 30 days.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Additional Legal Information -->
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mt-6">
+		<h2 class="text-2xl font-semibold mb-4">Additional Information</h2>
+		<div class="space-y-4 text-gray-300">
+			<div>
+				<h3 class="font-semibold text-white mb-2">Data Retention</h3>
+				<p class="leading-relaxed text-sm">
+					We retain your personal information for as long as necessary to fulfill the purposes outlined in this policy, unless a longer retention period is required or permitted by law. Order information is typically retained for 7 years for tax and legal compliance purposes.
+				</p>
+			</div>
+			<div>
+				<h3 class="font-semibold text-white mb-2">International Data Transfers</h3>
+				<p class="leading-relaxed text-sm">
+					Your information may be transferred to and processed in countries other than your country of residence. These countries may have data protection laws that differ from those in your country. We ensure appropriate safeguards are in place to protect your data in accordance with this policy.
+				</p>
+			</div>
+			<div>
+				<h3 class="font-semibold text-white mb-2">California Privacy Rights (CCPA)</h3>
+				<p class="leading-relaxed text-sm">
+					If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information we collect, the right to delete personal information, and the right to opt-out of the sale of personal information. <strong class="text-white">We do not sell your personal information.</strong> To exercise your CCPA rights, contact us using the information in the Contact section.
+				</p>
+			</div>
+			<div>
+				<h3 class="font-semibold text-white mb-2">European Privacy Rights (GDPR)</h3>
+				<p class="leading-relaxed text-sm">
+					If you are located in the European Economic Area (EEA), you have additional rights under the General Data Protection Regulation (GDPR), including the right to access, rectify, erase, restrict processing, object to processing, and data portability. You also have the right to lodge a complaint with a supervisory authority. To exercise your GDPR rights, contact us using the information in the Contact section.
+				</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="mt-8 pt-6 border-t border-gray-800 text-center text-sm text-gray-500">
+		<p><strong class="text-white">Data Controller:</strong> Dumbshirts.store</p>
+		<p class="mt-2">Effective Date: January 2025</p>
+		<p class="mt-2">© 2025 Dumbshirts.store. All rights reserved.</p>
+	</div>
 </div>
 {% endblock %}
-
-
