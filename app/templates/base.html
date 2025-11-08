@@ -327,6 +327,8 @@
 (function(){
 	function lsGet(k){ try{return localStorage.getItem(k)||'';}catch(e){return '';} }
 	function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+	function ssGet(k){ try{return sessionStorage.getItem(k)||'';}catch(e){return '';} }
+	function ssSet(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }
 	
 	// Promo bar button
 	const promoBarBtn = document.getElementById('promo-bar-btn');
@@ -335,12 +337,20 @@
 	const emailInput = document.getElementById('promo-5off-email');
 	const result = document.getElementById('promo-5off-result');
 	
+	// Session tracking - check if modal was already closed this session
+	const SESSION_CLOSED_KEY = 'promo_5off_modal_closed_session';
+	const wasClosedThisSession = ssGet(SESSION_CLOSED_KEY) === '1';
+	
 	// Auto-popup tracking
 	let inactivityTimer = null;
 	let inactivityDelay = 3000; // 3 seconds
 	let hasAutoShown = false;
 	
 	function open(){ 
+		// Don't open if already closed this session
+		if(wasClosedThisSession || ssGet(SESSION_CLOSED_KEY) === '1'){
+			return;
+		}
 		if(modal){ modal.classList.remove('hidden'); }
 		
 		// GA4: Promo bar clicked
@@ -355,6 +365,8 @@
 	}
 	function close(){ 
 		if(modal){ modal.classList.add('hidden'); }
+		// Mark as closed this session - prevent showing again
+		ssSet(SESSION_CLOSED_KEY, '1');
 		// Mark as shown so it doesn't auto-pop again
 		hasAutoShown = true;
 	}
@@ -403,8 +415,8 @@
 			clearTimeout(inactivityTimer);
 		}
 		
-		// Don't show if already captured or already auto-shown
-		if(lsGet('promo_5off_captured') === '1' || hasAutoShown || !modal){
+		// Don't show if already captured, already auto-shown, or closed this session
+		if(lsGet('promo_5off_captured') === '1' || hasAutoShown || ssGet(SESSION_CLOSED_KEY) === '1' || !modal){
 			return;
 		}
 		
@@ -415,6 +427,10 @@
 		
 		// Set new timer
 		inactivityTimer = setTimeout(function(){
+			// Double-check session state before showing
+			if(ssGet(SESSION_CLOSED_KEY) === '1'){
+				return;
+			}
 			if(modal && modal.classList.contains('hidden')){
 				open();
 				hasAutoShown = true;
@@ -625,7 +641,14 @@
 	const btn = document.getElementById('promo-5off-btn');
 	const modal = document.getElementById('promo-5off-modal');
 	
+	function ssGet(k){ try{return sessionStorage.getItem(k)||'';}catch(e){return '';} }
+	function ssSet(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }
+	
 	function open(){ 
+		// Don't open if already closed this session
+		if(ssGet('promo_5off_modal_closed_session') === '1'){
+			return;
+		}
 		if(modal){ modal.classList.remove('hidden'); }
 		
 		// GA4: Floating button (lower left) clicked
@@ -638,7 +661,11 @@
 			console.log('[base] GA4 promo_5off_floating_button_clicked event sent');
 		}
 	}
-	function close(){ if(modal){ modal.classList.add('hidden'); } }
+	function close(){ 
+		if(modal){ modal.classList.add('hidden'); }
+		// Mark as closed this session - prevent showing again
+		ssSet('promo_5off_modal_closed_session', '1');
+	}
 	
 	if(btn){ btn.addEventListener('click', open); }
 	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
