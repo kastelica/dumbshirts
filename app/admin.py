@@ -2112,38 +2112,42 @@ def upload_image():
 def kym_search():
 	"""Search Know Your Meme for memes."""
 	query = request.args.get("q", "").strip()
+	pages = request.args.get("pages", default=3, type=int)
+	limit = request.args.get("limit", default=50, type=int)
 	if not query:
 		return jsonify({"error": "Missing search query"}), 400
 	
 	try:
-		from scripts.scrape_kym_memes import fetch_html, parse_listing, parse_detail_image, BASE
-		import requests
-		
-		# Search KYM - for now, fetch listing and filter by query
-		url = f"https://knowyourmeme.com/memes?kind=all&sort=views"
-		html = fetch_html(url)
-		entries = parse_listing(html)
-		
-		# Filter by query (simple text match in title)
-		query_lower = query.lower()
-		filtered = [e for e in entries if query_lower in e.get("title", "").lower()][:20]
-		
-		# Fetch images for filtered results
-		results = []
-		for e in filtered:
-			try:
-				dhtml = fetch_html(e["url"])
-				img = parse_detail_image(dhtml)
-			except Exception:
-				img = ""
-			results.append({
-				"title": e.get("title", ""),
-				"slug": e.get("slug", ""),
-				"url": e.get("url", ""),
-				"image": img
-			})
-		
-		return jsonify({"ok": True, "memes": results})
+		# Prefer enhanced fuzzy search if available
+		try:
+			from scripts.test_kym_search import fetch_search_results as _fetch_search_results
+			results = _fetch_search_results(query, pages=max(1, min(pages, 10)), limit=max(1, min(limit, 100)))
+			return jsonify({"ok": True, "memes": results})
+		except Exception:
+			# Fallback to simple listing + substring filter
+			from scripts.scrape_kym_memes import fetch_html, parse_listing, parse_detail_image, BASE
+			
+			url = f"https://knowyourmeme.com/memes?kind=all&sort=views"
+			html = fetch_html(url)
+			entries = parse_listing(html)
+			
+			query_lower = query.lower()
+			filtered = [e for e in entries if query_lower in e.get("title", "").lower()][:min(20, limit)]
+			
+			results = []
+			for e in filtered:
+				try:
+					dhtml = fetch_html(e["url"])
+					img = parse_detail_image(dhtml)
+				except Exception:
+					img = ""
+				results.append({
+					"title": e.get("title", ""),
+					"slug": e.get("slug", ""),
+					"url": e.get("url", ""),
+					"image": img
+				})
+			return jsonify({"ok": True, "memes": results})
 	except Exception as e:
 		current_app.logger.exception(f"[kym-search] Failed: {e}")
 		return jsonify({"error": str(e)}), 500

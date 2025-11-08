@@ -100,9 +100,10 @@
 					</div>
 				</div>
 				
-				<div id="kym-results" class="hidden space-y-2 max-h-64 overflow-y-auto">
+				<div id="kym-results" class="hidden space-y-2">
 					<div class="text-sm text-gray-400 mb-2">Select memes to import:</div>
 					<div id="kym-results-list"></div>
+					<button id="kym-show-more" class="w-full bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 hidden">Show more</button>
 					<button id="kym-import-selected-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 hidden">Import Selected</button>
 				</div>
 				
@@ -206,6 +207,15 @@
 
 <script>
 (function(){
+	// Shared default prompt for AI image generation
+	const DEFAULT_TEE_PROMPT = `Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+	// Ensure the main AI textarea shows this as the editable placeholder
+	(function(){
+		const aiInput = document.getElementById('ai-prompt-input');
+		if (aiInput) {
+			aiInput.setAttribute('placeholder', DEFAULT_TEE_PROMPT);
+		}
+	})();
 	// Product search and filter
 	const searchInput = document.getElementById('product-search');
 	const statusFilter = document.getElementById('status-filter');
@@ -509,6 +519,9 @@
 	
 	// KYM Search
 	let selectedKymMemes = [];
+	let kymAllResults = [];
+	let kymVisibleCount = 20;
+	const KYM_INCREMENT = 20;
 	document.getElementById('kym-search-btn')?.addEventListener('click', async function() {
 		const query = document.getElementById('kym-search')?.value?.trim();
 		if (!query) {
@@ -521,14 +534,18 @@
 		this.disabled = true;
 		
 		try {
-			const resp = await fetch('/admin/kym/search?q=' + encodeURIComponent(query));
+			// Ask backend for broader fuzzy results (pages/limit are hints)
+			const params = new URLSearchParams({ q: query, pages: '3', limit: '60' });
+			const resp = await fetch('/admin/kym/search?' + params.toString());
 			const data = await resp.json();
 			
 			if (data.error) {
 				statusDiv.textContent = 'Error: ' + data.error;
 			} else if (data.memes && data.memes.length > 0) {
-				statusDiv.textContent = `Found ${data.memes.length} memes`;
-				displayKymResults(data.memes);
+				kymAllResults = data.memes;
+				kymVisibleCount = 20;
+				statusDiv.textContent = `Found ${kymAllResults.length} memes`;
+				displayKymResults();
 			} else {
 				statusDiv.textContent = 'No memes found';
 			}
@@ -539,9 +556,10 @@
 		}
 	});
 	
-	function displayKymResults(memes) {
+	function displayKymResults() {
 		const container = document.getElementById('kym-results');
 		const list = document.getElementById('kym-results-list');
+		const showMoreBtn = document.getElementById('kym-show-more');
 		const importBtn = document.getElementById('kym-import-selected-btn');
 		
 		if (!container || !list) return;
@@ -550,7 +568,8 @@
 		list.innerHTML = '';
 		selectedKymMemes = [];
 		
-		memes.forEach((meme, idx) => {
+		const slice = kymAllResults.slice(0, kymVisibleCount);
+		slice.forEach((meme, idx) => {
 			const div = document.createElement('div');
 			div.className = 'flex items-center gap-3 p-2 bg-gray-950 border border-gray-700 rounded';
 			div.innerHTML = `
@@ -567,16 +586,26 @@
 		list.querySelectorAll('.kym-checkbox').forEach(cb => {
 			cb.addEventListener('change', function() {
 				const idx = parseInt(this.dataset.index);
+				const memesSlice = kymAllResults.slice(0, kymVisibleCount);
 				if (this.checked) {
-					if (!selectedKymMemes.find(m => m.title === memes[idx].title)) {
-						selectedKymMemes.push(memes[idx]);
+					if (!selectedKymMemes.find(m => m.title === memesSlice[idx].title)) {
+						selectedKymMemes.push(memesSlice[idx]);
 					}
 				} else {
-					selectedKymMemes = selectedKymMemes.filter(m => m.title !== memes[idx].title);
+					selectedKymMemes = selectedKymMemes.filter(m => m.title !== memesSlice[idx].title);
 				}
 				importBtn.classList.toggle('hidden', selectedKymMemes.length === 0);
 			});
 		});
+		
+		// Show more button
+		if (showMoreBtn) {
+			showMoreBtn.classList.toggle('hidden', kymVisibleCount >= kymAllResults.length);
+			showMoreBtn.onclick = function () {
+				kymVisibleCount += KYM_INCREMENT;
+				displayKymResults();
+			};
+		}
 	}
 	
 	document.getElementById('kym-import-selected-btn')?.addEventListener('click', async function() {
@@ -653,10 +682,10 @@
 			const productId = parseInt(this.dataset.productId);
 			if (!productId) return;
 			
-			const userPrompt = window.prompt('Enter image generation prompt (or leave blank for default):');
+			const userPrompt = window.prompt('Enter image generation prompt (you can edit):', DEFAULT_TEE_PROMPT);
 			if (userPrompt === null) return; // User cancelled
 			
-			const finalPrompt = (userPrompt || '').trim() || `Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+			const finalPrompt = (userPrompt || '').trim() || DEFAULT_TEE_PROMPT;
 			
 			this.textContent = 'Generating...';
 			this.disabled = true;
