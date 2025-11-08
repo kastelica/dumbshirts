@@ -568,6 +568,28 @@
     init();
   }
 
+  // Global Meta Pixel AddToCart tracking for product cards
+  // Listens for submits on forms with class .js-add-to-cart-form
+  try {
+    document.addEventListener('submit', function(e){
+      let form = e.target;
+      if (!form || (form.tagName !== 'FORM')) {
+        form = form && form.closest ? form.closest('.js-add-to-cart-form') : null;
+      }
+      if (!form || !form.classList || !form.classList.contains('js-add-to-cart-form')) return;
+      try {
+        // content_ids should be product IDs
+        const pid = form.getAttribute('data-product-id') || '';
+        if (typeof fbq === 'function' && pid) {
+          fbq('track', 'AddToCart', {
+            content_ids: [String(pid)],
+            content_type: 'product'
+          });
+        }
+      } catch (_err) {}
+    }, true); // capture to fire early
+  } catch (_e) {}
+
   // Export functions for use in templates
   window.ProductGallery = {
     initGallery,
