@@ -619,10 +619,10 @@
 			const productId = parseInt(this.dataset.productId);
 			if (!productId) return;
 			
-			const prompt = prompt('Enter image generation prompt (or leave blank for default):');
-			if (prompt === null) return; // User cancelled
+			const userPrompt = window.prompt('Enter image generation prompt (or leave blank for default):');
+			if (userPrompt === null) return; // User cancelled
 			
-			const finalPrompt = prompt.trim() || `Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+			const finalPrompt = (userPrompt || '').trim() || `Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
 			
 			this.textContent = 'Generating...';
 			this.disabled = true;
