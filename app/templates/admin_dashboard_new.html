@@ -198,6 +198,15 @@
 				</tbody>
 			</table>
 		</div>
+		
+		{% if total_products_count > recent_products|length %}
+		<div class="mt-4 text-center">
+			<button id="show-more-btn" class="bg-gray-800 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors">
+				Show More ({{ total_products_count - recent_products|length }} remaining)
+			</button>
+			<div id="loading-more" class="hidden mt-2 text-sm text-gray-400">Loading...</div>
+		</div>
+		{% endif %}
 	</div>
 </div>
 
@@ -674,6 +683,128 @@
 			}
 		}, 2000);
 	}
+	
+	// Show More Products
+	let currentOffset = {{ recent_products|length }};
+	const showMoreBtn = document.getElementById('show-more-btn');
+	const loadingDiv = document.getElementById('loading-more');
+	const tbody = document.getElementById('products-tbody');
+	
+	showMoreBtn?.addEventListener('click', async function() {
+		this.disabled = true;
+		if (loadingDiv) loadingDiv.classList.remove('hidden');
+		
+		try {
+			const resp = await fetch(`/admin/products/load-more?offset=${currentOffset}&limit=20`);
+			const data = await resp.json();
+			
+			if (data.error) {
+				alert('Error: ' + data.error);
+			} else if (data.products && data.products.length > 0) {
+				// Add new products to table
+				data.products.forEach(p => {
+					const row = document.createElement('tr');
+					row.className = 'border-b border-gray-800 hover:bg-gray-950';
+					row.dataset.productId = p.id;
+					row.dataset.status = p.status;
+					
+					const statusClass = p.status === 'active' ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300';
+					const statusText = p.status === 'active' ? 'Hide' : 'Show';
+					
+					row.innerHTML = `
+						<td class="py-2">
+							<input type="checkbox" class="product-checkbox" value="${p.id}">
+						</td>
+						<td class="py-2">
+							<a href="/admin/products/${p.id}/edit" class="flex items-center gap-3 hover:text-white">
+								<div class="w-12 h-12 bg-gray-950 border border-gray-700 rounded overflow-hidden flex items-center justify-center">
+									${p.image_url ? `<img src="${p.image_url}" alt="${p.title}" class="w-full h-full object-contain">` : '<span class="text-gray-600 text-xs">No</span>'}
+								</div>
+								<span class="font-medium">${p.title || 'Untitled'}</span>
+							</a>
+						</td>
+						<td class="py-2">
+							<span class="px-2 py-1 rounded text-xs ${statusClass}">
+								${(p.status || 'DRAFT').toUpperCase()}
+							</span>
+						</td>
+						<td class="py-2">$${p.price.toFixed(2)}</td>
+						<td class="py-2">
+							<div class="flex items-center gap-2">
+								<button class="generate-image-btn text-xs text-blue-400 hover:text-blue-300" data-product-id="${p.id}">Generate Image</button>
+								<form method="post" action="/admin/products/${p.id}/toggle" class="inline">
+									<button type="submit" class="text-xs text-gray-400 hover:text-white">${statusText}</button>
+								</form>
+								<a href="/admin/products/${p.id}/edit" class="text-xs text-gray-400 hover:text-white">Edit</a>
+							</div>
+						</td>
+					`;
+					
+					tbody.appendChild(row);
+				});
+				
+				// Re-attach event listeners to new generate-image buttons
+				document.querySelectorAll('.generate-image-btn').forEach(btn => {
+					if (!btn.dataset.listenerAttached) {
+						btn.dataset.listenerAttached = '1';
+						btn.addEventListener('click', async function() {
+							const productId = parseInt(this.dataset.productId);
+							if (!productId) return;
+							
+							const userPrompt = window.prompt('Enter image generation prompt (or leave blank for default):');
+							if (userPrompt === null) return;
+							
+							const finalPrompt = (userPrompt || '').trim() || `Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+							
+							this.textContent = 'Generating...';
+							this.disabled = true;
+							
+							try {
+								const resp = await fetch(`/admin/products/${productId}/generate-image`, {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ prompt: finalPrompt })
+								});
+								const data = await resp.json();
+								
+								if (data.error) {
+									alert('Error: ' + data.error);
+								} else {
+									alert('Image generation started! Check the product edit page in a moment.');
+									pollImageStatus(productId, this);
+								}
+							} catch (e) {
+								alert('Error: ' + e.message);
+							} finally {
+								this.disabled = false;
+								this.textContent = 'Generate Image';
+							}
+						});
+					}
+				});
+				
+				// Update offset and button
+				currentOffset += data.products.length;
+				
+				// Update remaining count or hide button
+				const totalCount = {{ total_products_count|default(0) }};
+				const remaining = totalCount - currentOffset;
+				if (remaining > 0 && data.has_more) {
+					this.textContent = `Show More (${remaining} remaining)`;
+					this.disabled = false;
+				} else {
+					this.style.display = 'none';
+				}
+			} else {
+				showMoreBtn.style.display = 'none';
+			}
+		} catch (e) {
+			alert('Error loading more products: ' + e.message);
+			this.disabled = false;
+		} finally {
+			if (loadingDiv) loadingDiv.classList.add('hidden');
+		}
+	});
 })();
 </script>
 {% endblock %}
