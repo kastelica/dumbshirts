@@ -118,6 +118,27 @@ class GelatoClient:
 		resp.raise_for_status()
 		return resp.json()
 
+	def extract_tracking_info(self, order: Dict[str, Any]) -> List[Dict[str, Any]]:
+		"""
+		Extract tracking data from an order response.
+		Returns a list of packages with trackingCode, trackingUrl, id, and orderItemIds.
+		"""
+		tracking: List[Dict[str, Any]] = []
+		try:
+			shipment = order.get("shipment") or {}
+			packages = shipment.get("packages") or []
+			for pkg in packages:
+				tracking.append({
+					"packageId": pkg.get("id") or "",
+					"trackingCode": pkg.get("trackingCode") or "",
+					"trackingUrl": pkg.get("trackingUrl") or "",
+					"orderItemIds": pkg.get("orderItemIds") or [],
+					"shipmentMethodName": shipment.get("shipmentMethodName") or "",
+				})
+		except Exception:
+			pass
+		return tracking
+
 	def get_shipping_rates(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
 		"""Request shipping rates (endpoint may vary; this is a placeholder call)."""
 		try:

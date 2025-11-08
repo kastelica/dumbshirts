@@ -32,6 +32,15 @@
             <button class="bg-white text-black px-3 py-1 rounded">Fetch</button>
         </form>
     </div>
+	<div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
+		<h2 class="font-semibold mb-3">Get Tracking</h2>
+		<form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">
+			<input type="hidden" name="op" value="get_tracking" />
+			<label class="block">orderId <input class="bg-black border border-gray-800 px-2 py-1 w-full" type="text" name="order_id" placeholder="ord_..." /></label>
+			<button class="bg-white text-black px-3 py-1 rounded">Fetch Tracking</button>
+		</form>
+		<p class="mt-2 text-xs text-gray-500">Returns packages with trackingCode and trackingUrl when available.</p>
+	</div>
     <div class="p-4 border border-gray-800 bg-gray-900 rounded text-sm text-gray-300">
         <h2 class="font-semibold mb-3">Shipping Rates</h2>
         <form method="post" action="{{ url_for('admin.gelato_action') }}" class="space-y-2">

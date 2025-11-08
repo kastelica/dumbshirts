@@ -12,12 +12,12 @@
 	</div>
 	<div>
 		<label class="block text-sm mb-1">Design image</label>
-		<div class="flex items-start gap-4">
-			<div class="w-32 h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+		<div class="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
+			<div class="w-full aspect-square sm:w-32 sm:h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
 				{% if product.design and product.design.preview_url %}
-				<img id="design-preview" src="{{ product.design.preview_url }}" alt="Preview" class="w-full h-full object-cover" />
+				<img id="design-preview" src="{{ product.design.preview_url }}" alt="Preview" class="w-full h-full object-contain" />
 				{% else %}
-				<img id="design-preview" src="" alt="Preview" class="w-full h-full object-cover hidden" />
+				<img id="design-preview" src="" alt="Preview" class="w-full h-full object-contain hidden" />
 				<span id="design-empty" class="text-gray-600 text-xs">No image</span>
 				{% endif %}
 			</div>
@@ -30,22 +30,22 @@
 	</div>
 	<div>
 		<label class="block text-sm mb-1">Extra images (optional)</label>
-		<div class="flex items-start gap-4">
-			<div class="w-24 h-24 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+		<div class="grid grid-cols-2 gap-3 sm:flex sm:items-start sm:gap-4">
+			<div class="w-full aspect-square sm:w-24 sm:h-24 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
 				{% if product.design and product.design.extra_image1_url %}
-				<img src="{{ product.design.extra_image1_url }}" alt="Extra 1" class="w-full h-full object-cover" />
+				<img src="{{ product.design.extra_image1_url }}" alt="Extra 1" class="w-full h-full object-contain" />
 				{% else %}
 				<span class="text-gray-600 text-xs">No</span>
 				{% endif %}
 			</div>
-			<div class="w-24 h-24 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+			<div class="w-full aspect-square sm:w-24 sm:h-24 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
 				{% if product.design and product.design.extra_image2_url %}
-				<img src="{{ product.design.extra_image2_url }}" alt="Extra 2" class="w-full h-full object-cover" />
+				<img src="{{ product.design.extra_image2_url }}" alt="Extra 2" class="w-full h-full object-contain" />
 				{% else %}
 				<span class="text-gray-600 text-xs">No</span>
 				{% endif %}
 			</div>
-			<div class="space-y-2">
+			<div class="col-span-2 sm:col-span-1 space-y-2">
 				<input type="file" name="extra_image1" accept="image/*" class="block text-sm" />
 				<input type="file" name="extra_image2" accept="image/*" class="block text-sm" />
 				<p class="text-xs text-gray-400">Upload up to two additional images for the gallery.</p>

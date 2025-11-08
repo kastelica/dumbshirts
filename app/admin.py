@@ -1660,6 +1660,11 @@ def gelato_action():
 		elif action == "get_order":
 			oid = (request.form.get("order_id") or "").strip()
 			result = client.get_order(oid)
+		elif action == "get_tracking":
+			oid = (request.form.get("order_id") or "").strip()
+			order = client.get_order(oid)
+			tracking = client.extract_tracking_info(order or {})
+			result = {"order": order, "tracking": tracking}
 		elif action == "shipping_rates":
 			# Minimal example payload; adjust as needed
 			uid_in = (request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID") or "").strip()
