@@ -35,16 +35,15 @@
 	{% block head %}{% endblock %}
 </head>
 <body class="min-h-screen bg-gray-950 text-gray-100">
-	<div id="promo-bar" class="bg-gray-900 border-b border-gray-800">
+	<div id="promo-bar" class="bg-gray-900 border-b border-gray-800 sticky top-0 z-[1100]">
 		<div class="max-w-6xl mx-auto px-4 py-2 text-center text-sm">
 			<button id="promo-bar-btn" class="text-green-400 font-semibold hover:underline">
 				Black Friday Sale — Extra 5% Off
 			</button>
 		</div>
 	</div>
-	<header class="border-b border-gray-800">
-		<div id="topbar-fixed" class="fixed inset-x-0 top-0 z-[1000] bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/80">
-			<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+	<header id="site-header" class="border-b border-gray-800 sticky z-[1000] bg-gray-950 md:static">
+		<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
 			<a href="/" class="font-extrabold text-xl tracking-tight">The Dumb Shirts Store</a>
 			<div class="flex items-center gap-3">
 				<button id="menu-toggle" class="md:hidden bg-gray-900 border border-gray-800 text-gray-200 px-3 py-2 rounded" aria-label="Toggle menu">Menu</button>
@@ -83,9 +82,7 @@
 					{% endif %}
 				</a>
 			</div>
-			</div>
 		</div>
-		<div id="header-spacer"></div>
 		<div id="mobile-nav-wrap" class="md:hidden max-w-6xl mx-auto px-4 pb-3">
 			<nav id="mobile-nav" class="hidden flex-col bg-gray-900 border border-gray-800 rounded-lg mt-2 overflow-hidden shadow-lg divide-y divide-gray-800">
 				<a href="/" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Home</a>
@@ -201,7 +198,7 @@
 	<div id="promo-5off" class="fixed left-4 bottom-4 z-40">
 		<button id="promo-5off-btn" class="promo-btn-shimmer bg-white text-black rounded-full px-5 py-3 font-semibold shadow-xl hover:scale-105 transition-transform duration-200 relative z-10">Black Friday Sale</button>
 	</div>
-	<div id="promo-5off-modal" class="fixed inset-0 z-[10000] hidden">
+	<div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
 		<div class="absolute inset-0 bg-black/70" data-close></div>
 		<div class="relative bg-gray-900 border-2 border-gray-700 rounded-lg shadow-2xl w-[95%] max-w-[480px] mx-auto mt-[5vh] mb-4 overflow-hidden">
 			<div class="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-b border-gray-700 px-4 md:px-6 py-4">
@@ -324,25 +321,20 @@
 			mobile.classList.toggle('hidden');
 		});
 	}
-	// Adjust sticky top offset and spacer so content doesn't hide under nav and promo bar remains visible
+	// Adjust header sticky offset to sit below the promo bar dynamically
 	try{
 		const promo = document.getElementById('promo-bar');
-		const fixed = document.getElementById('topbar-fixed');
-		const spacer = document.getElementById('header-spacer');
-		function applyOffsets(){
-			if(!fixed || !spacer) return;
-			const promoH = (promo && promo.offsetHeight) ? promo.offsetHeight : 0;
-			fixed.style.top = promoH + 'px';
-			// After setting top, measure nav height to create spacer equal to nav height only
-			// Temporarily set visibility to ensure accurate measurement
-			const h = fixed.offsetHeight;
-			spacer.style.height = h + 'px';
+		const header = document.getElementById('site-header');
+		function applyHeaderOffset(){
+			if(!promo || !header) return;
+			const promoH = promo.offsetHeight || 0;
+			header.style.top = promoH + 'px';
 		}
-		window.addEventListener('load', applyOffsets);
-		window.addEventListener('resize', applyOffsets);
-		const obs = new ResizeObserver(applyOffsets);
-		if(promo){ obs.observe(promo); }
-		applyOffsets();
+		window.addEventListener('load', applyHeaderOffset);
+		window.addEventListener('resize', applyHeaderOffset);
+		const ro = new ResizeObserver(applyHeaderOffset);
+		if(promo) ro.observe(promo);
+		applyHeaderOffset();
 	}catch(_e){}
 })();
 </script>

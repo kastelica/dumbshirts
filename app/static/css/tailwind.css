@@ -644,13 +644,12 @@ video {
   position: relative;
 }
 
-.inset-0 {
-  inset: 0px;
+.sticky {
+  position: sticky;
 }
 
-.inset-x-0 {
-  left: 0px;
-  right: 0px;
+.inset-0 {
+  inset: 0px;
 }
 
 .-right-1 {
@@ -717,10 +716,6 @@ video {
   z-index: 50;
 }
 
-.z-\[10000\] {
-  z-index: 10000;
-}
-
 .z-\[1000\] {
   z-index: 1000;
 }
@@ -731,6 +726,10 @@ video {
 
 .z-\[101\] {
   z-index: 101;
+}
+
+.z-\[1100\] {
+  z-index: 1100;
 }
 
 .z-\[1\] {
@@ -1152,6 +1151,10 @@ video {
   resize: none;
 }
 
+.resize {
+  resize: both;
+}
+
 .list-inside {
   list-style-position: inside;
 }
@@ -1473,10 +1476,6 @@ video {
 .bg-gray-950 {
   --tw-bg-opacity: 1;
   background-color: rgb(3 7 18 / var(--tw-bg-opacity, 1));
-}
-
-.bg-gray-950\/95 {
-  background-color: rgb(3 7 18 / 0.95);
 }
 
 .bg-green-400\/10 {
@@ -1984,17 +1983,8 @@ video {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
-.backdrop-blur {
-  --tw-backdrop-blur: blur(8px);
-  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
-}
-
 .backdrop-blur-sm {
   --tw-backdrop-blur: blur(4px);
-  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
-}
-
-.backdrop-filter {
   backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 
@@ -2204,12 +2194,6 @@ video {
   opacity: 1;
 }
 
-@supports (backdrop-filter: var(--tw)) {
-  .supports-\[backdrop-filter\]\:bg-gray-950\/80 {
-    background-color: rgb(3 7 18 / 0.8);
-  }
-}
-
 @media (min-width: 640px) {
   .sm\:col-span-1 {
     grid-column: span 1 / span 1;
@@ -2257,6 +2241,10 @@ video {
 }
 
 @media (min-width: 768px) {
+  .md\:static {
+    position: static;
+  }
+
   .md\:col-span-1 {
     grid-column: span 1 / span 1;
   }
