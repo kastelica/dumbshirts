@@ -334,6 +334,18 @@ function gtag_report_conversion(url){
 							quantity: parseInt(it.quantity || 1),
 						}))
 					});
+					// Meta Pixel: Purchase
+					try{
+						if(typeof fbq === 'function'){
+							const ids = items.map(it => (it.product_id != null ? String(it.product_id) : null)).filter(Boolean);
+							fbq('track', 'Purchase', {
+								content_ids: ids,
+								value: finalTotal,
+								currency: '{{ currency }}',
+								content_type: 'product'
+							});
+						}
+					}catch(_e){}
 					// Mark as sent to prevent duplicate on confirmation page
 					try{ sessionStorage.setItem('ga4_purchase_' + transId, '1'); }catch(_e){}
 					console.log('[checkout] GA4 purchase event sent', { transaction_id: transId, value: finalTotal, items_count: items.length });

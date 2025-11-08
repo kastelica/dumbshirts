@@ -121,6 +121,17 @@
 		}
 	}
 	</script>
+	<script>
+	// Meta Pixel: ViewContent on product view
+	try{
+		if(typeof fbq === 'function'){
+			fbq('track', 'ViewContent', {
+				content_ids: [{{ product.id|tojson }}],
+				content_type: 'product'
+			});
+		}
+	}catch(_e){}
+	</script>
 {% endblock %}
 {% block title %}{{ product.title }} | Dumbshirts.store{% endblock %}
 {% block content %}
@@ -442,6 +453,15 @@ function lookupProductUid(size, color){
 		if(addForm){
 			addForm.addEventListener('submit', function(){
 				try{
+					// Meta Pixel: AddToCart
+					try{
+						if(typeof fbq === 'function'){
+							fbq('track', 'AddToCart', {
+								content_ids: [{{ product.id|tojson }}],
+								content_type: 'product'
+							});
+						}
+					}catch(_e){}
 					const qty = parseInt((document.querySelector('input[name="quantity"]')?.value)||'1', 10) || 1;
 					const size = document.getElementById('size-select').value;
 					const color = document.getElementById('color-select').value;
