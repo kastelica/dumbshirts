@@ -45,6 +45,7 @@
 					<button id="bulk-publish-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">Publish Selected</button>
 					<button id="bulk-unpublish-btn" class="w-full bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700">Unpublish Selected</button>
 					<button id="bulk-delete-btn" class="w-full bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700">Delete Selected</button>
+					<button id="append-tshirt-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Append "T-Shirt" to Titles</button>
 				</div>
 			</div>
 		</div>
@@ -682,10 +683,21 @@
 			const productId = parseInt(this.dataset.productId);
 			if (!productId) return;
 			
-			const userPrompt = window.prompt('Enter image generation prompt (you can edit):', DEFAULT_TEE_PROMPT);
+			// Build default prompt including the product title
+			const titleFromAttr = this.dataset.productTitle || '';
+			const titleFromRow = this.closest('tr')?.querySelector('span.font-medium')?.textContent?.trim() || '';
+			const productTitle = titleFromAttr || titleFromRow || 'T-Shirt';
+			const buildDefaultPrompt = (t) => `Design for "${t}" T-Shirt. Minimal bold graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+			
+			const userPrompt = window.prompt('Enter image generation prompt (you can edit):', buildDefaultPrompt(productTitle));
 			if (userPrompt === null) return; // User cancelled
 			
-			const finalPrompt = (userPrompt || '').trim() || DEFAULT_TEE_PROMPT;
+			let finalPrompt = (userPrompt || '').trim();
+			if (!finalPrompt) {
+				finalPrompt = buildDefaultPrompt(productTitle);
+			} else if (!finalPrompt.toLowerCase().includes(productTitle.toLowerCase())) {
+				finalPrompt = `Design for "${productTitle}" T-Shirt. ` + finalPrompt;
+			}
 			
 			this.textContent = 'Generating...';
 			this.disabled = true;
@@ -712,6 +724,26 @@
 				this.textContent = 'Generate Image';
 			}
 		});
+	});
+	
+	// Append "T-Shirt" to product titles (bulk)
+	document.getElementById('append-tshirt-btn')?.addEventListener('click', async function() {
+		if (!confirm('Append " T-Shirt" to all product titles that do not already end with it?')) return;
+		this.disabled = true;
+		try {
+			const resp = await fetch('/admin/products/append-tshirt', { method: 'POST' });
+			const data = await resp.json();
+			if (data.ok) {
+				alert(`Updated ${data.updated || 0} product title(s).`);
+				location.reload();
+			} else {
+				alert('Error: ' + (data.error || 'Unknown error'));
+			}
+		} catch (e) {
+			alert('Error: ' + e.message);
+		} finally {
+			this.disabled = false;
+		}
 	});
 	
 	function pollImageStatus(productId, btn) {

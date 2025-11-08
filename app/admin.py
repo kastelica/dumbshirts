@@ -220,7 +220,7 @@ def dashboard():
 	draft_products = Product.query.filter_by(status="draft").count()
 	
 	# Get recent products (last 20)
-	recent_products = Product.query.order_by(Product.created_at.desc()).limit(20).all()
+	recent_products = Product.query.order_by(Product.created_at.desc()).limit(250).all()
 	
 	stats = {
 		"total_products": total_products,
@@ -2274,6 +2274,30 @@ def bulk_delete_products():
 	
 	db.session.commit()
 	return jsonify({"ok": True, "deleted": deleted})
+
+
+@admin_bp.post("/products/append-tshirt")
+@login_required
+def append_tshirt_to_titles():
+	"""Append ' T-Shirt' to product titles that do not already end with 'T-Shirt' (case-insensitive)."""
+	updated = 0
+	try:
+		products = Product.query.all()
+		for p in products:
+			title = (p.title or "").strip()
+			if not title:
+				continue
+			# If already ends with 'T-Shirt' (case-insensitive), skip
+			if title.lower().endswith("t-shirt"):
+				continue
+			p.title = f"{title} T-Shirt"
+			updated += 1
+		db.session.commit()
+		return jsonify({"ok": True, "updated": updated})
+	except Exception as e:
+		db.session.rollback()
+		current_app.logger.exception(f"[append-tshirt] Failed: {e}")
+		return jsonify({"error": str(e)}), 500
 
 
 @admin_bp.post("/products/bulk-create")
