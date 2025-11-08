@@ -43,7 +43,7 @@
 		</div>
 	</div>
 	<header class="border-b border-gray-800">
-		<div class="fixed inset-x-0 top-0 z-[1000] bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/80">
+		<div id="topbar-fixed" class="fixed inset-x-0 top-0 z-[1000] bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/80">
 			<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
 			<a href="/" class="font-extrabold text-xl tracking-tight">The Dumb Shirts Store</a>
 			<div class="flex items-center gap-3">
@@ -85,7 +85,7 @@
 			</div>
 			</div>
 		</div>
-		<div class="h-16 md:hidden"></div>
+		<div id="header-spacer"></div>
 		<div id="mobile-nav-wrap" class="md:hidden max-w-6xl mx-auto px-4 pb-3">
 			<nav id="mobile-nav" class="hidden flex-col bg-gray-900 border border-gray-800 rounded-lg mt-2 overflow-hidden shadow-lg divide-y divide-gray-800">
 				<a href="/" class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Home</a>
@@ -324,6 +324,26 @@
 			mobile.classList.toggle('hidden');
 		});
 	}
+	// Adjust sticky top offset and spacer so content doesn't hide under nav and promo bar remains visible
+	try{
+		const promo = document.getElementById('promo-bar');
+		const fixed = document.getElementById('topbar-fixed');
+		const spacer = document.getElementById('header-spacer');
+		function applyOffsets(){
+			if(!fixed || !spacer) return;
+			const promoH = (promo && promo.offsetHeight) ? promo.offsetHeight : 0;
+			fixed.style.top = promoH + 'px';
+			// After setting top, measure nav height to create spacer equal to nav height only
+			// Temporarily set visibility to ensure accurate measurement
+			const h = fixed.offsetHeight;
+			spacer.style.height = h + 'px';
+		}
+		window.addEventListener('load', applyOffsets);
+		window.addEventListener('resize', applyOffsets);
+		const obs = new ResizeObserver(applyOffsets);
+		if(promo){ obs.observe(promo); }
+		applyOffsets();
+	}catch(_e){}
 })();
 </script>
 
