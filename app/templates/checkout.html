@@ -198,7 +198,7 @@ function gtag_report_conversion(url){
             if(emailOk){ await createOrUpdatePI(true); }
         }catch(_e){}
     });
-    shipNote.textContent = 'Static shipping options.';
+    shipNote.textContent = 'Times vary by location';
 
     const stripe = Stripe('{{ publishable_key }}');
     // GA4 begin_checkout event

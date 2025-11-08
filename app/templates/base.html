@@ -38,7 +38,7 @@
 	<div id="promo-bar" class="bg-gray-900 border-b border-gray-800">
 		<div class="max-w-6xl mx-auto px-4 py-2 text-center text-sm">
 			<button id="promo-bar-btn" class="text-green-400 font-semibold hover:underline">
-				Save an extra 5% on top of sale price
+				Black Friday Sale — Extra 5% Off
 			</button>
 		</div>
 	</div>
@@ -196,7 +196,7 @@
 		}
 	</style>
 	<div id="promo-5off" class="fixed left-4 bottom-4 z-40">
-		<button id="promo-5off-btn" class="promo-btn-shimmer bg-white text-black rounded-full px-5 py-3 font-semibold shadow-xl hover:scale-105 transition-transform duration-200 relative z-10">Extra 5% Off</button>
+		<button id="promo-5off-btn" class="promo-btn-shimmer bg-white text-black rounded-full px-5 py-3 font-semibold shadow-xl hover:scale-105 transition-transform duration-200 relative z-10">Black Friday Sale</button>
 	</div>
 	<div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
 		<div class="absolute inset-0 bg-black/70" data-close></div>
@@ -348,10 +348,6 @@
 	let hasAutoShown = false;
 	
 	function open(){ 
-		// Don't open if already closed this session
-		if(wasClosedThisSession || ssGet(SESSION_CLOSED_KEY) === '1'){
-			return;
-		}
 		if(modal){ modal.classList.remove('hidden'); }
 		
 		// GA4: Promo bar clicked
@@ -372,7 +368,18 @@
 		hasAutoShown = true;
 	}
 	
-	if(promoBarBtn){ promoBarBtn.addEventListener('click', open); }
+	// Toggle on explicit click; explicit closing via toggle should NOT set the session closed flag
+	if(promoBarBtn){ 
+		promoBarBtn.addEventListener('click', function(){
+			if(!modal) return;
+			if(modal.classList.contains('hidden')){
+				open();
+			}else{
+				// Explicit toggle off does not set the session closed key
+				modal.classList.add('hidden');
+			}
+		}); 
+	}
 	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
 	
 	if(form){
@@ -642,14 +649,7 @@
 	const btn = document.getElementById('promo-5off-btn');
 	const modal = document.getElementById('promo-5off-modal');
 	
-	function ssGet(k){ try{return sessionStorage.getItem(k)||'';}catch(e){return '';} }
-	function ssSet(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }
-	
 	function open(){ 
-		// Don't open if already closed this session
-		if(ssGet('promo_5off_modal_closed_session') === '1'){
-			return;
-		}
 		if(modal){ modal.classList.remove('hidden'); }
 		
 		// GA4: Floating button (lower left) clicked
@@ -664,11 +664,19 @@
 	}
 	function close(){ 
 		if(modal){ modal.classList.add('hidden'); }
-		// Mark as closed this session - prevent showing again
-		ssSet('promo_5off_modal_closed_session', '1');
 	}
 	
-	if(btn){ btn.addEventListener('click', open); }
+	// Toggle behavior: explicit clicks should always toggle open/closed and NOT set the session closed flag
+	if(btn){ 
+		btn.addEventListener('click', function(){
+			if(!modal) return;
+			if(modal.classList.contains('hidden')){
+				open();
+			}else{
+				modal.classList.add('hidden');
+			}
+		}); 
+	}
 	if(modal){ modal.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click', close)); }
 })();
 </script>
