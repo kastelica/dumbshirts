@@ -1662,9 +1662,27 @@ def gelato_action():
 			result = client.get_order(oid)
 		elif action == "get_tracking":
 			oid = (request.form.get("order_id") or "").strip()
-			order = client.get_order(oid)
-			tracking = client.extract_tracking_info(order or {})
-			result = {"order": order, "tracking": tracking}
+			order_or_list = client.get_order(oid)
+			# If Gelato returned a wrapper with "orders": [...], fetch detailed orders by id
+			orders_detailed = []
+			try:
+				if isinstance(order_or_list, dict) and isinstance(order_or_list.get("orders"), list) and order_or_list["orders"]:
+					for o in order_or_list["orders"]:
+						try:
+							oid_real = (o or {}).get("id")
+							if oid_real:
+								orders_detailed.append(client.get_order(oid_real))
+						except Exception:
+							continue
+				else:
+					orders_detailed.append(order_or_list)
+			except Exception:
+				orders_detailed.append(order_or_list)
+			# Extract tracking from all collected orders
+			tracking_all = []
+			for od in orders_detailed:
+				tracking_all.extend(client.extract_tracking_info(od or {}))
+			result = {"orders": orders_detailed, "tracking": tracking_all}
 		elif action == "shipping_rates":
 			# Minimal example payload; adjust as needed
 			uid_in = (request.form.get("product_uid") or current_app.config.get("DEFAULT_TEE_UID") or "").strip()
