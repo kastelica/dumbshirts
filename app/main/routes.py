@@ -1114,11 +1114,13 @@ def about_page():
         {"q": "Do you take custom requests?", "a": "Sometimes! Send ideas via the Contact page—we love suggestions."},
     ]
     return render_template("about.html", faqs=faqs)
+
+
 @main_bp.get("/order/confirm/<int:order_id>")
 def order_confirm(order_id: int):
 	"""Order confirmation page hosting Google Customer Reviews opt-in snippet."""
 	try:
-	order = Order.query.get_or_404(order_id)
+		order = Order.query.get_or_404(order_id)
 	except Exception as e:
 		current_app.logger.exception(f"[order-confirm] Failed to load order {order_id}: {e}")
 		abort(404)
@@ -1211,21 +1213,21 @@ def order_confirm(order_id: int):
 		
 		if should_send_fallback:
 			# Send confirmation email only as fallback (webhook should handle this normally)
-		if email:
-			try:
-				from flask import render_template as _rt
-				currency = order.currency or current_app.config.get("STORE_CURRENCY", "USD")
-				subtotal = sum([(oi.unit_price or 0) * (oi.quantity or 1) for oi in order.items])
-				shipping_amount = 0
-				amount_paid = float(order.total_amount or 0)
-				confirm_url = urljoin(current_app.config.get("BASE_URL", ""), f"/order/confirm/{order.id}")
-				html = _rt("email_order_confirmation.html", order=order, items=order.items, subtotal=float(subtotal), shipping=float(shipping_amount), amount_paid=amount_paid, currency=currency, confirm_url=confirm_url)
-				send_email_via_sendgrid(email, f"Order #{order.id} confirmed", html)
-				gelato_debug["email_sent"] = True
+			if email:
+				try:
+					from flask import render_template as _rt
+					currency = order.currency or current_app.config.get("STORE_CURRENCY", "USD")
+					subtotal = sum([(oi.unit_price or 0) * (oi.quantity or 1) for oi in order.items])
+					shipping_amount = 0
+					amount_paid = float(order.total_amount or 0)
+					confirm_url = urljoin(current_app.config.get("BASE_URL", ""), f"/order/confirm/{order.id}")
+					html = _rt("email_order_confirmation.html", order=order, items=order.items, subtotal=float(subtotal), shipping=float(shipping_amount), amount_paid=amount_paid, currency=currency, confirm_url=confirm_url)
+					send_email_via_sendgrid(email, f"Order #{order.id} confirmed", html)
+					gelato_debug["email_sent"] = True
 					current_app.logger.info(f"[order-confirm] Fallback customer email sent for order {order.id} (webhook may not have run)")
-			except Exception as _ee:
-				gelato_debug["email_sent"] = False
-				gelato_debug["email_error"] = str(_ee)
+				except Exception as _ee:
+					gelato_debug["email_sent"] = False
+					gelato_debug["email_error"] = str(_ee)
 			
 			# Fallback: Notify admin of new paid/submitted order (in case webhook didn't fire or failed)
 			# Only send if order status indicates payment succeeded
@@ -1241,7 +1243,7 @@ def order_confirm(order_id: int):
 							for oi in order.items:
 								total_line = float((oi.unit_price or 0) * (oi.quantity or 1))
 								items_lines.append(f"{int(oi.quantity or 1)}× {oi.title or ''} — ${total_line:.2f}")
-	except Exception:
+						except Exception:
 							items_lines = []
 						summary_lines = [
 							f"Order ID: {order.id}",
@@ -1266,8 +1268,8 @@ def order_confirm(order_id: int):
 	
 	# Clear cart after confirmation (best-effort)
 	try:
-	session["cart"] = {"items": []}
-	session.modified = True
+		session["cart"] = {"items": []}
+		session.modified = True
 	except Exception as e:
 		current_app.logger.warning(f"[order-confirm] Failed to clear cart for order {order_id}: {e}")
 	
@@ -1295,17 +1297,17 @@ def order_confirm(order_id: int):
 		# Continue with empty list
 	
 	try:
-	return render_template(
-		"order_confirmation.html",
-		order=order,
+		return render_template(
+			"order_confirmation.html",
+			order=order,
 			order_items=order_items_dict,
-		email=email,
-		country=country,
-		est_delivery=est_date,
-		products=products,
-		gelato_debug=gelato_debug,
-		merchant_id=114634997,
-	)
+			email=email,
+			country=country,
+			est_delivery=est_date,
+			products=products,
+			gelato_debug=gelato_debug,
+			merchant_id=114634997,
+		)
 	except Exception as e:
 		current_app.logger.exception(f"[order-confirm] Failed to render template for order {order_id}: {e}")
 		# Re-raise to trigger 500 handler, but with better logging

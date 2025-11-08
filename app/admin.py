@@ -228,7 +228,7 @@ def dashboard():
 		"draft_products": draft_products,
 	}
 	
-	return render_template("admin_dashboard_new.html", stats=stats, recent_products=recent_products, total_products_count=total_products)
+	return render_template("admin_dashboard_new.html", stats=stats, recent_products=recent_products)
 
 
 @admin_bp.get("/trends")
@@ -2385,29 +2385,3 @@ def bulk_create_products():
 			db.session.rollback()
 	
 	return jsonify({"ok": True, "created": created})
-
-
-@admin_bp.get("/products/load-more")
-@login_required
-def load_more_products():
-	"""Load more products for the dashboard table."""
-	try:
-		offset = int(request.args.get("offset", 0))
-		limit = int(request.args.get("limit", 20))
-	except Exception:
-		offset = 0
-		limit = 20
-	
-	products = Product.query.order_by(Product.created_at.desc()).offset(offset).limit(limit).all()
-	
-	products_data = []
-	for p in products:
-		products_data.append({
-			"id": p.id,
-			"title": p.title,
-			"status": p.status,
-			"price": float(p.price) if p.price else 0.0,
-			"image_url": p.design.image_url if p.design and p.design.image_url else None,
-		})
-	
-	return jsonify({"ok": True, "products": products_data, "has_more": len(products) == limit})
