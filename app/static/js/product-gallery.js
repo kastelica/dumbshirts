@@ -269,30 +269,6 @@
     const designEl = galleryEl.querySelector('.mockup-design') || galleryEl.querySelector('#mockup-design');
     const designSrc = (designEl && (designEl.getAttribute('src') || designEl.getAttribute('data-design-src'))) || '';
 
-    function positionLightboxOverlay() {
-      try {
-        // Position design overlay relative to the displayed base image box (not container)
-        const container = lbMock; // absolute-positioned container
-        const cRect = container.getBoundingClientRect();
-        const natW = lbBase.naturalWidth || 0;
-        const natH = lbBase.naturalHeight || 0;
-        if (!natW || !natH || !cRect.width || !cRect.height) return;
-        const scale = Math.min(cRect.width / natW, cRect.height / natH);
-        const dispW = natW * scale;
-        const dispH = natH * scale;
-        const offsetX = (cRect.width - dispW) / 2;
-        const offsetY = (cRect.height - dispH) / 2;
-        // Match base overlay coefficients from detail view
-        const wCoeff = 0.35, leftCoeff = 0.32, topCoeff = 0.26;
-        const overlayW = dispW * wCoeff;
-        const left = offsetX + dispW * leftCoeff;
-        const top = offsetY + dispH * topCoeff;
-        lbDesign.style.width = overlayW + 'px';
-        lbDesign.style.left = left + 'px';
-        lbDesign.style.top = top + 'px';
-      } catch (_e) {}
-    }
-
     if(isMockup){
       // Show mockup in lightbox
       const baseSrc = MOCKUP_BASES[color] || MOCKUP_BASES.white;
@@ -301,20 +277,6 @@
       if (designSrc) lbDesign.src = designSrc;
       lbMock.classList.remove('hidden');
       lbImg.classList.add('hidden');
-      // Position overlay after layout
-      if (lbBase.complete) {
-        positionLightboxOverlay();
-      } else {
-        lbBase.onload = function(){ positionLightboxOverlay(); };
-      }
-      // Also reflow on resize
-      try {
-        const onResize = () => positionLightboxOverlay();
-        window.addEventListener('resize', onResize, { passive: true });
-        // Remove handler when lightbox closes
-        const cleanup = () => window.removeEventListener('resize', onResize);
-        lb.addEventListener('transitionend', cleanup, { once: true });
-      } catch(_e){}
     } else {
       // Find visible frame (image or video)
       const frame = Array.from(galleryEl.querySelectorAll('[data-frame]')).find(el => !el.classList.contains('hidden'));
