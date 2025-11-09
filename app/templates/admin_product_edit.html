@@ -89,6 +89,9 @@
 <script>
 (function(){
 	const btn = document.getElementById('ai-generate');
+	const soraBtn = document.createElement('button');
+	const soraStatus = document.createElement('span');
+	const soraLink = document.createElement('a');
 	const msg = document.getElementById('ai-msg');
 	const preview = document.getElementById('design-preview');
 	const empty = document.getElementById('design-empty');
@@ -119,6 +122,96 @@
 	useFormula && useFormula.addEventListener('change', updateFromFormula);
 	baseCost && baseCost.addEventListener('input', updateFromFormula);
 	priceInput && priceInput.addEventListener('input', updateSale);
+
+	// ----- Sora video UI (button + status + link) -----
+	(function setupSoraUI(){
+		const container = document.createElement('div');
+		container.className = 'max-w-2xl mt-6 space-y-2';
+		const label = document.createElement('label');
+		label.className = 'block text-sm';
+		label.textContent = 'Product Video (Sora)';
+		const row = document.createElement('div');
+		row.className = 'flex items-center gap-2';
+		soraBtn.id = 'sora-start';
+		soraBtn.className = 'bg-gray-800 text-white px-4 py-2 rounded';
+		soraBtn.textContent = 'Generate Sora Video';
+		soraStatus.id = 'sora-status';
+		soraStatus.className = 'text-sm text-gray-400';
+		soraLink.id = 'sora-link';
+		soraLink.className = 'text-sm underline text-gray-200 hidden';
+		soraLink.target = '_blank';
+		soraLink.rel = 'noopener';
+		row.appendChild(soraBtn);
+		row.appendChild(soraStatus);
+		row.appendChild(soraLink);
+		container.appendChild(label);
+		container.appendChild(row);
+		document.currentScript.parentElement.insertBefore(container, document.currentScript);
+	})();
+
+	async function pollSoraStatus(untilReady=true){
+		const statusUrl = "{{ url_for('admin.generate_sora_video_status', product_id=product.id) }}";
+		try{
+			const rs = await fetch(statusUrl, { cache: 'no-store' });
+			const js = await rs.json();
+			if(js.error){
+				soraStatus.textContent = 'Error: ' + js.error;
+				return js;
+			}
+			if(js.status){
+				const stage = js.stage ? ` (${js.stage})` : '';
+				const prog = (js.progress || 0);
+				soraStatus.textContent = js.ready ? 'Ready' : `Status: ${js.status}${stage}${prog ? ' '+prog+'%' : ''}`;
+			}
+			if(js.url){
+				soraLink.href = js.url;
+				soraLink.textContent = 'Open video';
+				soraLink.classList.remove('hidden');
+			}
+			return js;
+		}catch(e){
+			soraStatus.textContent = 'Failed to check video status';
+			return { error: e?.message || 'status error' };
+		}
+	}
+
+	// initial status check on page load
+	pollSoraStatus(false);
+
+	async function startSoraJob(){
+		try{
+			soraBtn.disabled = true;
+			soraStatus.textContent = 'Starting…';
+			const startUrl = "{{ url_for('admin.generate_sora_video', product_id=product.id) }}";
+			const r = await fetch(startUrl, { method: 'POST' });
+			const j = await r.json();
+			if(!r.ok || !j.ok){
+				throw new Error(j.error || 'Failed to start');
+			}
+			soraStatus.textContent = 'Processing…';
+			let attempts = 0;
+			const timer = setInterval(async ()=>{
+				attempts++;
+				const js = await pollSoraStatus();
+				if(js && js.ready && js.url){
+					clearInterval(timer);
+					soraStatus.textContent = 'Ready';
+					soraBtn.disabled = false;
+				}else if(js && js.error){
+					clearInterval(timer);
+					soraBtn.disabled = false;
+				}else if(attempts > 120){
+					clearInterval(timer);
+					soraStatus.textContent = 'Still processing… check again in a bit.';
+					soraBtn.disabled = false;
+				}
+			}, 4000);
+		}catch(e){
+			soraStatus.textContent = e?.message || 'Failed to start video job';
+			soraBtn.disabled = false;
+		}
+	}
+	soraBtn.addEventListener('click', (e)=>{ e.preventDefault(); startSoraJob(); });
 
 	if(!btn) return;
 	btn.addEventListener('click', async (e) => {

@@ -2520,7 +2520,12 @@ def generate_sora_video(product_id: int):
 					_time.sleep(2)
 					not_found_retries = 0
 					for attempt in range(max_attempts):
-						s = _req.get(status_url, headers=headers, timeout=30)
+						try:
+							s = _req.get(status_url, headers=headers, timeout=60)
+						except _req.exceptions.ReadTimeout:
+							# Treat as a transient; continue polling
+							_time.sleep(5)
+							continue
 						if s.status_code == 404 and not_found_retries < 10:
 							not_found_retries += 1
 							_time.sleep(3)
