@@ -178,18 +178,19 @@
 		<!-- Gallery Lightbox Modal -->
 		<div id="gallery-lightbox" class="fixed inset-0 z-50 hidden">
 			<div class="absolute inset-0 bg-black/80" data-close></div>
-			<div class="relative mx-auto my-8 max-w-5xl w-[92vw]">
-				<div class="relative bg-gray-900 border border-gray-800 rounded overflow-hidden">
-					<div class="relative w-full" style="padding-top: 100%;">
+			<div class="relative mx-auto my-6 max-w-5xl w-[92vw]">
+				<div class="relative bg-gray-900 border border-gray-800 rounded overflow-auto max-h-[88vh]">
+					<!-- Constrain visual area to viewport height so footer is visible -->
+					<div class="relative w-full h-[70vh] md:h-[78vh]">
 						<!-- Mockup mode -->
 						<div id="lightbox-mockup" class="absolute inset-0 hidden">
-							<img id="lightbox-base" alt="Tee base" class="w-full h-full object-contain" />
+							<img id="lightbox-base" alt="Tee base" class="absolute inset-0 w-full h-full object-contain" />
 							<img id="lightbox-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
 						</div>
 						<!-- Image frame mode -->
 						<img id="lightbox-img" alt="Product image" class="absolute inset-0 w-full h-full object-contain hidden" />
 					</div>
-					<div class="flex items-center justify-between p-3 border-t border-gray-800">
+					<div class="flex items-center justify-between p-3 border-t border-gray-800 sticky bottom-0 bg-gray-900">
 						<div class="text-xs text-gray-400">Press Esc or outside to close</div>
 						<div class="flex items-center gap-2">
 							<button id="lightbox-close" type="button" class="bg-gray-800 text-white px-3 py-1.5 rounded">Close</button>
