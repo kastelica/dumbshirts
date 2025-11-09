@@ -2331,78 +2331,25 @@ def _build_mockup_for_product(product) -> bytes:
 	"""
 	from io import BytesIO
 	import requests as _requests
-	from PIL import Image as _Image
 	
 	design_url = ""
 	try:
-		if product and product.design and (product.design.image_url or product.design.preview_url):
-			design_url = product.design.image_url or product.design.preview_url
+		# Prefer the preview/mockup URL first; fall back to raw design
+		if product and product.design and (product.design.preview_url or product.design.image_url):
+			design_url = product.design.preview_url or product.design.image_url
 	except Exception:
 		design_url = ""
 	if not design_url:
 		raise RuntimeError("Product has no design image to mock up")
 	
-	resp = _requests.get(design_url, timeout=30)
+	resp = _requests.get(design_url, timeout=20)
 	resp.raise_for_status()
 	design_bytes = resp.content
 	mockup_bytes = _compose_design_on_blank_tee(design_bytes)
 	if not mockup_bytes:
 		# fallback to original design if composition failed
 		mockup_bytes = design_bytes
-	# Letterbox to 1280x720 for Sora compatibility if used as input_reference
-	try:
-		img = _Image.open(BytesIO(mockup_bytes)).convert("RGBA")
-		target_w, target_h = 1280, 720
-		bg = _Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
-		iw, ih = img.size
-		if iw and ih:
-			scale = min(target_w / iw, target_h / ih)
-			nw = max(1, int(iw * scale))
-			nh = max(1, int(ih * scale))
-			img2 = img.resize((nw, nh), _Image.LANCZOS)
-			x = (target_w - nw) // 2
-			y = (target_h - nh) // 2
-			bg.alpha_composite(img2, dest=(x, y))
-			out = BytesIO()
-			bg.save(out, format="PNG")
-			return out.getvalue()
-	except Exception:
-		pass
 	return mockup_bytes
-
-def _build_design_reference_for_product(product, target_w: int = 1280, target_h: int = 720) -> bytes:
-	"""
-	Build a letterboxed PNG from the product's raw design image sized exactly (target_w x target_h).
-	"""
-	from io import BytesIO
-	import requests as _requests
-	from PIL import Image as _Image
-	design_url = ""
-	try:
-		if product and product.design and (product.design.image_url or product.design.preview_url):
-			design_url = product.design.image_url or product.design.preview_url
-	except Exception:
-		design_url = ""
-	if not design_url:
-		raise RuntimeError("Product has no design image to reference")
-	resp = _requests.get(design_url, timeout=30)
-	resp.raise_for_status()
-	src = resp.content
-	img = _Image.open(BytesIO(src)).convert("RGBA")
-	bg = _Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
-	iw, ih = img.size
-	if iw == 0 or ih == 0:
-		raise RuntimeError("Invalid design image")
-	scale = min(target_w / iw, target_h / ih)
-	nw = max(1, int(iw * scale))
-	nh = max(1, int(ih * scale))
-	img2 = img.resize((nw, nh), _Image.LANCZOS)
-	x = (target_w - nw) // 2
-	y = (target_h - nh) // 2
-	bg.alpha_composite(img2, dest=(x, y))
-	out = BytesIO()
-	bg.save(out, format="PNG")
-	return out.getvalue()
 
 @admin_bp.post("/products/<int:product_id>/generate-video")
 @login_required
@@ -2522,19 +2469,7 @@ def generate_sora_video(product_id: int):
 					
 					with lock:
 						jobs[key]["stage"] = "build_mockup"
-					# Choose reference source: default 'mockup'; allow 'design' via JSON or form
-					ref_mode = "mockup"
-					try:
-						data_in = (request.get_json(silent=True) or {})
-						ref_mode = (data_in.get("reference") or ref_mode).strip().lower()
-					except Exception:
-						pass
-					if not ref_mode and request.form:
-						ref_mode = (request.form.get("reference") or "mockup").strip().lower()
-					if ref_mode == "design":
-						mockup_bytes = _build_design_reference_for_product(p, target_w=1280, target_h=720)
-					else:
-						mockup_bytes = _build_mockup_for_product(p)
+					mockup_bytes = _build_mockup_for_product(p)
 					
 					# Ensure input reference image matches requested output size (required by API)
 					try:
@@ -2542,11 +2477,21 @@ def generate_sora_video(product_id: int):
 						from io import BytesIO as _BytesIO
 						target_w, target_h = 1280, 720
 						img_in = _Image.open(_BytesIO(mockup_bytes)).convert("RGBA")
-						if img_in.size != (target_w, target_h):
-							img_resized = img_in.resize((target_w, target_h), _Image.LANCZOS)
-							buf = _BytesIO()
-							img_resized.save(buf, format="PNG")
-							mockup_bytes = buf.getvalue()
+						iw, ih = img_in.size
+						if iw <= 0 or ih <= 0:
+							raise RuntimeError("Invalid input reference image")
+						# Letterbox (preserve aspect) onto transparent 1280x720 canvas
+						scale = min(target_w / iw, target_h / ih)
+						nw = max(1, int(iw * scale))
+						nh = max(1, int(ih * scale))
+						img_resized = img_in.resize((nw, nh), _Image.LANCZOS)
+						bg = _Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
+						x = (target_w - nw) // 2
+						y = (target_h - nh) // 2
+						bg.alpha_composite(img_resized, dest=(x, y))
+						buf = _BytesIO()
+						bg.save(buf, format="PNG")
+						mockup_bytes = buf.getvalue()
 					except Exception:
 						pass
 					
