@@ -62,7 +62,25 @@
    * Both start with mockup view: idx -1 = mockup, 0 = design-only
    */
   function initGallery(galleryEl) {
-    const frames = Array.from(galleryEl.querySelectorAll('img[data-frame]'));
+    let frames = Array.from(galleryEl.querySelectorAll('[data-frame]'));
+
+    // If a product video is available, append it as an additional frame (after design-only)
+    try {
+      const videoSrc = (window.PRODUCT_DATA && window.PRODUCT_DATA.videoSrc) ? String(window.PRODUCT_DATA.videoSrc) : '';
+      const alreadyHasVideo = !!galleryEl.querySelector('video[data-frame]');
+      if (videoSrc && !alreadyHasVideo) {
+        const container = galleryEl.querySelector('.aspect-square') || galleryEl;
+        const vid = document.createElement('video');
+        vid.setAttribute('data-frame', 'video');
+        vid.className = 'w-full h-full object-contain hidden';
+        vid.src = videoSrc;
+        vid.controls = true;
+        vid.playsInline = true;
+        vid.preload = 'metadata';
+        container.appendChild(vid);
+        frames = Array.from(galleryEl.querySelectorAll('[data-frame]'));
+      }
+    } catch (_e) {}
     const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
     const isDetailView = galleryEl.classList.contains('js-gallery');
     const isCardView = galleryEl.classList.contains('js-card-gallery');
@@ -166,7 +184,7 @@
         e.stopPropagation();
       }
       if (idx === -1) {
-        // From mockup, go to last frame (design-only)
+        // From mockup, go to last frame (design-only/video)
         idx = frames.length > 0 ? frames.length - 1 : 0;
       } else if (idx > 0) {
         idx--;
@@ -183,7 +201,7 @@
         e.stopPropagation();
       }
       if (idx === -1) {
-        // From mockup, go to design-only (frame 0)
+        // From mockup, go to first frame (design-only)
         idx = frames.length > 0 ? 0 : -1;
       } else if (idx < frames.length - 1) {
         idx++;
@@ -260,12 +278,39 @@
       lbMock.classList.remove('hidden');
       lbImg.classList.add('hidden');
     } else {
-      // Find visible frame image
-      const frame = Array.from(galleryEl.querySelectorAll('img[data-frame]')).find(im => !im.classList.contains('hidden'));
-      const src = frame ? frame.getAttribute('src') : '';
-      if (src) lbImg.src = src;
-      lbImg.classList.remove('hidden');
-      lbMock.classList.add('hidden');
+      // Find visible frame (image or video)
+      const frame = Array.from(galleryEl.querySelectorAll('[data-frame]')).find(el => !el.classList.contains('hidden'));
+      if (frame && frame.tagName && frame.tagName.toLowerCase() === 'video') {
+        // Ensure a lightbox video element exists
+        let lbVid = document.getElementById('lightbox-video');
+        const container = lb.closest('.relative') || lb;
+        if (!lbVid) {
+          // Create within the image area wrapper (same absolute layout as img)
+          const imgArea = lb.querySelector('.relative.w-full');
+          const area = imgArea || lb;
+          lbVid = document.createElement('video');
+          lbVid.id = 'lightbox-video';
+          lbVid.className = 'absolute inset-0 w-full h-full object-contain';
+          lbVid.controls = true;
+          lbVid.playsInline = true;
+          lbVid.preload = 'metadata';
+          area.insertBefore(lbVid, area.firstChild);
+        }
+        lbVid.src = frame.getAttribute('src') || frame.src || '';
+        // Show video; hide mockup and image
+        lbMock.classList.add('hidden');
+        lbImg.classList.add('hidden');
+        lbVid.classList.remove('hidden');
+      } else {
+        // Image frame
+        const src = frame ? (frame.getAttribute('src') || '') : '';
+        if (src) lbImg.src = src;
+        // Hide any lightbox video if present
+        const lbVid = document.getElementById('lightbox-video');
+        if (lbVid) lbVid.classList.add('hidden');
+        lbImg.classList.remove('hidden');
+        lbMock.classList.add('hidden');
+      }
     }
 
     // Wire close interactions
@@ -333,7 +378,7 @@
     const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
     if (mock) mock.classList.add('hidden');
     
-    const frames = Array.from(galleryEl.querySelectorAll('img[data-frame]'));
+    const frames = Array.from(galleryEl.querySelectorAll('[data-frame]'));
     if (frames.length > 0) {
       frames.forEach(im => im.classList.add('hidden'));
       frames[0].classList.remove('hidden');

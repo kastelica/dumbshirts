@@ -7,6 +7,8 @@ import re
 from .models import Product, Promotion, Order, Address
 from decimal import Decimal
 import datetime
+import csv
+import io
 
 feeds_bp = Blueprint("feeds", __name__)
 
@@ -403,3 +405,178 @@ def customer_match_feed():
         })
     
     return render_google_customer_match_feed(customers)
+
+
+@feeds_bp.get("/feeds/tiktok.csv")
+def tiktok_feed():
+	"""TikTok Shop CSV export with required columns and reasonable defaults."""
+	products = Product.query.filter_by(status="active").all()
+	
+	def _absolute_url(u: str) -> str:
+		if not u:
+			return ""
+		if u.startswith("http://") or u.startswith("https://"):
+			return u
+		base = current_app.config.get("BASE_URL", "http://localhost:5000")
+		return urljoin(base, u)
+	
+	# Defaults (override via config)
+	default_brand = current_app.config.get("STORE_BRAND", "Dumbshirts.store")
+	def_w = float(current_app.config.get("DEFAULT_PACKAGE_WEIGHT_LB", 0.5))
+	def_l = float(current_app.config.get("DEFAULT_PACKAGE_LENGTH_IN", 12))
+	def_wd = float(current_app.config.get("DEFAULT_PACKAGE_WIDTH_IN", 9))
+	def_h = float(current_app.config.get("DEFAULT_PACKAGE_HEIGHT_IN", 1))
+	def_qty = int(current_app.config.get("DEFAULT_STOCK_QTY", 999))
+	size_chart_url = urljoin(current_app.config.get("BASE_URL", "http://localhost:5000"), "/size_guide")
+	material_text = current_app.config.get("DEFAULT_MATERIALS", "100% Cotton")
+	delivery_opts = current_app.config.get("DEFAULT_DELIVERY_OPTS", "")
+	
+	# CSV header per TikTok template
+	header = [
+		"Category",
+		"Brand",
+		"Product Name",
+		"Product Description",
+		"Main Product Image",
+		"Product Image 2",
+		"Product Image 3",
+		"Product Image 4",
+		"Product Image 5",
+		"Product Image 6",
+		"Product Image 7",
+		"Product Image 8",
+		"Product Image 9",
+		"Identifier Code Type",
+		"Identifier Code",
+		"Primary variation name",
+		"Primary variation value",
+		"Primary variation image 1",
+		"Primary variation image 2",
+		"Primary variation image 3",
+		"Primary variation image 4",
+		"Primary variation image 5",
+		"Primary variation image 6",
+		"Primary variation image 7",
+		"Primary variation image 8",
+		"Primary variation image 9",
+		"Secondary variation name",
+		"Secondary variation value",
+		"Package Weight(lb)",
+		"Package Length(inch)",
+		"Package Width(inch)",
+		"Package Height(inch)",
+		"Delivery options",
+		"Retail Price (Local Currency)",
+		"Quantity",
+		"Seller SKU",
+		"Size Chart",
+		"Materials",
+	]
+	
+	output = io.StringIO()
+	writer = csv.writer(output)
+	writer.writerow(header)
+	
+	for p in products:
+		category_name = (p.categories[0].name if p.categories else "T-Shirts")
+		brand = default_brand
+		name = p.title or ""
+		desc = p.description or ""
+		
+		# Images: main = mockup/preview; then design + extras
+		main_img = ""
+		img2 = ""
+		img3 = ""
+		img4 = ""
+		img5 = ""
+		img6 = ""
+		img7 = ""
+		img8 = ""
+		img9 = ""
+		if p.design:
+			main_img = _absolute_url(p.design.preview_url or "")
+			images = []
+			if p.design.image_url:
+				images.append(_absolute_url(p.design.image_url))
+			if getattr(p.design, "extra_image1_url", None):
+				images.append(_absolute_url(p.design.extra_image1_url))
+			if getattr(p.design, "extra_image2_url", None):
+				images.append(_absolute_url(p.design.extra_image2_url))
+			# assign into img2..9
+			imgs = (images + [""] * 8)[:8]
+			if imgs:
+				img2 = imgs[0]
+			if len(imgs) > 1:
+				img3 = imgs[1]
+			if len(imgs) > 2:
+				img4 = imgs[2]
+			if len(imgs) > 3:
+				img5 = imgs[3]
+			if len(imgs) > 4:
+				img6 = imgs[4]
+			if len(imgs) > 5:
+				img7 = imgs[5]
+			if len(imgs) > 6:
+				img8 = imgs[6]
+			if len(imgs) > 7:
+				img9 = imgs[7]
+		
+		# Variation settings: primary Size, secondary Color
+		primary_name = "Size"
+		secondary_name = "Color"
+		
+		# Build rows per variant; if none, one generic row
+		variants = p.variants or []
+		if not variants:
+			row = [
+				category_name,
+				brand,
+				name,
+				desc,
+				main_img, img2, img3, img4, img5, img6, img7, img8, img9,
+				"MPN", str(p.id),
+				primary_name, "", "", "", "", "", "", "", "", "",
+				secondary_name, "",
+				f"{def_w:.2f}", f"{def_l:.2f}", f"{def_wd:.2f}", f"{def_h:.2f}",
+				delivery_opts,
+				f"{p.price}",
+				str(def_qty),
+				f"P{p.id}",
+				size_chart_url,
+				material_text,
+			]
+			writer.writerow(row)
+			continue
+		
+		for v in variants:
+			primary_value = v.size or ""
+			secondary_value = (v.color or "")
+			# Variant-specific SKU and price
+			seller_sku = v.gelato_sku or f"P{p.id}-V{v.id}"
+			price_val = v.price or p.price
+			row = [
+				category_name,
+				brand,
+				name,
+				desc,
+				main_img, img2, img3, img4, img5, img6, img7, img8, img9,
+				"MPN", f"{p.id}",
+				primary_name, primary_value, "", "", "", "", "", "", "", "", "",
+				secondary_name, secondary_value,
+				f"{def_w:.2f}", f"{def_l:.2f}", f"{def_wd:.2f}", f"{def_h:.2f}",
+				delivery_opts,
+				f"{price_val}",
+				str(def_qty),
+				seller_sku,
+				size_chart_url,
+				material_text,
+			]
+			writer.writerow(row)
+	
+	csv_content = output.getvalue()
+	output.close()
+	return Response(
+		csv_content,
+		mimetype="text/csv",
+		headers={"Content-Disposition": "attachment; filename=tiktok.csv"}
+	)
