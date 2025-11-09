@@ -2361,24 +2361,36 @@ def generate_video(product_id: int):
 	p = Product.query.get_or_404(product_id)
 	jobs, lock = _get_video_jobs()
 	with lock:
-		jobs[product_id] = {"status": "processing", "error": None, "url": ""}
+		jobs[product_id] = {
+			"status": "processing",
+			"stage": "init",
+			"error": None,
+			"url": "",
+			"product_id": product_id,
+			"started_at": time.time(),
+		}
 	
 	def _worker(app_ctx, pid: int):
 		with app_ctx:
 			try:
 				import cloudinary.uploader as cu
-				
+				with lock:
+					jobs[pid]["stage"] = "build_mockup"
 				# Build mockup from product
 				mockup_bytes = _build_mockup_for_product(p)
 				
 				# Call Veo3 to generate an ~8s video (this will currently raise if not configured)
 				try:
+					with lock:
+						jobs[pid]["stage"] = "veo_generate"
 					video_bytes = _veo3_generate_video(mockup_bytes, duration_seconds=8, width=1920, height=1080)
 				except Exception as e:
 					current_app.logger.warning(f"[video] Veo3 generation failed for product {pid}: {e}")
 					raise
 				
 				# Upload to Cloudinary as video
+				with lock:
+					jobs[pid]["stage"] = "upload"
 				public_id = f"product_video_{pid}_{int(time.time())}"
 				up_res = cu.upload(video_bytes, folder="product_videos", public_id=public_id, resource_type="video", overwrite=True)
 				video_url = up_res.get("secure_url") or up_res.get("url") or ""
@@ -2386,11 +2398,13 @@ def generate_video(product_id: int):
 					raise RuntimeError("Cloudinary upload did not return a video URL")
 				
 				with lock:
-					jobs[pid] = {"status": "ready", "error": None, "url": video_url}
+					jobs[pid].update({"status": "ready", "stage": "done", "error": None, "url": video_url})
 				current_app.logger.info(f"[video] Generated video for product {pid}: {video_url}")
 			except Exception as e:
+				import traceback as _tb
+				tb = _tb.format_exc()
 				with lock:
-					jobs[pid] = {"status": "error", "error": str(e), "url": ""}
+					jobs[pid].update({"status": "error", "error": str(e), "traceback": tb})
 				current_app.logger.exception(f"[video] Job failed for product {pid}: {e}")
 	
 	threading.Thread(target=_worker, args=(current_app.app_context(), product_id), daemon=True).start()
@@ -2403,11 +2417,15 @@ def generate_video_status(product_id: int):
 	with lock:
 		job = jobs.get(product_id) or {}
 	status = job.get("status") or "unknown"
-	if status == "ready":
-		return jsonify({"ready": True, "url": job.get("url") or ""})
-	if status == "error":
-		return jsonify({"ready": False, "error": job.get("error") or "Unknown error"}), 500
-	return jsonify({"ready": False})
+	resp = {
+		"ready": (status == "ready"),
+		"status": status,
+		"stage": job.get("stage") or "",
+		"url": job.get("url") or "",
+		"error": job.get("error") or "",
+	}
+	# Always return 200 so the UI can read and display debug info
+	return jsonify(resp)
 
 
 @admin_bp.post("/products/append-tshirt")
