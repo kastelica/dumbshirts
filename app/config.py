@@ -40,6 +40,8 @@ class BaseConfig:
     
     # Google Shopping automated discounts
     GOOGLE_MERCHANT_ID = os.getenv("GOOGLE_MERCHANT_ID", "114634997")
+    # Veo (video generation)
+    VEO_API_KEY = os.getenv("VEO_API_KEY", "")
 
 
 class DevelopmentConfig(BaseConfig):
