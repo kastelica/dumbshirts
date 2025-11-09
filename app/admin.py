@@ -2470,6 +2470,20 @@ def generate_sora_video(product_id: int):
 						jobs[key]["stage"] = "build_mockup"
 					mockup_bytes = _build_mockup_for_product(p)
 					
+					# Ensure input reference image matches requested output size (required by API)
+					try:
+						from PIL import Image as _Image
+						from io import BytesIO as _BytesIO
+						target_w, target_h = 1280, 720
+						img_in = _Image.open(_BytesIO(mockup_bytes)).convert("RGBA")
+						if img_in.size != (target_w, target_h):
+							img_resized = img_in.resize((target_w, target_h), _Image.LANCZOS)
+							buf = _BytesIO()
+							img_resized.save(buf, format="PNG")
+							mockup_bytes = buf.getvalue()
+					except Exception:
+						pass
+					
 					# Create Sora job (multipart/form-data with input_reference)
 					with lock:
 						jobs[key]["stage"] = "sora_create"
