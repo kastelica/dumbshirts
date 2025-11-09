@@ -2298,6 +2298,117 @@ def bulk_delete_products():
 	db.session.commit()
 	return jsonify({"ok": True, "deleted": deleted})
 
+def _get_video_jobs():
+	if "VIDEO_JOBS" not in current_app.config:
+		current_app.config["VIDEO_JOBS"] = {}
+	if "VIDEO_JOBS_LOCK" not in current_app.config:
+		current_app.config["VIDEO_JOBS_LOCK"] = threading.Lock()
+	return current_app.config["VIDEO_JOBS"], current_app.config["VIDEO_JOBS_LOCK"]
+
+def _veo3_generate_video(input_image_bytes: bytes, duration_seconds: int = 8, width: int = 1920, height: int = 1080) -> bytes:
+	"""
+	Generate a short video from an input mockup image using the Veo3 API.
+	Returns raw video bytes (e.g., MP4). This is a best-effort stub; replace with real API calls.
+	"""
+	api_key = (current_app.config.get("VEO_API_KEY") or os.getenv("VEO_API_KEY") or "").strip()
+	if not api_key:
+		raise RuntimeError("Missing VEO_API_KEY")
+	
+	# Example placeholder integration; replace with actual Veo3 API when available.
+	# The expected flow:
+	# 1) Upload input image as conditioning
+	# 2) Request video generation with desired duration/resolution
+	# 3) Poll job until complete
+	# 4) Download resulting video bytes
+	#
+	# For now, raise to indicate that a real API call must be configured.
+	raise RuntimeError("Veo3 integration not yet configured with a real endpoint")
+
+def _build_mockup_for_product(product) -> bytes:
+	"""
+	Compose a mockup image for the given product using its design image.
+	Returns PNG bytes.
+	"""
+	from io import BytesIO
+	import requests as _requests
+	from ..admin import _compose_design_on_blank_tee
+	
+	design_url = ""
+	try:
+		if product and product.design and (product.design.image_url or product.design.preview_url):
+			design_url = product.design.image_url or product.design.preview_url
+	except Exception:
+		design_url = ""
+	if not design_url:
+		raise RuntimeError("Product has no design image to mock up")
+	
+	resp = _requests.get(design_url, timeout=20)
+	resp.raise_for_status()
+	design_bytes = resp.content
+	mockup_bytes = _compose_design_on_blank_tee(design_bytes)
+	if not mockup_bytes:
+		# fallback to original design if composition failed
+		mockup_bytes = design_bytes
+	return mockup_bytes
+
+@admin_bp.post("/products/<int:product_id>/generate-video")
+@login_required
+def generate_video(product_id: int):
+	"""
+	Start background job to generate a product video via Veo3 using the product mockup as conditioning.
+	Uploads the result to Cloudinary (resource_type='video') on success.
+	"""
+	p = Product.query.get_or_404(product_id)
+	jobs, lock = _get_video_jobs()
+	with lock:
+		jobs[product_id] = {"status": "processing", "error": None, "url": ""}
+	
+	def _worker(app_ctx, pid: int):
+		with app_ctx:
+			try:
+				import cloudinary.uploader as cu
+				
+				# Build mockup from product
+				mockup_bytes = _build_mockup_for_product(p)
+				
+				# Call Veo3 to generate an ~8s video (this will currently raise if not configured)
+				try:
+					video_bytes = _veo3_generate_video(mockup_bytes, duration_seconds=8, width=1920, height=1080)
+				except Exception as e:
+					current_app.logger.warning(f"[video] Veo3 generation failed for product {pid}: {e}")
+					raise
+				
+				# Upload to Cloudinary as video
+				public_id = f"product_video_{pid}_{int(time.time())}"
+				up_res = cu.upload(video_bytes, folder="product_videos", public_id=public_id, resource_type="video", overwrite=True)
+				video_url = up_res.get("secure_url") or up_res.get("url") or ""
+				if not video_url:
+					raise RuntimeError("Cloudinary upload did not return a video URL")
+				
+				with lock:
+					jobs[pid] = {"status": "ready", "error": None, "url": video_url}
+				current_app.logger.info(f"[video] Generated video for product {pid}: {video_url}")
+			except Exception as e:
+				with lock:
+					jobs[pid] = {"status": "error", "error": str(e), "url": ""}
+				current_app.logger.exception(f"[video] Job failed for product {pid}: {e}")
+	
+	threading.Thread(target=_worker, args=(current_app.app_context(), product_id), daemon=True).start()
+	return jsonify({"ok": True, "started": True})
+
+@admin_bp.get("/products/<int:product_id>/video-status")
+@login_required
+def generate_video_status(product_id: int):
+	jobs, lock = _get_video_jobs()
+	with lock:
+		job = jobs.get(product_id) or {}
+	status = job.get("status") or "unknown"
+	if status == "ready":
+		return jsonify({"ready": True, "url": job.get("url") or ""})
+	if status == "error":
+		return jsonify({"ready": False, "error": job.get("error") or "Unknown error"}), 500
+	return jsonify({"ready": False})
+
 
 @admin_bp.post("/products/append-tshirt")
 @login_required

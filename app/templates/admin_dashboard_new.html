@@ -185,6 +185,7 @@
 						<td class="py-2">
 							<div class="flex items-center gap-2">
 								<button class="generate-image-btn text-xs text-blue-400 hover:text-blue-300" data-product-id="{{ p.id }}">Generate Image</button>
+								<button class="generate-video-btn text-xs text-purple-400 hover:text-purple-300" data-product-id="{{ p.id }}">Generate Video</button>
 								<form method="post" action="{{ url_for('admin.toggle_product_visibility', product_id=p.id) }}" class="inline">
 									<button type="submit" class="text-xs text-gray-400 hover:text-white">{{ 'Hide' if p.status == 'active' else 'Show' }}</button>
 								</form>
@@ -722,6 +723,70 @@
 			} finally {
 				this.disabled = false;
 				this.textContent = 'Generate Image';
+			}
+		});
+	});
+	
+	// 1-click video (Veo3) generation on product rows
+	document.querySelectorAll('.generate-video-btn').forEach(btn => {
+		btn.addEventListener('click', async function() {
+			const productId = parseInt(this.dataset.productId);
+			if (!productId) return;
+			
+			this.textContent = 'Generating...';
+			this.disabled = true;
+			try{
+				const resp = await fetch(`/admin/products/${productId}/generate-video`, { method: 'POST' });
+				const data = await resp.json();
+				if(!data.ok){
+					alert('Error: ' + (data.error || 'Failed to start video job'));
+					return;
+				}
+				// Poll for status
+				let attempts = 0;
+				const maxAttempts = 60; // up to ~2 minutes if needed
+				const row = this.closest('tr');
+				const poll = setInterval(async ()=>{
+					attempts++;
+					if(attempts > maxAttempts){
+						clearInterval(poll);
+						alert('Timed out waiting for video. Please check again later.');
+						this.disabled = false;
+						this.textContent = 'Generate Video';
+						return;
+					}
+					try{
+						const s = await fetch(`/admin/products/${productId}/video-status`);
+						const js = await s.json();
+						if(js.ready && js.url){
+							clearInterval(poll);
+							// Insert a small preview below the row
+							try{
+								const wrap = document.createElement('div');
+								wrap.className = 'mt-2';
+								wrap.innerHTML = `<video src="${js.url}" controls class="w-64 h-auto rounded border border-gray-800"></video>`;
+								if(row && row.parentElement){
+									row.parentElement.insertBefore(wrap, row.nextSibling);
+								}else{
+									alert('Video ready: ' + js.url);
+								}
+							}catch(_e){
+								alert('Video ready: ' + js.url);
+							}
+							this.disabled = false;
+							this.textContent = 'Generate Video';
+						} else if (js.error){
+							clearInterval(poll);
+							alert('Error: ' + js.error);
+							this.disabled = false;
+							this.textContent = 'Generate Video';
+						}
+					}catch(_e){}
+				}, 2000);
+			}catch(e){
+				alert('Error: ' + e.message);
+			}finally{
+				// button state handled in polling result
 			}
 		});
 	});
