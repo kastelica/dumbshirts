@@ -2326,8 +2326,8 @@ def _veo3_generate_video(input_image_bytes: bytes, duration_seconds: int = 8, wi
 
 def _build_mockup_for_product(product) -> bytes:
 	"""
-	Compose a mockup image for the given product using its design image.
-	Returns PNG bytes.
+	Return the existing mockup image bytes for the given product.
+	Prefer `preview_url` (mockup) and fall back to `image_url`.
 	"""
 	from io import BytesIO
 	import requests as _requests
@@ -2344,12 +2344,7 @@ def _build_mockup_for_product(product) -> bytes:
 	
 	resp = _requests.get(design_url, timeout=20)
 	resp.raise_for_status()
-	design_bytes = resp.content
-	mockup_bytes = _compose_design_on_blank_tee(design_bytes)
-	if not mockup_bytes:
-		# fallback to original design if composition failed
-		mockup_bytes = design_bytes
-	return mockup_bytes
+	return resp.content
 
 @admin_bp.post("/products/<int:product_id>/generate-video")
 @login_required
