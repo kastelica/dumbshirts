@@ -259,9 +259,16 @@
     const lbDesign = document.getElementById('lightbox-design');
     if(!lbImg || !lbMock || !lbBase || !lbDesign) return;
 
-    // Determine if mockup is visible
-    const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
-    const isMockup = mock && !mock.classList.contains('hidden');
+    // Determine if mockup is visible: use currentIdx if provided, otherwise check DOM
+    // idx === -1 means mockup view, idx >= 0 means frame view
+    let isMockup = false;
+    if (currentIdx !== undefined && currentIdx !== null) {
+      isMockup = (currentIdx === -1);
+    } else {
+      // Fallback: check DOM state
+      const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
+      isMockup = mock && !mock.classList.contains('hidden');
+    }
 
     // Determine current color and design src
     const colorEl = document.getElementById('color-select');
@@ -276,7 +283,11 @@
         const cRect = container.getBoundingClientRect();
         const natW = lbBase.naturalWidth || 0;
         const natH = lbBase.naturalHeight || 0;
-        if (!natW || !natH || !cRect.width || !cRect.height) return;
+        if (!natW || !natH || !cRect.width || !cRect.height) {
+          // Retry after a short delay if dimensions aren't ready
+          setTimeout(positionLightboxOverlay, 100);
+          return;
+        }
         const scale = Math.min(cRect.width / natW, cRect.height / natH);
         const dispW = natW * scale;
         const dispH = natH * scale;
@@ -287,10 +298,16 @@
         const overlayW = dispW * wCoeff;
         const left = offsetX + dispW * leftCoeff;
         const top = offsetY + dispH * topCoeff;
+        // Ensure design overlay is visible and properly positioned
         lbDesign.style.width = overlayW + 'px';
         lbDesign.style.left = left + 'px';
         lbDesign.style.top = top + 'px';
-      } catch (_e) {}
+        lbDesign.style.position = 'absolute';
+        lbDesign.style.zIndex = '10';
+        lbDesign.classList.remove('hidden');
+      } catch (_e) {
+        console.warn('Failed to position lightbox overlay:', _e);
+      }
     }
 
     if(isMockup){
@@ -298,14 +315,34 @@
       const baseSrc = MOCKUP_BASES[color] || MOCKUP_BASES.white;
       lbBase.onerror = function(){ this.onerror=null; this.src = MOCKUP_BASES.white; };
       lbBase.src = baseSrc;
-      if (designSrc) lbDesign.src = designSrc;
+      // Set design source and ensure it's visible
+      if (designSrc) {
+        lbDesign.src = designSrc;
+        lbDesign.classList.remove('hidden');
+      } else {
+        // If no design src, try to get it from the gallery mockup design element
+        const galleryDesign = galleryEl.querySelector('.mockup-design') || galleryEl.querySelector('#mockup-design');
+        if (galleryDesign && galleryDesign.src) {
+          lbDesign.src = galleryDesign.src;
+          lbDesign.classList.remove('hidden');
+        }
+      }
       lbMock.classList.remove('hidden');
       lbImg.classList.add('hidden');
+      // Hide any lightbox video if present
+      const lbVid = document.getElementById('lightbox-video');
+      if (lbVid) lbVid.classList.add('hidden');
       // Position overlay after layout
       if (lbBase.complete) {
         positionLightboxOverlay();
       } else {
-        lbBase.onload = function(){ positionLightboxOverlay(); };
+        lbBase.onload = function(){ 
+          positionLightboxOverlay();
+          // Also ensure design loads
+          if (lbDesign.src && !lbDesign.complete) {
+            lbDesign.onload = positionLightboxOverlay;
+          }
+        };
       }
       // Also reflow on resize
       try {
