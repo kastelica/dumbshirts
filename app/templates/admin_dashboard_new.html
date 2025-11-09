@@ -88,6 +88,42 @@
 			</div>
 		</div>
 		
+		<!-- Google Trends (SerpAPI) Card -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-xl font-semibold mb-4">Google Trends (SerpAPI)</h2>
+			
+			<div class="space-y-3">
+				<div class="flex flex-col sm:flex-row gap-2">
+					<div class="flex-1">
+						<label class="block text-sm font-medium mb-1">Geo</label>
+						<input id="trends-geo" type="text" value="US" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm uppercase">
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Limit</label>
+						<input id="trends-limit" type="number" min="1" max="50" value="30" class="w-28 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm">
+					</div>
+				</div>
+				<div class="flex gap-2">
+					<button id="trends-fetch" class="bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">Fetch Trends</button>
+					<button id="trends-import-selected" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 hidden">Import Selected</button>
+					<button id="trends-load-db" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">Load DB Trends</button>
+				</div>
+				<div id="trends-status" class="text-xs text-gray-400"></div>
+				<div id="trends-results" class="hidden">
+					<div class="text-sm text-gray-400 mb-2">New items are pre-selected:</div>
+					<div id="trends-list" class="space-y-2"></div>
+					<div id="trends-db-wrap" class="mt-4">
+						<div class="text-sm font-semibold mb-2">All Trends in DB</div>
+						<div class="flex items-center gap-2 mb-2">
+							<input id="trends-db-filter" type="text" placeholder="Filter..." class="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm">
+							<button id="trends-db-refresh" class="bg-gray-800 text-white px-3 py-2 rounded text-sm hover:bg-gray-700">Refresh</button>
+						</div>
+						<div id="trends-db-list" class="max-h-64 overflow-auto space-y-2 border border-gray-800 rounded p-2 bg-gray-950"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
 		<!-- KYM Import Card -->
 		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
 			<h2 class="text-xl font-semibold mb-4">KYM Import</h2>
@@ -334,6 +370,156 @@
 	});
 	// Initialize pagination on load
 	filterProducts();
+	
+	// Google Trends (SerpAPI) helpers
+	const trendsStatus = document.getElementById('trends-status');
+	const trendsList = document.getElementById('trends-list');
+	const trendsResults = document.getElementById('trends-results');
+	const importSelectedBtn = document.getElementById('trends-import-selected');
+	
+	function renderTrends(items){
+		if(!trendsList) return;
+		trendsList.innerHTML = '';
+		let anyNew = false;
+		items.forEach((it, idx) => {
+			const row = document.createElement('div');
+			row.className = 'flex items-center gap-3 p-2 bg-gray-950 border border-gray-700 rounded';
+			const isNew = !!it.is_new;
+			if(isNew) anyNew = true;
+			row.innerHTML = `
+				<input type="checkbox" class="trends-checkbox" data-index="${idx}" ${isNew ? 'checked' : ''}>
+				<div class="flex-1">
+					<div class="font-medium text-sm">${(it.term || it.normalized || '').replace(/</g,'&lt;')}</div>
+					<div class="text-xs ${isNew ? 'text-green-400' : 'text-gray-500'}">${isNew ? 'NEW' : 'Existing'}</div>
+				</div>
+			`;
+			trendsList.appendChild(row);
+		});
+		if(trendsResults){
+			trendsResults.classList.remove('hidden');
+		}
+		if(importSelectedBtn){
+			importSelectedBtn.classList.toggle('hidden', !anyNew);
+		}
+	}
+	
+	document.getElementById('trends-fetch')?.addEventListener('click', async function(){
+		const geo = (document.getElementById('trends-geo')?.value || 'US').toUpperCase().trim();
+		const limit = parseInt(document.getElementById('trends-limit')?.value || '30', 10) || 30;
+		trendsStatus.textContent = 'Fetching...';
+		try{
+			const qs = new URLSearchParams({ geo, limit: String(limit) });
+			const resp = await fetch(`/admin/trends/search?${qs.toString()}`);
+			const js = await resp.json();
+			if(!js.ok){
+				trendsStatus.textContent = 'Error: ' + (js.error || 'Failed to fetch');
+				return;
+			}
+			trendsStatus.textContent = `Source: ${js.source || 'unknown'} — ${js.trends?.length || 0} items`;
+			renderTrends(js.trends || []);
+			// store for import
+			trendsList.dataset.raw = JSON.stringify(js.trends || []);
+		}catch(e){
+			trendsStatus.textContent = 'Error: ' + (e && e.message ? e.message : 'unknown');
+		}
+	});
+	
+	importSelectedBtn?.addEventListener('click', async function(){
+		try{
+			const raw = trendsList?.dataset?.raw || '[]';
+			const arr = JSON.parse(raw || '[]');
+			// collect checked indices
+			const checks = Array.from(document.querySelectorAll('.trends-checkbox'));
+			const selected = [];
+			checks.forEach(cb => {
+				if(cb.checked){
+					const i = parseInt(cb.getAttribute('data-index') || '-1', 10);
+					if(i >= 0 && arr[i]){
+						selected.push({ term: arr[i].term || arr[i].normalized || '' });
+					}
+				}
+			});
+			if(selected.length === 0){
+				alert('Please select at least one trend');
+				return;
+			}
+			this.disabled = true;
+			trendsStatus.textContent = 'Importing selected...';
+			const resp = await fetch('/admin/trends/import-selected', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items: selected })
+			});
+			const js = await resp.json();
+			if(!js.ok){
+				trendsStatus.textContent = 'Error: ' + (js.error || 'Failed to import');
+			}else{
+				trendsStatus.textContent = `Imported ${js.created || 0} trend(s).`;
+				// optionally re-fetch to refresh NEW badges
+			}
+		}catch(e){
+			trendsStatus.textContent = 'Error: ' + (e && e.message ? e.message : 'unknown');
+		}finally{
+			this.disabled = false;
+		}
+	});
+	
+	// Load all trends from DB
+	async function loadDbTrends(){
+		const list = document.getElementById('trends-db-list');
+		const filterInput = document.getElementById('trends-db-filter');
+		if(!list) return;
+		try{
+			const resp = await fetch('/admin/trends/list');
+			const js = await resp.json();
+			if(!js.ok){
+				trendsStatus.textContent = 'Error loading DB trends: ' + (js.error || 'unknown');
+				return;
+			}
+			const items = js.trends || [];
+			// Store raw for filtering
+			list.dataset.raw = JSON.stringify(items);
+			renderDbTrends(items, (filterInput?.value || '').trim().toLowerCase());
+		}catch(e){
+			trendsStatus.textContent = 'Error loading DB trends: ' + (e && e.message ? e.message : 'unknown');
+		}
+	}
+	function renderDbTrends(items, q){
+		const list = document.getElementById('trends-db-list');
+		if(!list) return;
+		list.innerHTML = '';
+		const rows = (q ? items.filter(it => ((it.term||'') + ' ' + (it.normalized||'') + ' ' + (it.status||'')).toLowerCase().includes(q)) : items);
+		if(rows.length === 0){
+			const empty = document.createElement('div');
+			empty.className = 'text-xs text-gray-500';
+			empty.textContent = 'No trends found.';
+			list.appendChild(empty);
+			return;
+		}
+		rows.forEach(it => {
+			const div = document.createElement('div');
+			div.className = 'flex items-center justify-between p-2 bg-gray-900 border border-gray-800 rounded';
+			div.innerHTML = `
+				<div class="min-w-0">
+					<div class="text-sm font-medium truncate">${(it.term || '').replace(/</g,'&lt;')}</div>
+					<div class="text-[11px] text-gray-400 truncate">${(it.normalized || '')}</div>
+				</div>
+				<div class="ml-3 text-xs px-2 py-1 rounded ${it.status === 'approved' ? 'bg-green-900 text-green-300' : (it.status === 'ignored' ? 'bg-red-900 text-red-300' : 'bg-yellow-900 text-yellow-300')}">
+					${(it.status || 'new').toUpperCase()}
+				</div>
+			`;
+			list.appendChild(div);
+		});
+	}
+	document.getElementById('trends-load-db')?.addEventListener('click', loadDbTrends);
+	document.getElementById('trends-db-refresh')?.addEventListener('click', loadDbTrends);
+	document.getElementById('trends-db-filter')?.addEventListener('input', function(){
+		const list = document.getElementById('trends-db-list');
+		try{
+			const raw = JSON.parse(list?.dataset?.raw || '[]');
+			renderDbTrends(raw, (this.value || '').trim().toLowerCase());
+		}catch(_e){}
+	});
 	
 	// Select all checkbox
 	const selectAll = document.getElementById('select-all');

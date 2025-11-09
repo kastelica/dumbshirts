@@ -2298,6 +2298,102 @@ def bulk_delete_products():
 	db.session.commit()
 	return jsonify({"ok": True, "deleted": deleted})
 
+# -----------------------------
+# Admin: Trends (SerpAPI) AJAX
+# -----------------------------
+
+@admin_bp.get("/trends/search")
+@login_required
+def trends_search():
+	"""Fetch candidate trending phrases (SerpAPI primary, with fallbacks) and mark which are new."""
+	try:
+		geo = (request.args.get("geo") or "US").strip().upper()
+		try:
+			limit = int(request.args.get("limit") or "30")
+		except Exception:
+			limit = 30
+		limit = max(1, min(limit, 50))
+		
+		phrases, debug = fetch_trending_phrases_any(geo=geo, limit=limit)
+		rows = []
+		for phrase in phrases:
+			norm = normalize_trend_term(phrase)
+			if not norm:
+				continue
+			exists = Trend.query.filter_by(normalized=norm).first() is not None
+			rows.append({
+				"term": phrase,
+				"normalized": norm,
+				"is_new": (not exists),
+			})
+		return jsonify({"ok": True, "geo": geo, "source": (debug.get("source") if isinstance(debug, dict) else "unknown"), "trends": rows})
+	except Exception as e:
+		current_app.logger.exception(f"[trends-search] Failed: {e}")
+		return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@admin_bp.post("/trends/import-selected")
+@login_required
+def trends_import_selected():
+	"""Import selected trend phrases as Trend rows; skip duplicates by normalized value."""
+	data = request.get_json(silent=True) or {}
+	items = data.get("items") or []
+	if not isinstance(items, list) or not items:
+		return jsonify({"ok": False, "error": "No items provided"}), 400
+	
+	created = 0
+	for it in items:
+		try:
+			raw = (it.get("term") if isinstance(it, dict) else str(it)).strip()
+		except Exception:
+			raw = ""
+		if not raw:
+			continue
+		norm = normalize_trend_term(raw)
+		if not norm:
+			continue
+		if Trend.query.filter_by(normalized=norm).first():
+			continue
+		slug = slugify(raw) or slugify(norm) or "trend"
+		base = slug
+		idx = 2
+		while Trend.query.filter_by(slug=slug).first():
+			slug = f"{base}-{idx}"
+			idx += 1
+		t = Trend(term=raw, normalized=norm, slug=slug, source="serpapi", status="new")
+		db.session.add(t)
+		created += 1
+	
+	if created:
+		try:
+			db.session.commit()
+		except Exception:
+			db.session.rollback()
+			return jsonify({"ok": False, "error": "DB commit failed"}), 500
+	return jsonify({"ok": True, "created": created})
+
+
+@admin_bp.get("/trends/list")
+@login_required
+def trends_list_all():
+	"""Return all trends in the database for admin UI testing."""
+	try:
+		rows = Trend.query.order_by(Trend.created_at.desc()).all()
+		def _row(t: Trend) -> dict:
+			return {
+				"id": t.id,
+				"term": t.term,
+				"normalized": t.normalized,
+				"slug": t.slug,
+				"status": t.status,
+				"source": getattr(t, "source", None),
+				"created_at": (t.created_at.isoformat() + "Z") if getattr(t, "created_at", None) else "",
+			}
+		return jsonify({"ok": True, "trends": [_row(t) for t in rows]})
+	except Exception as e:
+		current_app.logger.exception(f"[trends-list] Failed: {e}")
+		return jsonify({"ok": False, "error": str(e)}), 500
+
 def _get_video_jobs():
 	if "VIDEO_JOBS" not in current_app.config:
 		current_app.config["VIDEO_JOBS"] = {}
