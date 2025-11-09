@@ -2551,7 +2551,17 @@ def generate_sora_video(product_id: int):
 						if st == "completed":
 							break
 						if st == "failed":
-							raise RuntimeError("Sora job failed")
+							# Capture error details and surface them to the UI; stop polling
+							err_msg = ""
+							try:
+								err_msg = (js.get("error") or {}).get("message") or js.get("message") or ""
+								if not err_msg and isinstance(js.get("errors"), list) and js["errors"]:
+									err_msg = str(js["errors"][0])
+							except Exception:
+								err_msg = ""
+							with lock:
+								jobs[key].update({"status": "error", "stage": "sora_poll", "error": err_msg or "Sora job failed"})
+							return
 						_time.sleep(5)
 					else:
 						raise RuntimeError("Sora polling timed out")
