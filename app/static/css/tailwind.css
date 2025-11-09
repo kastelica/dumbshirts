@@ -720,10 +720,6 @@ video {
   z-index: 50;
 }
 
-.z-\[1000\] {
-  z-index: 1000;
-}
-
 .z-\[100\] {
   z-index: 100;
 }
@@ -1178,10 +1174,6 @@ video {
 
 .resize-none {
   resize: none;
-}
-
-.resize {
-  resize: both;
 }
 
 .list-inside {
@@ -2285,10 +2277,6 @@ video {
 }
 
 @media (min-width: 768px) {
-  .md\:static {
-    position: static;
-  }
-
   .md\:col-span-1 {
     grid-column: span 1 / span 1;
   }

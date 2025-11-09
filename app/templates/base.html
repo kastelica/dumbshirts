@@ -62,7 +62,7 @@
 			</button>
 		</div>
 	</div>
-	<header id="site-header" class="border-b border-gray-800 sticky z-[1000] bg-gray-950 md:static">
+	<header id="site-header" class="border-b border-gray-800 bg-gray-950">
 		<div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
 			<a href="/" class="font-extrabold text-xl tracking-tight">The Dumb Shirts Store</a>
 			<div class="flex items-center gap-3">
@@ -342,20 +342,7 @@
 		});
 	}
 	// Adjust header sticky offset to sit below the promo bar dynamically
-	try{
-		const promo = document.getElementById('promo-bar');
-		const header = document.getElementById('site-header');
-		function applyHeaderOffset(){
-			if(!promo || !header) return;
-			const promoH = promo.offsetHeight || 0;
-			header.style.top = promoH + 'px';
-		}
-		window.addEventListener('load', applyHeaderOffset);
-		window.addEventListener('resize', applyHeaderOffset);
-		const ro = new ResizeObserver(applyHeaderOffset);
-		if(promo) ro.observe(promo);
-		applyHeaderOffset();
-	}catch(_e){}
+	// No sticky header offset needed
 })();
 </script>
 
