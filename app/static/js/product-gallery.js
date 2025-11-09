@@ -285,7 +285,7 @@
         const natH = lbBase.naturalHeight || 0;
         if (!natW || !natH || !cRect.width || !cRect.height) {
           // Retry after a short delay if dimensions aren't ready
-          setTimeout(positionLightboxOverlay, 100);
+          setTimeout(positionLightboxOverlay, 50);
           return;
         }
         const scale = Math.min(cRect.width / natW, cRect.height / natH);
@@ -293,17 +293,21 @@
         const dispH = natH * scale;
         const offsetX = (cRect.width - dispW) / 2;
         const offsetY = (cRect.height - dispH) / 2;
-        // Match base overlay coefficients from detail view
+        // Match base overlay coefficients from detail view (same as gallery: width:35%, left:32%, top:26%)
         const wCoeff = 0.35, leftCoeff = 0.32, topCoeff = 0.26;
         const overlayW = dispW * wCoeff;
         const left = offsetX + dispW * leftCoeff;
         const top = offsetY + dispH * topCoeff;
-        // Ensure design overlay is visible and properly positioned
+        // Set all positioning styles BEFORE making visible to prevent shift
+        // Use visibility instead of opacity for better performance and to prevent layout shifts
+        lbDesign.style.position = 'absolute';
         lbDesign.style.width = overlayW + 'px';
         lbDesign.style.left = left + 'px';
         lbDesign.style.top = top + 'px';
-        lbDesign.style.position = 'absolute';
         lbDesign.style.zIndex = '10';
+        // Make visible only after all positioning is set
+        lbDesign.style.visibility = 'visible';
+        lbDesign.style.opacity = '1';
         lbDesign.classList.remove('hidden');
       } catch (_e) {
         console.warn('Failed to position lightbox overlay:', _e);
@@ -311,39 +315,73 @@
     }
 
     if(isMockup){
+      // Hide design overlay initially to prevent shift - use visibility for better control
+      lbDesign.style.visibility = 'hidden';
+      lbDesign.style.opacity = '0';
+      lbDesign.classList.add('hidden');
+      // Pre-set positioning styles to prevent layout shift
+      lbDesign.style.position = 'absolute';
+      lbDesign.style.zIndex = '10';
+      
       // Show mockup in lightbox
       const baseSrc = MOCKUP_BASES[color] || MOCKUP_BASES.white;
       lbBase.onerror = function(){ this.onerror=null; this.src = MOCKUP_BASES.white; };
       lbBase.src = baseSrc;
-      // Set design source and ensure it's visible
+      
+      // Set design source but keep it hidden until positioned
       if (designSrc) {
         lbDesign.src = designSrc;
-        lbDesign.classList.remove('hidden');
       } else {
         // If no design src, try to get it from the gallery mockup design element
         const galleryDesign = galleryEl.querySelector('.mockup-design') || galleryEl.querySelector('#mockup-design');
         if (galleryDesign && galleryDesign.src) {
           lbDesign.src = galleryDesign.src;
-          lbDesign.classList.remove('hidden');
         }
       }
+      
       lbMock.classList.remove('hidden');
       lbImg.classList.add('hidden');
       // Hide any lightbox video if present
       const lbVid = document.getElementById('lightbox-video');
       if (lbVid) lbVid.classList.add('hidden');
-      // Position overlay after layout
-      if (lbBase.complete) {
-        positionLightboxOverlay();
+      
+      // Position overlay after layout - only show after positioning
+      // Use a single function that checks if both are ready
+      const tryPositionOverlay = () => {
+        // Wait for base image to have dimensions
+        if (lbBase.complete && lbBase.naturalWidth > 0 && lbBase.naturalHeight > 0) {
+          // Use requestAnimationFrame to ensure layout is complete
+          requestAnimationFrame(() => {
+            positionLightboxOverlay();
+          });
+        }
+      };
+      
+      // If base is already loaded, try positioning immediately
+      if (lbBase.complete && lbBase.naturalWidth > 0) {
+        tryPositionOverlay();
       } else {
-        lbBase.onload = function(){ 
-          positionLightboxOverlay();
-          // Also ensure design loads
-          if (lbDesign.src && !lbDesign.complete) {
-            lbDesign.onload = positionLightboxOverlay;
-          }
-        };
+        // Wait for base image to load
+        lbBase.onload = tryPositionOverlay;
       }
+      
+      // Also trigger on design load if it loads after base
+      if (lbDesign.src) {
+        if (lbDesign.complete) {
+          // Design already loaded, but wait for base
+          if (lbBase.complete && lbBase.naturalWidth > 0) {
+            tryPositionOverlay();
+          }
+        } else {
+          lbDesign.onload = function() {
+            // Design loaded, check if base is ready
+            if (lbBase.complete && lbBase.naturalWidth > 0) {
+              tryPositionOverlay();
+            }
+          };
+        }
+      }
+      
       // Also reflow on resize
       try {
         const onResize = () => positionLightboxOverlay();
