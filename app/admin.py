@@ -2504,17 +2504,27 @@ def generate_sora_video(product_id: int):
 					if resp.status_code >= 400:
 						raise RuntimeError(f"Sora create failed: {resp.status_code} {resp.text[:500]}")
 					job = resp.json()
-					vid = (job or {}).get("id")
+					# Extract video id from common response shapes
+					vid = (job or {}).get("id") or ((job or {}).get("data") or [{}])[0].get("id")
 					if not vid:
 						raise RuntimeError("Sora create returned no video id")
+					with lock:
+						jobs[key]["video_id"] = vid
 					
 					# Poll status
 					with lock:
 						jobs[key]["stage"] = "sora_poll"
 					status_url = f"https://api.openai.com/v1/videos/{vid}"
 					max_attempts = 120
+					# Give backend time to register new job to avoid early 404
+					_time.sleep(2)
+					not_found_retries = 0
 					for attempt in range(max_attempts):
 						s = _req.get(status_url, headers=headers, timeout=30)
+						if s.status_code == 404 and not_found_retries < 10:
+							not_found_retries += 1
+							_time.sleep(3)
+							continue
 						if s.status_code >= 400:
 							raise RuntimeError(f"Sora status failed: {s.status_code} {s.text[:500]}")
 						js = s.json()
