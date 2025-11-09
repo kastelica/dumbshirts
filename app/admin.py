@@ -2427,6 +2427,139 @@ def generate_video_status(product_id: int):
 	# Always return 200 so the UI can read and display debug info
 	return jsonify(resp)
 
+@admin_bp.post("/products/<int:product_id>/generate-sora")
+@login_required
+def generate_sora_video(product_id: int):
+	"""
+	Start background job to generate a product video via Sora (OpenAI videos API),
+	using the product mockup as an input reference image. Target ~8 seconds, 1280x720.
+	Uploads the result to Cloudinary (resource_type='video') on success.
+	"""
+	from io import BytesIO
+	import time as _time
+	p = Product.query.get_or_404(product_id)
+	jobs, lock = _get_video_jobs()
+	job_key = f"sora:{product_id}"
+	with lock:
+		jobs[job_key] = {
+			"status": "processing",
+			"stage": "init",
+			"progress": 0,
+			"error": None,
+			"url": "",
+			"product_id": product_id,
+			"started_at": time.time(),
+		}
+	
+	def _worker(app_ctx, pid: int, key: str):
+		with app_ctx:
+			try:
+				import requests as _req
+				import cloudinary.uploader as cu
+				
+				openai_key = (current_app.config.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+				if not openai_key:
+					raise RuntimeError("Missing OPENAI_API_KEY for Sora")
+				
+				with lock:
+					jobs[key]["stage"] = "build_mockup"
+				mockup_bytes = _build_mockup_for_product(p)
+				
+				# Create Sora job (multipart/form-data with input_reference)
+				with lock:
+					jobs[key]["stage"] = "sora_create"
+				create_url = "https://api.openai.com/v1/videos"
+				files = {
+					"input_reference": ("mockup.png", mockup_bytes, "image/png"),
+				}
+				data = {
+					"prompt": f"Close-up of a person wearing this T-shirt, standing and turning slightly, simple studio setting, even lighting. Show front view clearly.",
+					"model": "sora-2",
+					"size": "1280x720",
+					"seconds": "8",
+				}
+				headers = {
+					"Authorization": f"Bearer {openai_key}",
+				}
+				resp = _req.post(create_url, headers=headers, files=files, data=data, timeout=60)
+				if resp.status_code >= 400:
+					raise RuntimeError(f"Sora create failed: {resp.status_code} {resp.text[:500]}")
+				job = resp.json()
+				vid = (job or {}).get("id")
+				if not vid:
+					raise RuntimeError("Sora create returned no video id")
+				
+				# Poll status
+				with lock:
+					jobs[key]["stage"] = "sora_poll"
+				status_url = f"https://api.openai.com/v1/videos/{vid}"
+				max_attempts = 120
+				for attempt in range(max_attempts):
+					s = _req.get(status_url, headers=headers, timeout=30)
+					if s.status_code >= 400:
+						raise RuntimeError(f"Sora status failed: {s.status_code} {s.text[:500]}")
+					js = s.json()
+					st = js.get("status")
+					pr = js.get("progress") or 0
+					with lock:
+						jobs[key]["progress"] = pr
+					if st == "completed":
+						break
+					if st == "failed":
+						raise RuntimeError("Sora job failed")
+					_time.sleep(5)
+				else:
+					raise RuntimeError("Sora polling timed out")
+				
+				# Download content
+				with lock:
+					jobs[key]["stage"] = "sora_download"
+				dl_url = f"https://api.openai.com/v1/videos/{vid}/content"
+				dlr = _req.get(dl_url, headers=headers, timeout=120)
+				if dlr.status_code >= 400:
+					raise RuntimeError(f"Sora download failed: {dlr.status_code} {dlr.text[:500]}")
+				video_bytes = dlr.content
+				
+				# Upload to Cloudinary
+				with lock:
+					jobs[key]["stage"] = "upload"
+				public_id = f"product_sora_video_{pid}_{int(time.time())}"
+				up_res = cu.upload(video_bytes, folder="product_videos", public_id=public_id, resource_type="video", overwrite=True)
+				video_url = up_res.get("secure_url") or up_res.get("url") or ""
+				if not video_url:
+					raise RuntimeError("Cloudinary upload did not return a video URL")
+				
+				with lock:
+					jobs[key].update({"status": "ready", "stage": "done", "error": None, "url": video_url})
+				current_app.logger.info(f"[sora-video] Generated video for product {pid}: {video_url}")
+			except Exception as e:
+				import traceback as _tb
+				tb = _tb.format_exc()
+				with lock:
+					jobs[key].update({"status": "error", "error": str(e), "traceback": tb})
+				current_app.logger.exception(f"[sora-video] Job failed for product {pid}: {e}")
+	
+	threading.Thread(target=_worker, args=(current_app.app_context(), product_id, job_key), daemon=True).start()
+	return jsonify({"ok": True, "started": True})
+
+@admin_bp.get("/products/<int:product_id>/sora-status")
+@login_required
+def generate_sora_video_status(product_id: int):
+	jobs, lock = _get_video_jobs()
+	job_key = f"sora:{product_id}"
+	with lock:
+		job = jobs.get(job_key) or {}
+	status = job.get("status") or "unknown"
+	resp = {
+		"ready": (status == "ready"),
+		"status": status,
+		"stage": job.get("stage") or "",
+		"progress": job.get("progress") or 0,
+		"url": job.get("url") or "",
+		"error": job.get("error") or "",
+	}
+	return jsonify(resp)
+
 
 @admin_bp.post("/products/append-tshirt")
 @login_required
