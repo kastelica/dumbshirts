@@ -172,6 +172,7 @@ def google_feed():
 			"availability": "in stock",
 			"image": main_image,
 			"additional_images": add_imgs,
+			"video": _absolute_url(getattr(p, "video_url", "") or ""),
 			"brand": "Dumbshirts.store",
 			"age_group": "adult",
 			"color": "white",

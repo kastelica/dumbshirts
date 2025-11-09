@@ -84,6 +84,8 @@ class Product(db.Model, TimestampMixin):
 	price = db.Column(db.Numeric(10, 2), nullable=False, default=0)
 	currency = db.Column(db.String(3), nullable=False, default="USD")
 	gelato_product_id = db.Column(db.String(120))
+	# Optional marketing video (Cloudinary URL) for Shopping feed and PDP
+	video_url = db.Column(db.String(500))
 
 	design_id = db.Column(db.Integer, db.ForeignKey("design.id"))
 	design = db.relationship("Design", backref=db.backref("products", lazy=True))

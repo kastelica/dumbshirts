@@ -47,6 +47,10 @@ def render_google_shopping_feed(items):
 					SubElement(it, "g:additional_image_link").text = a
 		except Exception:
 			pass
+		# Non-standard but useful: include product video link if present
+		video = item.get("video")
+		if video:
+			SubElement(it, "g:video_link").text = video
 		# Google Shopping category and product type
 		gcat = item.get("google_product_category")
 		if gcat:

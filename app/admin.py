@@ -2401,6 +2401,14 @@ def generate_video(product_id: int):
 					
 					with lock:
 						jobs[pid].update({"status": "ready", "stage": "done", "error": None, "url": video_url})
+					# Persist on product
+					try:
+						p_db = Product.query.get(pid)
+						if p_db:
+							p_db.video_url = video_url
+							db.session.commit()
+					except Exception:
+						db.session.rollback()
 					current_app.logger.info(f"[video] Generated video for product {pid}: {video_url}")
 				except Exception as e:
 					import traceback as _tb
@@ -2429,6 +2437,15 @@ def generate_video_status(product_id: int):
 		"url": job.get("url") or "",
 		"error": job.get("error") or "",
 	}
+	# If no active job/url, fall back to stored product.video_url
+	if not resp.get("url"):
+		try:
+			p = Product.query.get(product_id)
+			if p and getattr(p, "video_url", None):
+				resp["url"] = p.video_url
+				resp["ready"] = True
+		except Exception:
+			pass
 	# Always return 200 so the UI can read and display debug info
 	return jsonify(resp)
 
@@ -2587,6 +2604,14 @@ def generate_sora_video(product_id: int):
 					with lock:
 						jobs[key].update({"status": "ready", "stage": "done", "error": None, "url": video_url})
 					current_app.logger.info(f"[sora-video] Generated video for product {pid}: {video_url}")
+					# Persist on product for future display/feed
+					try:
+						p_db = Product.query.get(pid)
+						if p_db:
+							p_db.video_url = video_url
+							db.session.commit()
+					except Exception:
+						db.session.rollback()
 				except Exception as e:
 					import traceback as _tb
 					tb = _tb.format_exc()
@@ -2616,6 +2641,15 @@ def generate_sora_video_status(product_id: int):
 		"url": job.get("url") or "",
 		"error": job.get("error") or "",
 	}
+	# Fall back to stored product video when no active job
+	if not resp.get("url"):
+		try:
+			p = Product.query.get(product_id)
+			if p and getattr(p, "video_url", None):
+				resp["url"] = p.video_url
+				resp["ready"] = True
+		except Exception:
+			pass
 	return jsonify(resp)
 
 
