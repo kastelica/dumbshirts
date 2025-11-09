@@ -175,6 +175,30 @@
 				<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" data-action="next">›</button>
 			</div>
 		</div>
+		<!-- Gallery Lightbox Modal -->
+		<div id="gallery-lightbox" class="fixed inset-0 z-50 hidden">
+			<div class="absolute inset-0 bg-black/80" data-close></div>
+			<div class="relative mx-auto my-8 max-w-5xl w-[92vw]">
+				<div class="relative bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					<div class="relative w-full" style="padding-top: 100%;">
+						<!-- Mockup mode -->
+						<div id="lightbox-mockup" class="absolute inset-0 hidden">
+							<img id="lightbox-base" alt="Tee base" class="w-full h-full object-contain" />
+							<img id="lightbox-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
+						</div>
+						<!-- Image frame mode -->
+						<img id="lightbox-img" alt="Product image" class="absolute inset-0 w-full h-full object-contain hidden" />
+					</div>
+					<div class="flex items-center justify-between p-3 border-t border-gray-800">
+						<div class="text-xs text-gray-400">Press Esc or outside to close</div>
+						<div class="flex items-center gap-2">
+							<button id="lightbox-close" type="button" class="bg-gray-800 text-white px-3 py-1.5 rounded">Close</button>
+							<button id="lightbox-buy" type="button" class="bg-white text-black px-4 py-1.5 rounded font-semibold">Buy Now</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 		<div>
 			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
 			<p class="text-gray-300 mt-3">{{ product.description }}</p>

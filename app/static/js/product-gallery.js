@@ -197,6 +197,17 @@
     if (prevBtn) prevBtn.addEventListener('click', handlePrev);
     if (nextBtn) nextBtn.addEventListener('click', handleNext);
     
+    // Lightbox: open on click/tap of the gallery area (excluding nav buttons)
+    try {
+      galleryEl.addEventListener('click', function(e){
+        const t = e.target;
+        if (t && t.closest && (t.closest('[data-action="prev"]') || t.closest('[data-action="next"]'))) {
+          return; // ignore clicks on nav
+        }
+        openLightboxFromGallery(galleryEl, idx);
+      });
+    } catch (e) {}
+    
     render();
     
     // Expose method to update color (for swatch changes)
@@ -213,6 +224,76 @@
         }
       }
     };
+  }
+
+  /**
+   * Build and show a lightbox using the current gallery view (mockup or frame)
+   */
+  function openLightboxFromGallery(galleryEl, currentIdx){
+    let lb = document.getElementById('gallery-lightbox');
+    if(!lb){
+      // Template should have injected it; if not present, bail
+      return;
+    }
+    const lbImg = document.getElementById('lightbox-img');
+    const lbMock = document.getElementById('lightbox-mockup');
+    const lbBase = document.getElementById('lightbox-base');
+    const lbDesign = document.getElementById('lightbox-design');
+    if(!lbImg || !lbMock || !lbBase || !lbDesign) return;
+
+    // Determine if mockup is visible
+    const mock = galleryEl.querySelector('.mockup-wrap') || galleryEl.querySelector('#mockup-wrap');
+    const isMockup = mock && !mock.classList.contains('hidden');
+
+    // Determine current color and design src
+    const colorEl = document.getElementById('color-select');
+    const color = (colorEl && colorEl.value ? colorEl.value : (galleryEl.getAttribute('data-current-color') || 'white')).toLowerCase();
+    const designEl = galleryEl.querySelector('.mockup-design') || galleryEl.querySelector('#mockup-design');
+    const designSrc = (designEl && (designEl.getAttribute('src') || designEl.getAttribute('data-design-src'))) || '';
+
+    if(isMockup){
+      // Show mockup in lightbox
+      const baseSrc = MOCKUP_BASES[color] || MOCKUP_BASES.white;
+      lbBase.onerror = function(){ this.onerror=null; this.src = MOCKUP_BASES.white; };
+      lbBase.src = baseSrc;
+      if (designSrc) lbDesign.src = designSrc;
+      lbMock.classList.remove('hidden');
+      lbImg.classList.add('hidden');
+    } else {
+      // Find visible frame image
+      const frame = Array.from(galleryEl.querySelectorAll('img[data-frame]')).find(im => !im.classList.contains('hidden'));
+      const src = frame ? frame.getAttribute('src') : '';
+      if (src) lbImg.src = src;
+      lbImg.classList.remove('hidden');
+      lbMock.classList.add('hidden');
+    }
+
+    // Wire close interactions
+    const closeEl = document.getElementById('lightbox-close');
+    const overlay = lb.querySelector('[data-close]');
+    const buyBtn = document.getElementById('lightbox-buy');
+    function hide(){ lb.classList.add('hidden'); }
+    if (closeEl) closeEl.onclick = hide;
+    if (overlay) overlay.onclick = hide;
+    try {
+      document.addEventListener('keydown', function onEsc(ev){
+        if (ev.key === 'Escape') { hide(); document.removeEventListener('keydown', onEsc); }
+      });
+    } catch(e){}
+
+    // Buy Now CTA inside lightbox: set flag and submit existing form
+    if (buyBtn) {
+      buyBtn.onclick = function(){
+        try {
+          const flag = document.getElementById('buy-now-flag');
+          if (flag) flag.value = '1';
+          const form = document.getElementById('add-form');
+          if (form) form.submit();
+        } catch(e){}
+      };
+    }
+
+    lb.classList.remove('hidden');
   }
 
   /**
