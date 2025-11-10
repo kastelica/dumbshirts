@@ -968,6 +968,7 @@ def loyalty_page():
 @main_bp.post("/loyalty/signup")
 def loyalty_signup():
 	email = (request.form.get("email") or "").strip().lower()
+	source = (request.form.get("source") or "").strip().lower()
 	if email:
 		# Check if we've already processed this signup in this session to prevent duplicate admin emails
 		processed_signups = set(session.get("loyalty_signups_processed", []))
@@ -976,12 +977,24 @@ def loyalty_signup():
 		session["loyalty_email"] = email
 		session.modified = True
 		# Send welcome email to user (always send, even if already processed)
+		# Use different email templates based on the source
 		try:
-			# Use the styled email template instead of simple renderer
-			html = render_template("email_loyalty_welcome.html")
-			ok, msg = send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
+			if source == "exit_intent_free_shirt":
+				# Free shirt exit intent offer
+				html = render_template("email_free_shirt_welcome.html")
+				subject = "Your Free Shirt is Waiting!"
+			elif source == "promo_5off":
+				# 5% discount popup offer
+				html = render_template("email_5off_welcome.html")
+				subject = "Your 5% Off Code is Here!"
+			else:
+				# Regular loyalty signup (from loyalty page)
+				html = render_template("email_loyalty_welcome.html")
+				subject = "Welcome to Dumbshirts Loyalty"
+			
+			ok, msg = send_email_via_sendgrid(email, subject, html)
 			if ok:
-				current_app.logger.info(f"[loyalty-signup] Welcome email sent to {email}")
+				current_app.logger.info(f"[loyalty-signup] Welcome email sent to {email} (source: {source})")
 			else:
 				current_app.logger.error(f"[loyalty-signup] Failed to send welcome email to {email}: {msg}")
 		except Exception as e:

@@ -43,19 +43,21 @@ def normalize_trend_term(term: str) -> str:
 	return limited
 
 
-def send_email_via_sendgrid(to_email: str, subject: str, html_body: str, *, from_email: Optional[str] = None) -> tuple[bool, str]:
+def send_email_via_sendgrid(to_email: str, subject: str, html_body: str, *, from_email: Optional[str] = None, from_name: Optional[str] = None) -> tuple[bool, str]:
     """Send an email using SendGrid. Returns (ok, message).
 
     Requires SENDGRID_API_KEY in config/env. Default sender is
     email@dumbshirts.store unless overridden.
+    Default from_name is "Dumb Shirts Store" unless overridden.
     """
     try:
         api_key = os.getenv("SENDGRID_API_KEY", "").strip()
         if not api_key or SendGridAPIClient is None:
             return False, "SendGrid not configured"
-        sender = (from_email or os.getenv("EMAIL_SENDER", "email@dumbshirts.store")).strip()
+        sender_email = (from_email or os.getenv("EMAIL_SENDER", "email@dumbshirts.store")).strip()
+        sender_name = (from_name or os.getenv("EMAIL_SENDER_NAME", "Dumb Shirts Store")).strip()
         msg = Mail(
-            from_email=Email(sender),
+            from_email=Email(sender_email, sender_name),
             to_emails=[To(to_email)],
             subject=subject,
             html_content=Content("text/html", html_body or "")
