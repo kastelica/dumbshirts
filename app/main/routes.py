@@ -969,6 +969,10 @@ def loyalty_page():
 def loyalty_signup():
 	email = (request.form.get("email") or "").strip().lower()
 	if email:
+		# Check if we've already processed this signup in this session to prevent duplicate admin emails
+		processed_signups = set(session.get("loyalty_signups_processed", []))
+		is_new_signup = email not in processed_signups
+		
 		session["loyalty_email"] = email
 		session.modified = True
 		try:
@@ -977,14 +981,19 @@ def loyalty_signup():
 			send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
 		except Exception as e:
 			current_app.logger.warning(f"[loyalty-signup] Failed to send welcome email: {e}")
-		# Notify admin of new signup (best-effort)
-		try:
-			to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
-			if to_admin:
-				admin_html = render_simple_email("New loyalty signup", [f"Email: {email}"])
-				send_email_via_sendgrid(to_admin, "New loyalty signup", admin_html)
-		except Exception:
-			pass
+		# Notify admin of new signup (best-effort) - only once per email per session
+		if is_new_signup:
+			try:
+				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+				if to_admin:
+					admin_html = render_simple_email("New loyalty signup", [f"Email: {email}"])
+					send_email_via_sendgrid(to_admin, "New loyalty signup", admin_html)
+					# Mark this email as processed to prevent duplicate admin emails
+					processed_signups.add(email)
+					session["loyalty_signups_processed"] = list(processed_signups)
+					session.modified = True
+			except Exception:
+				pass
 	return render_template("loyalty.html", email=email, points=0, tier="member", perks=[]) 
 
 
