@@ -421,7 +421,9 @@
 			}
 			
 			try{
-				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ email, source: 'promo_5off' }) });
+				const params = new URLSearchParams({ email: email, source: 'promo_5off' });
+				console.log('[promo-5off] Sending signup:', { email, source: 'promo_5off', params: params.toString() });
+				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params });
 				lsSet('promo_5off_captured','1');
 				if(result){ result.classList.remove('hidden'); }
 			}catch(_e){ 
@@ -608,10 +610,12 @@
 			if(!email) return;
 			
 			try{
+				const params = new URLSearchParams({ email: email, source: 'exit_intent_free_shirt' });
+				console.log('[exit-intent] Sending signup:', { email, source: 'exit_intent_free_shirt', params: params.toString() });
 				await fetch('/loyalty/signup', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: new URLSearchParams({ email, source: 'exit_intent_free_shirt' })
+					body: params
 				});
 				
 				// Mark as submitted

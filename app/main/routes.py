@@ -967,8 +967,11 @@ def loyalty_page():
 
 @main_bp.post("/loyalty/signup")
 def loyalty_signup():
-	email = (request.form.get("email") or "").strip().lower()
-	source = (request.form.get("source") or "").strip().lower()
+	# Try to get email and source from form data or JSON
+	email = (request.form.get("email") or (request.json or {}).get("email") or "").strip().lower()
+	source = (request.form.get("source") or (request.json or {}).get("source") or "").strip().lower()
+	# Debug logging
+	current_app.logger.info(f"[loyalty-signup] Received signup - email: {email}, source: '{source}', form data: {dict(request.form)}, json: {request.json}")
 	if email:
 		# Check if we've already processed this signup in this session to prevent duplicate admin emails
 		processed_signups = set(session.get("loyalty_signups_processed", []))
@@ -979,22 +982,26 @@ def loyalty_signup():
 		# Send welcome email to user (always send, even if already processed)
 		# Use different email templates based on the source
 		try:
+			current_app.logger.info(f"[loyalty-signup] Selecting email template - source: '{source}' (len={len(source)})")
 			if source == "exit_intent_free_shirt":
 				# Free shirt exit intent offer
+				current_app.logger.info(f"[loyalty-signup] Using free shirt email template")
 				html = render_template("email_free_shirt_welcome.html")
 				subject = "Your Free Shirt is Waiting!"
 			elif source == "promo_5off":
 				# 5% discount popup offer
+				current_app.logger.info(f"[loyalty-signup] Using 5% off email template")
 				html = render_template("email_5off_welcome.html")
 				subject = "Your 5% Off Code is Here!"
 			else:
 				# Regular loyalty signup (from loyalty page)
+				current_app.logger.info(f"[loyalty-signup] Using default loyalty email template (source was: '{source}')")
 				html = render_template("email_loyalty_welcome.html")
 				subject = "Welcome to Dumbshirts Loyalty"
 			
 			ok, msg = send_email_via_sendgrid(email, subject, html)
 			if ok:
-				current_app.logger.info(f"[loyalty-signup] Welcome email sent to {email} (source: {source})")
+				current_app.logger.info(f"[loyalty-signup] Welcome email sent to {email} (source: '{source}', subject: '{subject}')")
 			else:
 				current_app.logger.error(f"[loyalty-signup] Failed to send welcome email to {email}: {msg}")
 		except Exception as e:
