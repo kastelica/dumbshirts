@@ -431,7 +431,7 @@ def tiktok_feed():
 	material_text = current_app.config.get("DEFAULT_MATERIALS", "100% Cotton")
 	delivery_opts = current_app.config.get("DEFAULT_DELIVERY_OPTS", "")
 	
-	# CSV header per TikTok template
+	# CSV header per TikTok template - exact format match
 	header = [
 		"Category",
 		"Brand",
@@ -471,6 +471,23 @@ def tiktok_feed():
 		"Seller SKU",
 		"Size Chart",
 		"Materials",
+		"Pattern",
+		"Neckline",
+		"Sleeve Length",
+		"Season",
+		"Style",
+		"Fit",
+		"Stretch",
+		"Washing Instructions",
+		"Waist Height",
+		"Dangerous Goods Or Hazardous Materials",
+		"Organic Textile",
+		"CA Prop 65: Repro. Chems",
+		"Reprotoxic Chemicals",
+		"CA Prop 65: Carcinogens",
+		"Carcinogen",
+		"Safety Data Sheet (SDS) for other dangerous goods or hazardous materials",
+		"Product Status",
 	]
 	
 	output = io.StringIO()
@@ -478,8 +495,14 @@ def tiktok_feed():
 	writer.writerow(header)
 	
 	for p in products:
-		category_name = (p.categories[0].name if p.categories else "T-Shirts")
-		brand = default_brand
+		# Category: use more specific format if available, otherwise default
+		category_name = "Men's Tops/Shirts/Men's Casual Shirts/Short-sleeve Causal Shirts"
+		if p.categories:
+			cat_name = p.categories[0].name
+			# If category is more specific, use it; otherwise use default
+			if cat_name and cat_name.lower() not in ["t-shirts", "shirts", "tshirts"]:
+				category_name = cat_name
+		brand = ""  # Empty per format example
 		name = p.title or ""
 		desc = p.description or ""
 		
@@ -534,25 +557,37 @@ def tiktok_feed():
 				name,
 				desc,
 				main_img, img2, img3, img4, img5, img6, img7, img8, img9,
-				"MPN", str(p.id),
-				primary_name, "", "", "", "", "", "", "", "", "",
+				"", "",  # Identifier Code Type, Identifier Code (empty per format)
+				primary_name, "", "", "", "", "", "", "", "", "",  # Primary variation name, value, images 1-9
 				secondary_name, "",
 				f"{def_w:.2f}", f"{def_l:.2f}", f"{def_wd:.2f}", f"{def_h:.2f}",
 				delivery_opts,
 				f"{p.price}",
 				str(def_qty),
-				f"P{p.id}",
+				str(p.id),  # Seller SKU: use product ID (matching example format)
 				size_chart_url,
 				material_text,
+				"", "", "", "", "", "", "", "", "",  # Pattern, Neckline, Sleeve Length, Season, Style, Fit, Stretch, Washing Instructions, Waist Height
+				"No",  # Dangerous Goods Or Hazardous Materials
+				"",  # Organic Textile
+				"No",  # CA Prop 65: Repro. Chems
+				"",  # Reprotoxic Chemicals
+				"",  # CA Prop 65: Carcinogens
+				"",  # Carcinogen
+				"",  # Safety Data Sheet (SDS)
+				"",  # Product Status
 			]
 			writer.writerow(row)
 			continue
 		
 		for v in variants:
 			primary_value = v.size or ""
-			secondary_value = (v.color or "")
+			# Capitalize color (e.g., "white" -> "White")
+			color_raw = (v.color or "").strip()
+			secondary_value = color_raw.capitalize() if color_raw else ""
 			# Variant-specific SKU and price
-			seller_sku = v.gelato_sku or f"P{p.id}-V{v.id}"
+			# Use gelato_sku if available, otherwise use product ID (matching example format)
+			seller_sku = v.gelato_sku or str(p.id)
 			price_val = v.price or p.price
 			row = [
 				category_name,
@@ -560,8 +595,8 @@ def tiktok_feed():
 				name,
 				desc,
 				main_img, img2, img3, img4, img5, img6, img7, img8, img9,
-				"MPN", f"{p.id}",
-				primary_name, primary_value, "", "", "", "", "", "", "", "", "",
+				"", "",  # Identifier Code Type, Identifier Code (empty per format)
+				primary_name, primary_value, "", "", "", "", "", "", "", "", "",  # Primary variation name, value, images 1-9
 				secondary_name, secondary_value,
 				f"{def_w:.2f}", f"{def_l:.2f}", f"{def_wd:.2f}", f"{def_h:.2f}",
 				delivery_opts,
@@ -570,6 +605,15 @@ def tiktok_feed():
 				seller_sku,
 				size_chart_url,
 				material_text,
+				"", "", "", "", "", "", "", "", "",  # Pattern, Neckline, Sleeve Length, Season, Style, Fit, Stretch, Washing Instructions, Waist Height
+				"No",  # Dangerous Goods Or Hazardous Materials
+				"",  # Organic Textile
+				"No",  # CA Prop 65: Repro. Chems
+				"",  # Reprotoxic Chemicals
+				"",  # CA Prop 65: Carcinogens
+				"",  # Carcinogen
+				"",  # Safety Data Sheet (SDS)
+				"",  # Product Status
 			]
 			writer.writerow(row)
 	
