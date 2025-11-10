@@ -967,11 +967,32 @@ def loyalty_page():
 
 @main_bp.post("/loyalty/signup")
 def loyalty_signup():
-	# Try to get email and source from form data or JSON
-	email = (request.form.get("email") or (request.json or {}).get("email") or "").strip().lower()
-	source = (request.form.get("source") or (request.json or {}).get("source") or "").strip().lower()
+	# Try to get email and source from form data, JSON, or raw data
+	email = ""
+	source = ""
+	
+	# Try form data first (standard form submission)
+	if request.form:
+		email = (request.form.get("email") or "").strip().lower()
+		source = (request.form.get("source") or "").strip().lower()
+	
+	# Try JSON if form data didn't work
+	if not email and request.is_json and request.json:
+		email = (request.json.get("email") or "").strip().lower()
+		source = (request.json.get("source") or "").strip().lower()
+	
+	# Try parsing raw data as form-encoded if nothing else worked
+	if not email and request.data:
+		try:
+			from urllib.parse import parse_qs
+			parsed = parse_qs(request.data.decode('utf-8'))
+			email = (parsed.get("email", [""])[0] or "").strip().lower()
+			source = (parsed.get("source", [""])[0] or "").strip().lower()
+		except Exception:
+			pass
+	
 	# Debug logging
-	current_app.logger.info(f"[loyalty-signup] Received signup - email: {email}, source: '{source}', form data: {dict(request.form)}, json: {request.json}")
+	current_app.logger.info(f"[loyalty-signup] Received signup - email: {email}, source: '{source}', form: {dict(request.form) if request.form else None}, json: {request.json if request.is_json else None}, content_type: {request.content_type}")
 	if email:
 		# Check if we've already processed this signup in this session to prevent duplicate admin emails
 		processed_signups = set(session.get("loyalty_signups_processed", []))
@@ -1023,6 +1044,19 @@ def loyalty_signup():
 					session.modified = True
 			except Exception as e:
 				current_app.logger.exception(f"[loyalty-signup] Exception sending admin email for {email}: {e}")
+	
+	# Return appropriate response based on request type
+	# Check if this is an AJAX/fetch request
+	is_ajax = (
+		request.headers.get("Accept", "").startswith("application/json") or
+		request.headers.get("X-Requested-With") == "XMLHttpRequest" or
+		request.content_type and "application/json" in request.content_type
+	)
+	
+	if is_ajax:
+		return jsonify({"success": True, "email": email, "source": source})
+	
+	# Regular form submission - return HTML
 	return render_template("loyalty.html", email=email, points=0, tier="member", perks=[]) 
 
 
