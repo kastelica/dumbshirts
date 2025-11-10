@@ -968,32 +968,71 @@ def loyalty_page():
 @main_bp.post("/loyalty/signup")
 def loyalty_signup():
 	email = (request.form.get("email") or "").strip().lower()
-	if email:
-		# Check if we've already processed this signup in this session to prevent duplicate admin emails
-		processed_signups = set(session.get("loyalty_signups_processed", []))
-		is_new_signup = email not in processed_signups
-		
-		session["loyalty_email"] = email
-		session.modified = True
+	if not email:
+		# Return JSON for fetch requests, HTML for form submissions
+		if request.headers.get("Content-Type", "").startswith("application/json") or request.is_json:
+			return jsonify({"error": "Email is required"}), 400
+		return render_template("loyalty.html", email="", points=0, tier="none", perks=[])
+	
+	# Check if we've already processed this signup in this session to prevent duplicate admin emails
+	processed_signups = set(session.get("loyalty_signups_processed", []))
+	is_new_signup = email not in processed_signups
+	
+	session["loyalty_email"] = email
+	session.modified = True
+	
+	# Send welcome email to user (always send, even if already processed)
+	welcome_email_sent = False
+	welcome_email_error = None
+	try:
+		# Use the styled email template instead of simple renderer
+		html = render_template("email_loyalty_welcome.html")
+		ok, msg = send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
+		if ok:
+			welcome_email_sent = True
+			current_app.logger.info(f"[loyalty-signup] Welcome email sent to {email}")
+		else:
+			welcome_email_error = msg
+			current_app.logger.error(f"[loyalty-signup] Failed to send welcome email to {email}: {msg}")
+	except Exception as e:
+		welcome_email_error = str(e)
+		current_app.logger.exception(f"[loyalty-signup] Exception sending welcome email to {email}: {e}")
+	
+	# Notify admin of new signup (best-effort) - only once per email per session
+	if is_new_signup:
 		try:
-			# Use the styled email template instead of simple renderer
-			html = render_template("email_loyalty_welcome.html")
-			send_email_via_sendgrid(email, "Welcome to Dumbshirts Loyalty", html)
+			to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+			if to_admin:
+				admin_html = render_simple_email("New loyalty signup", [f"Email: {email}"])
+				ok, msg = send_email_via_sendgrid(to_admin, "New loyalty signup", admin_html)
+				if ok:
+					current_app.logger.info(f"[loyalty-signup] Admin email sent for {email}")
+				else:
+					current_app.logger.warning(f"[loyalty-signup] Admin email failed for {email}: {msg}")
+				# Mark this email as processed to prevent duplicate admin emails
+				processed_signups.add(email)
+				session["loyalty_signups_processed"] = list(processed_signups)
+				session.modified = True
 		except Exception as e:
-			current_app.logger.warning(f"[loyalty-signup] Failed to send welcome email: {e}")
-		# Notify admin of new signup (best-effort) - only once per email per session
-		if is_new_signup:
-			try:
-				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
-				if to_admin:
-					admin_html = render_simple_email("New loyalty signup", [f"Email: {email}"])
-					send_email_via_sendgrid(to_admin, "New loyalty signup", admin_html)
-					# Mark this email as processed to prevent duplicate admin emails
-					processed_signups.add(email)
-					session["loyalty_signups_processed"] = list(processed_signups)
-					session.modified = True
-			except Exception:
-				pass
+			current_app.logger.exception(f"[loyalty-signup] Exception sending admin email for {email}: {e}")
+	
+	# Return JSON for fetch/AJAX requests (exit intent, promo modals), HTML for regular form submissions
+	# Check if this is an AJAX/fetch request by looking for Accept header or X-Requested-With
+	is_ajax = (
+		request.headers.get("Accept", "").startswith("application/json") or
+		request.headers.get("X-Requested-With") == "XMLHttpRequest" or
+		request.is_json
+	)
+	
+	if is_ajax:
+		return jsonify({
+			"success": True,
+			"email": email,
+			"welcome_email_sent": welcome_email_sent,
+			"welcome_email_error": welcome_email_error
+		})
+	
+	# Regular form submission - return HTML
 	return render_template("loyalty.html", email=email, points=0, tier="member", perks=[]) 
 
 

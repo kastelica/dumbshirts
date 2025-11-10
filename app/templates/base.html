@@ -421,7 +421,18 @@
 			}
 			
 			try{
-				await fetch('/loyalty/signup', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ email }) });
+				const response = await fetch('/loyalty/signup', { 
+					method:'POST', 
+					headers:{
+						'Content-Type':'application/x-www-form-urlencoded',
+						'Accept': 'application/json'
+					}, 
+					body: new URLSearchParams({ email }) 
+				});
+				const data = await response.json();
+				if(data.welcome_email_error){
+					console.warn('[promo-5off] Welcome email failed:', data.welcome_email_error);
+				}
 				lsSet('promo_5off_captured','1');
 				if(result){ result.classList.remove('hidden'); }
 			}catch(_e){ 
@@ -608,11 +619,18 @@
 			if(!email) return;
 			
 			try{
-				await fetch('/loyalty/signup', {
+				const response = await fetch('/loyalty/signup', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					headers: { 
+						'Content-Type': 'application/x-www-form-urlencoded',
+						'Accept': 'application/json'
+					},
 					body: new URLSearchParams({ email })
 				});
+				const data = await response.json();
+				if(data.welcome_email_error){
+					console.warn('[exit-intent] Welcome email failed:', data.welcome_email_error);
+				}
 				
 				// Mark as submitted
 				lsSet('exit_intent_submitted', '1');
