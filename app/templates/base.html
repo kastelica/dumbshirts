@@ -498,6 +498,8 @@
 (function(){
 	function lsGet(k){ try{return localStorage.getItem(k)||'';}catch(e){return '';} }
 	function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+	function ssGet(k){ try{return sessionStorage.getItem(k)||'';}catch(e){return '';} }
+	function ssSet(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }
 	
 	const modal = document.getElementById('exit-intent-modal');
 	const form = document.getElementById('exit-intent-form');
@@ -510,8 +512,27 @@
 	const exitIntentShown = lsGet('exit_intent_shown') === '1';
 	const exitIntentSubmitted = lsGet('exit_intent_submitted') === '1';
 	
+	// Check if closed recently (30 second cooldown)
+	function canShowModal(){
+		// Never show if already submitted (check dynamically)
+		if(lsGet('exit_intent_submitted') === '1') return false;
+		
+		// Check 30-second cooldown after closing
+		const closedTimestamp = ssGet('exit_intent_closed_at');
+		if(closedTimestamp){
+			const closedTime = parseInt(closedTimestamp, 10);
+			const now = Date.now();
+			const cooldownMs = 30 * 1000; // 30 seconds
+			if(now - closedTime < cooldownMs){
+				return false; // Still in cooldown period
+			}
+		}
+		
+		return true;
+	}
+	
 	function openModal(){
-		if(exitIntentShown || exitIntentSubmitted) return;
+		if(!canShowModal()) return;
 		if(modal) {
 			modal.classList.remove('hidden');
 			document.body.style.overflow = 'hidden'; // Prevent scrolling
@@ -533,6 +554,11 @@
 		if(modal) {
 			modal.classList.add('hidden');
 			document.body.style.overflow = ''; // Restore scrolling
+			// Track when it was closed (for 30-second cooldown)
+			// Only set if not submitted (submitted means never show again)
+			if(lsGet('exit_intent_submitted') !== '1'){
+				ssSet('exit_intent_closed_at', Date.now().toString());
+			}
 		}
 	}
 	
@@ -554,7 +580,7 @@
 		mouseY = e.clientY;
 		
 		// Detect rapid upward movement toward top edge
-		if(!exitIntentShown && !exitIntentSubmitted){
+		if(canShowModal()){
 			const timeOnPage = performance.now() - pageLoadTime;
 			// Check if mouse is near top edge and moving upward
 			if(mouseY <= topEdgeThreshold && lastMouseY > mouseY && timeOnPage >= minTimeOnPage){
@@ -566,7 +592,7 @@
 				setTimeout(function(){
 					if(document.activeElement && document.activeElement.tagName === 'INPUT') return;
 					if(document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
-					openModal();
+					if(canShowModal()) openModal();
 				}, 150);
 			}
 		}
@@ -576,12 +602,12 @@
 	
 	// Also detect mouse leaving viewport at top (for browsers that support it)
 	document.addEventListener('mouseleave', function(e){
-		if(e.clientY <= 0 && !exitIntentShown && !exitIntentSubmitted){
+		if(e.clientY <= 0 && canShowModal()){
 			const timeOnPage = performance.now() - pageLoadTime;
 			if(timeOnPage >= minTimeOnPage){
 				setTimeout(function(){
 					if(document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
-					openModal();
+					if(canShowModal()) openModal();
 				}, 100);
 			}
 		}
@@ -589,7 +615,7 @@
 	
 	// Also detect Escape key press (alternative exit intent)
 	document.addEventListener('keydown', function(e){
-		if(e.key === 'Escape' && !exitIntentShown && !exitIntentSubmitted){
+		if(e.key === 'Escape' && canShowModal()){
 			const timeOnPage = performance.now() - pageLoadTime;
 			// Only show on Escape if they've been on page for a bit
 			if(document.hasFocus() && timeOnPage >= minTimeOnPage){
@@ -597,7 +623,7 @@
 				if(document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')){
 					return;
 				}
-				openModal();
+				if(canShowModal()) openModal();
 			}
 		}
 	});
@@ -618,8 +644,10 @@
 					body: params
 				});
 				
-				// Mark as submitted
+				// Mark as submitted (never show again)
 				lsSet('exit_intent_submitted', '1');
+				// Clear the closed timestamp since it's submitted (permanent)
+				ssSet('exit_intent_closed_at', '');
 				
 				// GA4: Exit intent email submitted
 				if(typeof gtag === 'function'){
@@ -645,6 +673,8 @@
 				if(form) form.classList.add('hidden');
 				if(successDiv) successDiv.classList.remove('hidden');
 				lsSet('exit_intent_submitted', '1');
+				// Clear the closed timestamp since it's submitted (permanent)
+				ssSet('exit_intent_closed_at', '');
 				
 				// GA4: Exit intent email submitted (even if API call failed)
 				if(typeof gtag === 'function'){
