@@ -55,7 +55,48 @@ def create_app() -> Flask:
 	def inject_forms():
 		return {"FORMSPREE_ENDPOINT": app.config.get("FORMSPREE_ENDPOINT", "")}
 
+	# Block traffic from specific countries
+	@app.before_request
+	def block_countries():
+		"""Block traffic from Nigeria and Pakistan based on IP geolocation."""
+		from flask import request, abort
+		import requests
+		
+		# Skip blocking for admin routes (in case admin is in blocked country)
+		if request.path.startswith('/admin'):
+			return None
+		
+		# Get client IP (handle proxies)
+		client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() if request.headers.get('X-Forwarded-For') else request.remote_addr
+		if not client_ip or client_ip == '127.0.0.1' or client_ip.startswith('192.168.') or client_ip.startswith('10.'):
+			# Skip localhost/private IPs
+			return None
+		
+		# Blocked countries
+		blocked_countries = ['NG', 'PK']  # Nigeria, Pakistan
+		
+		try:
+			# Use free ip-api.com service (no API key required, rate limited)
+			# Alternative: ipapi.co (requires free API key)
+			response = requests.get(f'http://ip-api.com/json/{client_ip}?fields=countryCode', timeout=2)
+			if response.status_code == 200:
+				data = response.json()
+				country_code = data.get('countryCode', '').upper()
+				if country_code in blocked_countries:
+					country_name = 'Nigeria' if country_code == 'NG' else 'Pakistan' if country_code == 'PK' else country_code
+					app.logger.warning(f"[block-countries] Blocked request from {country_name} ({country_code}) - IP: {client_ip}, Path: {request.path}")
+					abort(403)  # Forbidden
+		except Exception as e:
+			# If geolocation fails, allow the request (fail open)
+			app.logger.debug(f"[block-countries] Geolocation check failed for {client_ip}: {e}")
+		
+		return None
+
 	# Error handlers
+	@app.errorhandler(403)
+	def forbidden_error(error):
+		return render_template('403.html'), 403
+
 	@app.errorhandler(404)
 	def not_found_error(error):
 		return render_template('404.html'), 404
