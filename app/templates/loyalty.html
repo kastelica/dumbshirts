@@ -62,9 +62,11 @@
                     <span>{{ points }}/100</span>
                 </div>
                 <div class="w-full bg-gray-700 rounded-full h-2">
-                    <div class="bg-white h-2 rounded-full transition-all" style="width: {{ (points / 100 * 100)|min(100) }}%"></div>
+                    {% set progress_width = points if points <= 100 else 100 %}
+                    <div class="bg-white h-2 rounded-full transition-all" style="width: {{ progress_width }}%"></div>
                 </div>
-                <div class="text-xs text-gray-500 mt-2">{{ (100 - points)|max(0) }} points until VIP</div>
+                {% set remaining = (100 - points) if points < 100 else 0 %}
+                <div class="text-xs text-gray-500 mt-2">{{ remaining }} points until VIP</div>
             </div>
             {% endif %}
         </div>
