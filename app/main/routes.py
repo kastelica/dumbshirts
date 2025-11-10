@@ -1032,10 +1032,18 @@ def loyalty_signup():
 			try:
 				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
 				if to_admin:
-					admin_html = render_simple_email("New loyalty signup", [f"Email: {email}"])
-					ok, msg = send_email_via_sendgrid(to_admin, "New loyalty signup", admin_html)
+					# Set admin email subject based on source
+					if source == "exit_intent_free_shirt":
+						admin_subject = "New Loyalty Signup - Exit Intent Free Shirt"
+					elif source == "promo_5off":
+						admin_subject = "New Loyalty Signup - 5% Off Popup"
+					else:
+						admin_subject = "New Loyalty Signup - Loyalty Page"
+					
+					admin_html = render_simple_email("New loyalty signup", [f"Email: {email}", f"Source: {source or 'loyalty page'}"])
+					ok, msg = send_email_via_sendgrid(to_admin, admin_subject, admin_html)
 					if ok:
-						current_app.logger.info(f"[loyalty-signup] Admin email sent for {email}")
+						current_app.logger.info(f"[loyalty-signup] Admin email sent for {email} (source: {source})")
 					else:
 						current_app.logger.warning(f"[loyalty-signup] Admin email failed for {email}: {msg}")
 					# Mark this email as processed to prevent duplicate admin emails
