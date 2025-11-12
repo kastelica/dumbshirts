@@ -28,6 +28,31 @@ window.renderOptIn = function() {
   });
 }
 
+// SHA-256 hashing function for TikTok PII data
+async function sha256Hash(text) {
+	if (!text) return '';
+	const encoder = new TextEncoder();
+	const data = encoder.encode(text.toLowerCase().trim());
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// TikTok Pixel: Identify user if email available
+(async function(){
+	try{
+		{% if email %}
+		const userEmail = {{ email|tojson }};
+		if(userEmail && typeof ttq !== 'undefined'){
+			const hashedEmail = await sha256Hash(userEmail);
+			ttq.identify({
+				email: hashedEmail
+			});
+		}
+		{% endif %}
+	}catch(_e){}
+})();
+
 // Send GA4 purchase event (backup in case it didn't fire on checkout page)
 (function(){
 	try{
@@ -58,6 +83,35 @@ window.renderOptIn = function() {
 		}
 	}catch(e){
 		console.warn('[confirmation] GA4 purchase event failed', e);
+	}
+})();
+
+// TikTok Pixel: Purchase event
+(async function(){
+	try{
+		if(typeof ttq !== 'undefined'){
+			// Check if purchase event already sent (stored in sessionStorage to avoid duplicates)
+			const eventKey = 'ttq_purchase_' + {{ order.id|tojson }};
+			if(!sessionStorage.getItem(eventKey)){
+				const items = {{ order_items|tojson }} || [];
+				const contents = items.map(function(it){
+					return {
+						content_id: (it.product_id || '').toString(),
+						content_type: 'product',
+						content_name: it.title || ''
+					};
+				});
+				ttq.track('Purchase', {
+					contents: contents,
+					value: {{ (order.total_amount or 0)|float|tojson }},
+					currency: {{ (order.currency or 'USD')|tojson }}
+				});
+				sessionStorage.setItem(eventKey, '1');
+				console.log('[confirmation] TikTok Pixel purchase event sent', { order_id: {{ order.id|tojson }}, value: {{ (order.total_amount or 0)|float|tojson }} });
+			}
+		}
+	}catch(e){
+		console.warn('[confirmation] TikTok Pixel purchase event failed', e);
 	}
 })();
 </script>

@@ -122,6 +122,31 @@
 	}
 	</script>
 	<script>
+	// SHA-256 hashing function for TikTok PII data
+	async function sha256Hash(text) {
+		if (!text) return '';
+		const encoder = new TextEncoder();
+		const data = encoder.encode(text.toLowerCase().trim());
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+		return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+	}
+
+	// TikTok Pixel: Identify user if email available
+	(async function(){
+		try{
+			{% if loyalty_email %}
+			const email = {{ loyalty_email|tojson }};
+			if(email && typeof ttq !== 'undefined'){
+				const hashedEmail = await sha256Hash(email);
+				ttq.identify({
+					email: hashedEmail
+				});
+			}
+			{% endif %}
+		}catch(_e){}
+	})();
+
 	// Meta Pixel: ViewContent on product view
 	try{
 		if(typeof fbq === 'function'){
@@ -131,6 +156,30 @@
 			});
 		}
 	}catch(_e){}
+
+	// TikTok Pixel: ViewContent on product view
+	(async function(){
+		try{
+			if(typeof ttq !== 'undefined'){
+				{% if google_discount_info %}
+				const salePrice = {{ google_discount_info.discounted_price|tojson }};
+				const currency = {{ google_discount_info.currency|tojson }};
+				{% else %}
+				const salePrice = {{ (((product.price * 85) / 100)|float)|tojson }};
+				const currency = {{ product.currency|tojson }};
+				{% endif %}
+				ttq.track('ViewContent', {
+					contents: [{
+						content_id: {{ product.id|tojson }},
+						content_type: 'product',
+						content_name: {{ product.title|tojson }}
+					}],
+					value: salePrice,
+					currency: currency
+				});
+			}
+		}catch(_e){}
+	})();
 	</script>
 {% endblock %}
 {% block title %}{{ product.title }} | Dumbshirts.store{% endblock %}
@@ -512,6 +561,20 @@ function lookupProductUid(size, color){
 							}]
 						});
 					}
+					// TikTok Pixel: AddToCart
+					try{
+						if(typeof ttq !== 'undefined'){
+							ttq.track('AddToCart', {
+								contents: [{
+									content_id: {{ product.id|tojson }},
+									content_type: 'product',
+									content_name: {{ product.title|tojson }}
+								}],
+								value: salePrice * qty,
+								currency: currency
+							});
+						}
+					}catch(_e){}
 					// Bing Ads UET: Report add_to_cart conversion
 					uet_report_conversion();
 				}catch(e){}

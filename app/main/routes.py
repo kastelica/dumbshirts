@@ -729,6 +729,9 @@ def product_detail(slug: str):
 	except Exception:
 		product_reviews = []
 	
+	# Get loyalty email from session for TikTok Pixel identify
+	loyalty_email = session.get("loyalty_email", "").strip().lower() or None
+	
 	return render_template(
 		"product_detail.html",
 		product=product,
@@ -739,6 +742,7 @@ def product_detail(slug: str):
 		next_slug=(next_p.slug if next_p else None),
 		google_discount_info=google_discount_info,
 		reviews=product_reviews,
+		loyalty_email=loyalty_email,
 	)
 
 
