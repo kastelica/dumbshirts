@@ -1291,7 +1291,6 @@ def order_confirm(order_id: int):
 		# Note: Customer and admin emails are sent by the Stripe webhook handler
 		# Only send fallback emails if webhook hasn't run (check if order was just created)
 		# Only send if order was created very recently (within last 10 seconds) as fallback
-		from datetime import timedelta
 		time_since_creation = (datetime.utcnow() - (order.created_at or datetime.utcnow())).total_seconds()
 		should_send_fallback = time_since_creation < 10  # Very recent order, webhook might not have run yet
 		
