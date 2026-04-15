@@ -138,7 +138,7 @@ def _render_category_page(category_name: str, category_slug: str, category_descr
 					yield num
 	
 	pagination = SimplePagination(page, per_page, total) if total_pages > 0 else None
-	category_title = f"{category_name} | Dumbshirts.store"
+	category_title = f"{category_name} | Roast Cotton"
 	
 	return render_template("category.html",
 		products=products,
@@ -820,7 +820,7 @@ def referrals_create():
 					f"Your referral code: {code}",
 					f"Share this link: {link}",
 				])
-				send_email_via_sendgrid(email, "Your Dumbshirts referral code", html)
+				send_email_via_sendgrid(email, "Your Roast Cotton referral code", html)
 				# Admin notify
 				to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
 				if to_admin:
@@ -851,7 +851,7 @@ def referrals_create():
 			f"Your referral code: {code}",
 			f"Share this link: {link}",
 		])
-		send_email_via_sendgrid(email, "Your Dumbshirts referral code", html)
+		send_email_via_sendgrid(email, "Your Roast Cotton referral code", html)
 		# Admin notify
 		to_admin = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
 		if to_admin:
@@ -1022,7 +1022,7 @@ def loyalty_signup():
 				# Regular loyalty signup (from loyalty page)
 				current_app.logger.info(f"[loyalty-signup] Using default loyalty email template (source was: '{source}')")
 				html = render_template("email_loyalty_welcome.html")
-				subject = "Welcome to Dumbshirts Loyalty"
+				subject = "Welcome to Roast Cotton Loyalty"
 			
 			ok, msg = send_email_via_sendgrid(email, subject, html)
 			if ok:
@@ -1117,7 +1117,7 @@ def contact_page():
             return render_template('contact.html', sent=False, error='Please enter a valid email address.')
         
         try:
-            to = (current_app.config.get('ADMIN_EMAIL') or os.getenv('ADMIN_EMAIL') or 'email@dumbshirts.store').strip()
+            to = (current_app.config.get('ADMIN_EMAIL') or os.getenv('ADMIN_EMAIL') or 'email@roastcotton.com').strip()
             
             # Build email body with all details
             email_body_lines = [
@@ -1144,7 +1144,7 @@ def contact_page():
                 ack_html = render_simple_email('We received your message', [
                     f'Hi {name},',
                     '',
-                    'Thanks for reaching out to Dumbshirts.store.',
+                    'Thanks for reaching out to Roast Cotton.',
                     '',
                     'We received your message and will get back to you as soon as possible.',
                     'Our team typically responds within 24 hours.',
@@ -1190,7 +1190,7 @@ def privacy_page():
 @main_bp.get("/about")
 def about_page():
     faqs = [
-        {"q": "What is Dumbshirts.store?", "a": "A small merch shop making shirts about whatever is trending - fun, timely, and limited."},
+        {"q": "What is Roast Cotton?", "a": "A small merch shop making shirts about whatever is trending - fun, timely, and limited."},
         {"q": "How often do you add new designs?", "a": "We try to add new designs daily based on what's happening online."},
         {"q": "What shirts do you print on?", "a": "High‑quality, unisex tees with durable prints."},
         {"q": "How long is shipping?", "a": "Free shipping usually arrives in 3–6 business days; Express is 2–3 days."},
