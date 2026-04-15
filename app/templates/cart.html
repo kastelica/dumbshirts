@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Cart</h1>
+{% if cart['items'] %}
+
+{# Mobile layout #}
+<div class="md:hidden space-y-3">
+	{% for it in cart['items'] %}
+	<div class="border border-gray-800 rounded p-3 bg-gray-900">
+		<div class="flex items-start gap-3">
+			<div class="w-16 h-16 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
+				{% set color_key = (it.color or 'white')|lower %}
+				{% set base_map = {
+					'white':'/static/uploads/whitetshirt.png',
+					'black':'/static/uploads/blacktshirt.png',
+					'heather':'/static/uploads/heathertshirt.png',
+					'gray':'/static/uploads/heathertshirt.png',
+					'grey':'/static/uploads/heathertshirt.png',
+					'blue':'/static/uploads/bluetshirt.png',
+					'red':'/static/uploads/redtshirt.png'
+				} %}
+				<img src="{{ base_map.get(color_key, base_map.get('white')) }}" alt="{{ it.title }} base" class="absolute inset-0 w-full h-full object-contain" />
+				{% if it.image %}
+				<img src="{{ it.image }}" alt="{{ it.title }} design" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
+				{% endif %}
+			</div>
+			<div class="flex-1">
+				{% if it.is_custom %}
+					<span class="font-medium">{{ it.title }}</span>
+				{% else %}
+					<a href="{{ url_for('main.product_detail', slug=it.slug) }}" class="font-medium">{{ it.title }}</a>
+				{% endif %}
+				{% if it.color %}
+				<div class="text-xs text-gray-400 mt-0.5">Color: {{ it.color }}</div>
+				{% endif %}
+				{% if it.size %}
+				<div class="text-xs text-gray-400">Size: {{ it.size }}</div>
+				{% endif %}
+				<div class="text-gray-300 mt-1"><span class="line-through text-gray-500">${{ '%.2f'|format(it.orig_price or it.price) }}</span> <span class="ml-1">${{ '%.2f'|format(it.price) }} {{ it.currency }}</span></div>
+				<div class="mt-2 flex items-center gap-2">
+					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
+						<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
+						<button class="bg-gray-800 text-gray-200 px-3 py-1 rounded border border-gray-700 hover:bg-gray-700">Update</button>
+					</form>
+					<form method="post" action="/cart/remove" class="inline">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
+						<button class="underline text-gray-300">Remove</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endfor %}
+	<div class="mt-2 space-y-2">
+		<div class="flex justify-end">
+			<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+				<input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="w-full md:w-64 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+				<button class="bg-gray-800 text-gray-200 px-3 py-2 rounded border border-gray-700 hover:bg-gray-700">Apply</button>
+			</form>
+		</div>
+		<div class="space-y-1 text-sm">
+			<div class="flex items-center justify-between"><span>Subtotal</span><span>${{ '%.2f'|format(subtotal) }} {{ currency }}</span></div>
+			{% if cart.get('coupon') %}
+			<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format(discount) }} {{ currency }}</span></div>
+			{% endif %}
+		</div>
+		<div class="pt-4 border-t border-gray-800">
+			<div class="flex items-center justify-between mb-4">
+				<div class="text-lg font-semibold">Total: ${{ '%.2f'|format(total) }}</div>
+				<form method="post" action="/cart/clear" class="inline">
+					<button class="underline text-gray-300 text-sm">Clear</button>
+				</form>
+			</div>
+			<a href="/checkout" class="block w-full bg-white text-black px-6 py-3 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors text-center">Checkout</a>
+        </div>
+	</div>
+</div>
+
+{# Desktop/table layout #}
+<div class="hidden md:block">
+	<table class="w-full text-left text-sm">
+		<thead class="text-gray-400">
+			<tr>
+				<th class="py-2">Item</th>
+				<th class="py-2">Qty</th>
+				<th class="py-2">Price</th>
+				<th class="py-2">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for it in cart['items'] %}
+			<tr class="border-t border-gray-800">
+				<td class="py-2">
+					{% if it.is_custom %}
+						<div class="flex items-center gap-3">
+					{% else %}
+						<a class="flex items-center gap-3" href="{{ url_for('main.product_detail', slug=it.slug) }}">
+					{% endif %}
+						<div class="w-12 h-12 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
+							{% set color_key = (it.color or 'white')|lower %}
+							{% set base_map = {
+								'white':'/static/uploads/whitetshirt.png',
+								'black':'/static/uploads/blacktshirt.png',
+								'heather':'/static/uploads/heathertshirt.png',
+								'gray':'/static/uploads/heathertshirt.png',
+								'grey':'/static/uploads/heathertshirt.png',
+								'blue':'/static/uploads/bluetshirt.png',
+								'red':'/static/uploads/redtshirt.png'
+							} %}
+							<img src="{{ base_map.get(color_key, base_map.get('white')) }}" alt="{{ it.title }} base" class="absolute inset-0 w-full h-full object-contain" />
+							{% if it.image %}
+							<img src="{{ it.image }}" alt="{{ it.title }} design" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
+							{% endif %}
+						</div>
+						<span>
+							{{ it.title }}
+							{% if it.color %}
+							<div class="text-xs text-gray-400">Color: {{ it.color }}</div>
+							{% endif %}
+							{% if it.size %}
+							<div class="text-xs text-gray-400">Size: {{ it.size }}</div>
+							{% endif %}
+						</span>
+					{% if it.is_custom %}
+						</div>
+					{% else %}
+						</a>
+					{% endif %}
+				</td>
+				<td class="py-2">
+					<form method="post" action="/cart/update" class="inline-flex items-center gap-2">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
+						<input type="number" name="quantity" min="0" value="{{ it.quantity }}" class="w-20 bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
+						<button class="bg-gray-800 text-gray-200 px-3 py-1 rounded border border-gray-700 hover:bg-gray-700">Update</button>
+					</form>
+				</td>
+			<td class="py-2"><span class="line-through text-gray-500">${{ '%.2f'|format(it.orig_price or it.price) }}</span> <span class="ml-1">${{ '%.2f'|format(it.price) }} {{ it.currency }}</span></td>
+				<td class="py-2">
+					<form method="post" action="/cart/remove" class="inline">
+						{% if it.is_custom %}
+							<input type="hidden" name="custom_index" value="{{ loop.index0 }}">
+						{% else %}
+							<input type="hidden" name="variant_id" value="{{ it.variant_id }}">
+						{% endif %}
+						<button class="underline text-gray-300">Remove</button>
+					</form>
+				</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	<div class="mt-4 space-y-2">
+		<div class="flex justify-end">
+			<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+				<input name="coupon" placeholder="Coupon code" value="{{ cart.get('coupon', {}).get('code', '') }}" class="w-full md:w-64 bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+				<button class="bg-gray-800 text-gray-200 px-3 py-2 rounded border border-gray-700 hover:bg-gray-700">Apply</button>
+			</form>
+		</div>
+		<div class="space-y-1 text-sm">
+			<div class="flex items-center justify-between"><span>Subtotal</span><span>${{ '%.2f'|format(subtotal) }} {{ currency }}</span></div>
+			{% if cart.get('coupon') %}
+			<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format(discount) }} {{ currency }}</span></div>
+			{% endif %}
+		</div>
+		<div class="pt-4 border-t border-gray-800">
+			<div class="flex items-center justify-between mb-4">
+				<div class="text-lg font-semibold">Total: ${{ '%.2f'|format(total) }}</div>
+				<form method="post" action="/cart/clear" class="inline">
+					<button class="underline text-gray-300 text-sm">Clear cart</button>
+				</form>
+			</div>
+			<a href="/checkout" class="block w-full bg-white text-black px-6 py-3 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors text-center md:inline-block md:w-auto">Checkout</a>
+        </div>
+	</div>
+</div>
+{% else %}
+<div class="text-center py-12">
+	<div class="max-w-md mx-auto">
+		<div class="w-24 h-24 mx-auto mb-6 bg-gray-900 border border-gray-800 rounded-full flex items-center justify-center">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-12 h-12 text-gray-600">
+				<path d="M2.25 2.25a.75.75 0 000 1.5H4.5l2.598 10.392a2.25 2.25 0 002.187 1.733h8.715a2.25 2.25 0 002.187-1.733l1.263-5.681A.75.75 0 0021.3 6.75H6.708l-.39-1.56A2.25 2.25 0 004.14 3.75H2.25zM9 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9.75-1.5A1.5 1.5 0 1117.25 21a1.5 1.5 0 011.5-1.5z"/>
+			</svg>
+		</div>
+		<h2 class="text-xl font-semibold text-gray-200 mb-2">Your cart is empty</h2>
+		<p class="text-gray-400 mb-6">Ready to find some awesome shirts? Check out our latest designs!</p>
+		<div class="space-y-3">
+			<a href="/shop" class="inline-block bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors">
+				Browse All Products
+			</a>
+			<div class="text-sm text-gray-500">
+				<p class="mb-2">Popular categories:</p>
+				<div class="flex flex-wrap gap-2 justify-center">
+					<a href="/shop?sort=newest" class="px-3 py-1 bg-gray-900 border border-gray-800 rounded text-gray-300 hover:bg-gray-800">New Arrivals</a>
+					<a href="/shop?sort=price_asc" class="px-3 py-1 bg-gray-900 border border-gray-800 rounded text-gray-300 hover:bg-gray-800">Lowest Price</a>
+					<a href="/shop?max=25" class="px-3 py-1 bg-gray-900 border border-gray-800 rounded text-gray-300 hover:bg-gray-800">Under $25</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+{% endblock %}

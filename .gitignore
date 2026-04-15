@@ -1,0 +1,11 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+instance/
+.DS_Store
+dist/
+build/
+*.egg-info/
+.gemini/
+dumbshirts/

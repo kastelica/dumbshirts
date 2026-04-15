@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Admin Login</h1>
+<form action="{{ url_for('admin.login_submit') }}" method="post" class="max-w-sm space-y-4">
+	<div>
+		<label class="block text-sm font-medium">Email</label>
+		<input type="email" name="email" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100 placeholder-gray-500" required />
+	</div>
+	<div>
+		<label class="block text-sm font-medium">Password</label>
+		<input type="password" name="password" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100 placeholder-gray-500" required />
+	</div>
+	<button class="bg-white text-black px-4 py-2 rounded">Sign in</button>
+</form>
+{% endblock %}

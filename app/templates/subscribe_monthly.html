@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Monthly Shirt Subscription | Roast Cotton{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-2">Monthly Shirt Subscription</h1>
+  <p class="text-sm text-gray-300 mb-6">${{ '%.2f'|format(price_per_month) }} per month. Free US shipping. Cancel anytime.</p>
+
+  <form id="subscription-form" class="space-y-4" method="POST" action="/api/subscribe/create-session">
+    <div>
+      <label for="product_id" class="block text-sm font-medium mb-1">Choose your shirt</label>
+      <select name="product_id" id="product_id" class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2">
+        {% for p in products %}
+          <option value="{{ p.id }}">{{ p.title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label for="size" class="block text-sm font-medium mb-1">Size</label>
+        <select id="size" name="size" class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2"></select>
+      </div>
+      <div>
+        <label for="color" class="block text-sm font-medium mb-1">Color</label>
+        <select id="color" name="color" class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2"></select>
+      </div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700 rounded p-3 text-sm">
+      <p>Recurring charge of ${{ '%.2f'|format(price_per_month) }} every 1 month until canceled. No discounts or sales apply to subscription pricing. Ships per our Shipping & Returns policy.</p>
+      <label class="flex items-start gap-2 mt-3">
+        <input type="checkbox" id="agree" class="mt-1" required>
+        <span>I agree to a recurring charge of ${{ '%.2f'|format(price_per_month) }} every 1 month until canceled.</span>
+      </label>
+    </div>
+
+    <button type="submit" class="w-full bg-white text-black font-semibold rounded px-4 py-2">Subscribe for ${{ '%.2f'|format(price_per_month) }}/mo</button>
+  </form>
+
+  <p class="text-xs text-gray-400 mt-4">This subscription creates a new order each month with your selected size/color. You can manage or cancel anytime in the customer portal.</p>
+</div>
+
+<script>
+  const productVariants = {{ product_variants|tojson }};
+  const productSelect = document.getElementById('product_id');
+  const sizeSelect = document.getElementById('size');
+  const colorSelect = document.getElementById('color');
+
+  function populateOptions() {
+    const pid = productSelect.value;
+    const variants = productVariants[pid] || [];
+    const sizes = Array.from(new Set(variants.map(v => v.size).filter(Boolean)));
+    const colors = Array.from(new Set(variants.map(v => v.color).filter(Boolean)));
+    sizeSelect.innerHTML = sizes.map(s => `<option value="${s}">${s}</option>`).join('') || '<option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>';
+    colorSelect.innerHTML = colors.map(c => `<option value="${c}">${c}</option>`).join('') || '<option value="Black">Black</option><option value="White">White</option>';
+  }
+
+  productSelect.addEventListener('change', populateOptions);
+  window.addEventListener('DOMContentLoaded', populateOptions);
+
+  document.getElementById('subscription-form').addEventListener('submit', function(e) {
+    if (!document.getElementById('agree').checked) {
+      e.preventDefault();
+      alert('Please agree to the recurring charge.');
+    }
+  });
+</script>
+{% endblock %}
+
+

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Size Guide | Roast Cotton{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-6">Size guide</h1>
+  
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+      <!-- T-Shirt Diagram -->
+      <div class="flex justify-center">
+        <div class="relative" style="width: 180px; height: 220px;">
+          <svg viewBox="0 0 200 240" class="w-full h-full">
+            <!-- T-shirt body -->
+            <path d="M 50 30 L 50 50 L 30 70 L 30 190 L 170 190 L 170 70 L 150 50 L 150 30 L 100 30 Z" 
+                  fill="none" stroke="white" stroke-width="2.5"/>
+            <!-- Left sleeve -->
+            <path d="M 30 70 L 10 80 L 10 100 L 30 110" 
+                  fill="none" stroke="white" stroke-width="2.5"/>
+            <!-- Right sleeve -->
+            <path d="M 170 70 L 190 80 L 190 100 L 170 110" 
+                  fill="none" stroke="white" stroke-width="2.5"/>
+            <!-- Collar opening -->
+            <path d="M 85 30 L 85 50 M 115 30 L 115 50" 
+                  fill="none" stroke="white" stroke-width="2"/>
+            
+            <!-- A) Length measurement line -->
+            <line x1="100" y1="30" x2="100" y2="190" 
+                  stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3"/>
+            <circle cx="100" cy="30" r="4" fill="#3b82f6"/>
+            <circle cx="100" cy="190" r="4" fill="#3b82f6"/>
+            <text x="115" y="110" fill="#3b82f6" font-size="16" font-weight="bold">A</text>
+            
+            <!-- B) Half Chest measurement line -->
+            <line x1="30" y1="110" x2="170" y2="110" 
+                  stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3"/>
+            <circle cx="30" cy="110" r="4" fill="#3b82f6"/>
+            <circle cx="170" cy="110" r="4" fill="#3b82f6"/>
+            <text x="90" y="105" fill="#3b82f6" font-size="16" font-weight="bold">B</text>
+          </svg>
+        </div>
+      </div>
+      
+      <!-- Measurement Instructions -->
+      <div class="space-y-4 text-sm text-gray-300">
+        <div>
+          <div class="font-semibold text-gray-200 mb-1">A) Length:</div>
+          <p>Place the end of the tape beside the collar at the top of the shirt (Highest Point Shoulder). Pull the tape measure to the bottom of the shirt.</p>
+        </div>
+        <div>
+          <div class="font-semibold text-gray-200 mb-1">B) Half Chest:</div>
+          <p>Lay the garment down on a flat surface and measure it from left to right across the chest, about 2cm below the arms.</p>
+        </div>
+        <div class="text-xs text-gray-500 pt-2 border-t border-gray-800">
+          Measurements are provided by suppliers and garments may run smaller or larger with a difference of +/- 2.5cm (1 in)
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Size Chart with Tabs -->
+  <div class="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+    <!-- Tab Switcher -->
+    <div class="flex border-b border-gray-800">
+      <button id="tab-metric" class="flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors border-b-2 border-transparent">
+        Metric (cm)
+      </button>
+      <button id="tab-imperial" class="flex-1 px-4 py-3 text-sm font-medium text-gray-200 border-b-2 border-white">
+        Imperial (inches)
+      </button>
+    </div>
+    
+    <!-- Imperial Table (Default) -->
+    <div id="table-imperial" class="p-4">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-gray-400">
+            <tr>
+              <th class="px-3 py-2 font-normal">Size</th>
+              <th class="px-3 py-2 font-normal">A) Length</th>
+              <th class="px-3 py-2 font-normal">B) Width</th>
+              <th class="px-3 py-2 font-normal">B) Half Chest</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-300">
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">S</td><td class="px-3 py-2">28"</td><td class="px-3 py-2">36"</td><td class="px-3 py-2">18"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">M</td><td class="px-3 py-2">29"</td><td class="px-3 py-2">40"</td><td class="px-3 py-2">20"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">L</td><td class="px-3 py-2">30"</td><td class="px-3 py-2">44"</td><td class="px-3 py-2">22"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">XL</td><td class="px-3 py-2">31"</td><td class="px-3 py-2">48"</td><td class="px-3 py-2">24"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">2XL</td><td class="px-3 py-2">32"</td><td class="px-3 py-2">52"</td><td class="px-3 py-2">26"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">3XL</td><td class="px-3 py-2">33"</td><td class="px-3 py-2">56"</td><td class="px-3 py-2">28"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">4XL</td><td class="px-3 py-2">33.9"</td><td class="px-3 py-2">59.8"</td><td class="px-3 py-2">29.9"</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">5XL</td><td class="px-3 py-2">35"</td><td class="px-3 py-2">63.8"</td><td class="px-3 py-2">31.9"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Metric Table (Hidden by default) -->
+    <div id="table-metric" class="p-4 hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-gray-400">
+            <tr>
+              <th class="px-3 py-2 font-normal">Size</th>
+              <th class="px-3 py-2 font-normal">A) Length</th>
+              <th class="px-3 py-2 font-normal">B) Width</th>
+              <th class="px-3 py-2 font-normal">B) Half Chest</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-300">
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">S</td><td class="px-3 py-2">71 cm</td><td class="px-3 py-2">91 cm</td><td class="px-3 py-2">46 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">M</td><td class="px-3 py-2">74 cm</td><td class="px-3 py-2">102 cm</td><td class="px-3 py-2">51 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">L</td><td class="px-3 py-2">76 cm</td><td class="px-3 py-2">112 cm</td><td class="px-3 py-2">56 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">XL</td><td class="px-3 py-2">79 cm</td><td class="px-3 py-2">122 cm</td><td class="px-3 py-2">61 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">2XL</td><td class="px-3 py-2">81 cm</td><td class="px-3 py-2">132 cm</td><td class="px-3 py-2">66 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">3XL</td><td class="px-3 py-2">84 cm</td><td class="px-3 py-2">142 cm</td><td class="px-3 py-2">71 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">4XL</td><td class="px-3 py-2">86 cm</td><td class="px-3 py-2">152 cm</td><td class="px-3 py-2">76 cm</td></tr>
+            <tr class="border-t border-gray-800"><td class="px-3 py-2">5XL</td><td class="px-3 py-2">89 cm</td><td class="px-3 py-2">162 cm</td><td class="px-3 py-2">81 cm</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <p class="text-xs text-gray-500 mt-4">Tip: Measure one of your favorite shirts and compare to the chart.</p>
+</div>
+
+<script>
+(function(){
+  const tabMetric = document.getElementById('tab-metric');
+  const tabImperial = document.getElementById('tab-imperial');
+  const tableMetric = document.getElementById('table-metric');
+  const tableImperial = document.getElementById('table-imperial');
+  
+  function switchToMetric(){
+    tabMetric.classList.add('text-gray-200', 'border-white');
+    tabMetric.classList.remove('text-gray-400', 'border-transparent');
+    tabImperial.classList.add('text-gray-400', 'border-transparent');
+    tabImperial.classList.remove('text-gray-200', 'border-white');
+    tableMetric.classList.remove('hidden');
+    tableImperial.classList.add('hidden');
+  }
+  
+  function switchToImperial(){
+    tabImperial.classList.add('text-gray-200', 'border-white');
+    tabImperial.classList.remove('text-gray-400', 'border-transparent');
+    tabMetric.classList.add('text-gray-400', 'border-transparent');
+    tabMetric.classList.remove('text-gray-200', 'border-white');
+    tableImperial.classList.remove('hidden');
+    tableMetric.classList.add('hidden');
+  }
+  
+  if(tabMetric) tabMetric.addEventListener('click', switchToMetric);
+  if(tabImperial) tabImperial.addEventListener('click', switchToImperial);
+})();
+</script>
+{% endblock %}

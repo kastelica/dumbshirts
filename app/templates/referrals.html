@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Referrals | Roast Cotton{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-3">Referrals</h1>
+  <p class="text-sm text-gray-300 mb-4">Share Roast Cotton with friends and earn a commission on their orders. Start by generating your referral code.</p>
+
+  {% if error %}
+  <div class="bg-red-900/40 border border-red-800 text-red-200 rounded p-3 mb-4">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/referrals/create" class="bg-gray-900 border border-gray-800 rounded p-4 space-y-3">
+    <div>
+      <label class="block text-sm mb-1">Your email</label>
+      <input type="email" name="email" placeholder="you@example.com" class="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" required />
+    </div>
+    <button class="bg-white text-black px-4 py-2 rounded">Generate referral code</button>
+    <p class="text-xs text-gray-500">We'll use this email to track your payouts.</p>
+  </form>
+
+  {% if created or code or my_code %}
+  {% set display_code = code or my_code %}
+  <div class="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+    <div class="text-sm text-gray-400">Your referral code</div>
+    <div class="text-xl font-semibold">{{ display_code }}</div>
+    <div class="mt-3 text-sm">Share this link:</div>
+    <div class="mt-1">
+      <input type="text" readonly class="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" value="{{ (request.url_root.rstrip('/')) }}/?ref={{ display_code }}" />
+    </div>
+  </div>
+  {% endif %}
+
+  {% if my_rows and my_rows|length %}
+  <div class="mt-6">
+    <h2 class="text-lg font-semibold mb-2">Your referrals</h2>
+    <div class="bg-gray-900 border border-gray-800 rounded divide-y divide-gray-800">
+      {% for r in my_rows %}
+      <div class="p-3 text-sm flex items-center justify-between">
+        <div>
+          <div class="text-gray-100">Order #{{ r.order_id }} — {{ r.status or 'pending' }}</div>
+          <div class="text-gray-500">{{ r.created_at }}</div>
+        </div>
+        <div class="text-gray-100">${{ '%.2f'|format(r.commission or 0) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="mt-8 text-xs text-gray-500">Payouts are processed monthly for commissions above $20.</div>
+</div>
+{% endblock %}
+
+

@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="mb-3 text-sm text-gray-400 flex items-center gap-2">
+	<a href="/" aria-label="Home" class="text-gray-300 hover:text-white">
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M2.25 12l9-7.5 9 7.5V20a1 1 0 01-1 1h-5.25v-6h-5.5v6H3.25a1 1 0 01-1-1v-8z"/></svg>
+	</a>
+	<span>›</span>
+	<a href="/cart" class="hover:underline">Cart</a>
+	<span>›</span>
+	<span class="text-gray-200">Checkout</span>
+</nav>
+<h1 class="text-2xl font-semibold mb-4">Checkout</h1>
+
+{% if cart['items'] %}
+<div class="mb-6 border border-gray-800 rounded p-4 bg-gray-900">
+	<h2 class="font-semibold mb-2">Order summary</h2>
+	<ul class="text-sm space-y-2">
+		{% for it in cart['items'] %}
+		<li class="flex items-center justify-between">
+			<span class="flex items-center gap-3">
+				<div class="w-10 h-10 bg-gray-900 border border-gray-800 rounded overflow-hidden relative">
+					{% set color_key = (it.color or 'white')|lower %}
+					{% set base_map = {
+						'white':'/static/uploads/whitetshirt.png',
+						'black':'/static/uploads/blacktshirt.png',
+						'heather':'/static/uploads/heathertshirt.png',
+						'gray':'/static/uploads/heathertshirt.png',
+						'grey':'/static/uploads/heathertshirt.png',
+						'blue':'/static/uploads/bluetshirt.png',
+						'red':'/static/uploads/redtshirt.png'
+					} %}
+					<img src="{{ base_map.get(color_key, base_map.get('white')) }}" alt="{{ it.title }} base" class="absolute inset-0 w-full h-full object-contain" />
+					{% if it.image %}
+					<img src="{{ it.image }}" alt="{{ it.title }} design" class="absolute object-contain" style="width:35%; left:32%; top:26%;" />
+					{% endif %}
+				</div>
+			<span>
+				{{ it.title }} × {{ it.quantity }}
+				{% if it.color %}
+				<div class="text-xs text-gray-400">Color: {{ it.color }}</div>
+				{% endif %}
+				{% if it.size %}
+				<div class="text-xs text-gray-400">Size: {{ it.size }}</div>
+				{% endif %}
+			</span>
+			</span>
+			<span>
+				<span class="line-through text-gray-500">${{ '%.2f'|format((it.orig_price or it.price) * it.quantity) }}</span>
+				<span class="ml-1">${{ '%.2f'|format(it.price * it.quantity) }} {{ it.currency }}</span>
+			</span>
+		</li>
+		{% endfor %}
+	</ul>
+	<div class="mt-3 flex justify-end">
+		<form method="post" action="/cart/apply-coupon" class="flex items-center gap-2">
+			<input name="coupon" placeholder="Coupon code" value="{{ (cart.get('coupon') or {}).get('code','') }}" class="w-full md:w-64 bg-gray-950 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+			{% if cart.get('coupon') %}
+			<button class="bg-green-500 text-black px-3 py-2 rounded" disabled>Applied ✓</button>
+			{% else %}
+			<button class="bg-gray-800 text-gray-200 px-3 py-2 rounded border border-gray-700 hover:bg-gray-700">Apply</button>
+			{% endif %}
+		</form>
+	</div>
+	<div class="mt-3 space-y-1 text-sm">
+		<div class="flex items-center justify-between"><span>Subtotal</span><span>${{ '%.2f'|format(total_amount) }} {{ currency }}</span></div>
+		{% if cart.get('coupon') %}
+		<div class="flex items-center justify-between text-green-400"><span>Coupon ({{ cart.get('coupon').get('code') }} — {{ cart.get('coupon').get('percent') }}% off)</span><span>-{{ '%.2f'|format((total_amount * (cart.get('coupon').get('percent') or 0) / 100.0)) }} {{ currency }}</span></div>
+		{% endif %}
+	</div>
+	<div class="mt-1 flex items-center justify-between text-lg">
+		<span>Total</span>
+		{% set co_total = (total_amount - (total_amount * ((cart.get('coupon').get('percent') if cart.get('coupon') else 0) / 100.0))) %}
+		<span>${{ '%.2f'|format(co_total) }} {{ currency }}</span>
+	</div>
+</div>
+{% else %}
+<p class="text-gray-400">Your cart is empty.</p>
+{% endif %}
+
+            <div class="w-full space-y-4">
+    <div id="checkout-data" data-total="{{ '%.2f'|format(total_amount) }}" data-currency="{{ currency }}"></div>
+    <form id="ship-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Email</label>
+            <input id="email" type="email" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="you@example.com" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">First name</label>
+            <input id="firstName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="First name" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">Last name</label>
+            <input id="lastName" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Last name" required />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Address line 1</label>
+            <input id="addr1" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Street address" required />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Address line 2 (optional)</label>
+            <input id="addr2" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Apt, suite, etc." />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">City</label>
+            <input id="city" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="City" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">State</label>
+            <input id="state" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="NY" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">Postal code</label>
+            <input id="postCode" type="text" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="11203" required />
+        </div>
+        <div>
+            <label class="block text-sm mb-1">Country</label>
+            <input id="country" type="text" value="US" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Phone</label>
+            <input id="phone" type="tel" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="(555) 555-5555" />
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm mb-1">Shipping method</label>
+            <select id="ship-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100"></select>
+            <div id="ship-note" class="text-xs text-gray-500 mt-1">Static shipping: Free (3-6 days) or Express (2-3 days) +$15.</div>
+        </div>
+    </form>
+	{% if publishable_key %}
+	<div id="payment-element" class="bg-gray-900 border border-gray-800 rounded p-3 mb-4"></div>
+	<button id="submit" class="w-full bg-white text-black px-6 py-4 rounded font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors">Pay ${{ '%.2f'|format(total_amount) }}</button>
+	<div id="payment-message" class="text-sm text-red-400 mt-2" role="alert"></div>
+	{% else %}
+	<p class="text-xs text-gray-500">Stripe not configured. Set STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY.</p>
+	{% endif %}
+</div>
+
+<script>
+// Google Ads purchase conversion helper
+function gtag_report_conversion(url){
+	var callback = function(){ if(typeof(url)!='undefined'){ window.location = url; } };
+	if (typeof gtag === 'function') {
+        var el = document.getElementById('checkout-data');
+        var convValue = parseFloat(el ? el.dataset.total : '0');
+        var convCurrency = el ? el.dataset.currency : 'USD';
+        gtag('event','conversion',{
+            send_to:'AW-17663388576/w1K1CIbnx68bEKDXx-ZB',
+            value: convValue,
+            currency: convCurrency,
+            transaction_id: '',
+            event_callback: callback
+        });
+	}
+	return false;
+}
+</script>
+
+{% if publishable_key %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(async function() {
+	const amount = parseFloat((document.getElementById('checkout-data')?.dataset.total) || '0'); // major units
+	// Apply coupon on client for display consistency
+	try{
+		const pct = parseFloat('{{ (cart.get("coupon").get("percent") if cart.get("coupon") else 0) }}') || 0;
+		if(pct>0){
+			const disc = (amount * pct) / 100.0;
+			window.__COUPON_PCT__ = pct;
+			window.__COUPON_DISC__ = disc;
+		}
+	}catch(e){}
+    // static shipping methods
+    const shipSel = document.getElementById('ship-select');
+    const shipNote = document.getElementById('ship-note');
+    let selectedShip = null;
+    shipSel.innerHTML = '';
+    const staticMethods = [
+        { uid: 'free_3_6', name: 'Free shipping', price: 0, currency: '{{ currency }}', minDays: 3, maxDays: 6 },
+        { uid: 'express_2_3', name: 'Express', price: 15.00, currency: '{{ currency }}', minDays: 2, maxDays: 3 },
+    ];
+    staticMethods.forEach(m => {
+        const opt = document.createElement('option');
+        const range = (m.minDays && m.maxDays) ? ` (${m.minDays}-${m.maxDays} days)` : '';
+        const priceTxt = m.price === 0 ? 'Free' : `+${m.price.toFixed(2)} ${m.currency}`;
+        opt.value = JSON.stringify(m);
+        opt.textContent = `${m.name} — ${priceTxt}${range}`;
+        shipSel.appendChild(opt);
+    });
+    selectedShip = shipSel.value;
+    shipSel.addEventListener('change', async ()=>{
+        selectedShip = shipSel.value;
+        // Update the visible total immediately without forcing field validation
+        updatePayLabel();
+        // If email is already valid, refresh the PaymentIntent silently
+        try{
+            const em = (document.getElementById('email')?.value||'').trim();
+            const emailOk = /.+@.+\..+/.test(em);
+            if(emailOk){ await createOrUpdatePI(true); }
+        }catch(_e){}
+    });
+    shipNote.textContent = 'Times vary by location';
+
+    const stripe = Stripe('{{ publishable_key }}');
+    // GA4 begin_checkout event
+    try{
+        if(typeof gtag === 'function'){
+            const items = ({{ (cart['items']|length)|tojson }} > 0) ? {{ cart['items']|tojson }} : [];
+            const totalVal = parseFloat((document.getElementById('checkout-data')?.dataset.total)||'0');
+            gtag('event','begin_checkout',{
+                currency: '{{ currency }}',
+                value: totalVal,
+                items: items.map(it => ({
+                    item_id: it.product_id,
+                    item_name: it.title,
+                    item_brand: 'Roast Cotton',
+                    item_category: 't-shirt',
+                    item_variant: (it.variant_id || ''),
+                    price: it.price,
+                    quantity: it.quantity,
+                }))
+            });
+        }
+    }catch(e){}
+	const appearance = { theme: 'night', variables: { colorPrimary: '#ffffff', colorBackground: '#0b0b0b', colorText: '#e5e7eb', colorDanger: '#ef4444', borderRadius: '6px' } };
+	let elements, paymentElement, clientSecret, orderId;
+	const submitBtn = document.getElementById('submit');
+	const msg = document.getElementById('payment-message');
+	function getChosen(){ try { return selectedShip ? JSON.parse(selectedShip) : { uid: 'free_3_5', price: 0 }; } catch(e){ return { uid: 'free_3_5', price: 0 }; } }
+	function currentTotal(){ const c = getChosen(); const s = parseFloat(c.price || 0); const base = (window.__COUPON_DISC__? (amount - window.__COUPON_DISC__) : amount); return (base + (isNaN(s)?0:s)); }
+	function updatePayLabel(){ if(submitBtn){ submitBtn.textContent = 'Pay $' + currentTotal().toFixed(2); } }
+
+	function validateFields(){
+		const email = document.getElementById('email').value.trim();
+		const first = document.getElementById('firstName').value.trim();
+		const last = document.getElementById('lastName').value.trim();
+		const a1 = document.getElementById('addr1').value.trim();
+		const city = document.getElementById('city').value.trim();
+		const state = document.getElementById('state').value.trim();
+		const pc = document.getElementById('postCode').value.trim();
+		const country = (document.getElementById('country').value.trim() || 'US');
+		const emailOk = /.+@.+\..+/.test(email);
+		if(!emailOk){ msg.textContent='Please enter a valid email.'; document.getElementById('email').focus(); return false; }
+		if(!first){ msg.textContent='Please enter your first name.'; document.getElementById('firstName').focus(); return false; }
+		if(!last){ msg.textContent='Please enter your last name.'; document.getElementById('lastName').focus(); return false; }
+		if(!a1){ msg.textContent='Please enter your address.'; document.getElementById('addr1').focus(); return false; }
+		if(!city){ msg.textContent='Please enter your city.'; document.getElementById('city').focus(); return false; }
+		if(!state){ msg.textContent='Please enter your state.'; document.getElementById('state').focus(); return false; }
+		if(!pc){ msg.textContent='Please enter your postal code.'; document.getElementById('postCode').focus(); return false; }
+		if(!country){ msg.textContent='Please enter your country.'; document.getElementById('country').focus(); return false; }
+		msg.textContent='';
+		return true;
+	}
+	async function createOrUpdatePI(skipValidation){
+        if(!skipValidation && !validateFields()) return false;
+		const c = getChosen();
+		try{ console.log('[checkout] createOrUpdatePI start', { skipValidation, chosen: c, baseAmount: amount, couponPct: window.__COUPON_PCT__, couponDisc: window.__COUPON_DISC__ }); }catch(_e){}
+		const resp = await fetch('/api/create-payment-intent', {
+			method: 'POST', headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				amount: amount,
+				order_id: orderId || null,
+				shipment_method_uid: (c.uid || '').toString(),
+				shipping_price: c.price || 0,
+				first_name: document.getElementById('firstName').value.trim(),
+				last_name: document.getElementById('lastName').value.trim(),
+				address_line1: document.getElementById('addr1').value.trim(),
+				address_line2: document.getElementById('addr2').value.trim(),
+				city: document.getElementById('city').value.trim(),
+				state: document.getElementById('state').value.trim(),
+				post_code: document.getElementById('postCode').value.trim(),
+				country: document.getElementById('country').value.trim() || 'US',
+				email: document.getElementById('email').value.trim(),
+				phone: document.getElementById('phone').value.trim(),
+			})
+		});
+		const data = await resp.json();
+		try{ console.log('[checkout] PI response', { ok: resp.ok, data }); }catch(_e){}
+		if(!resp.ok){ msg.textContent = (data && data.error) ? data.error : 'Failed to start payment'; return false; }
+		clientSecret = data.clientSecret;
+		orderId = data.orderId;
+		try{ console.log('[checkout] PI ready', { clientSecret, orderId }); }catch(_e){}
+		// If we're only updating an existing order/PI, the server returns no new clientSecret
+		if(!clientSecret && orderId){ try{ console.log('[checkout] PI updated (no new clientSecret)'); }catch(_e){} return true; }
+		if(paymentElement){ try { paymentElement.unmount(); } catch(e){ try{ console.warn('[checkout] unmount paymentElement failed', e); }catch(_e2){} } }
+		elements = stripe.elements({ clientSecret, appearance });
+		paymentElement = elements.create('payment');
+		paymentElement.mount('#payment-element');
+		return true;
+	}
+	updatePayLabel();
+	// Show Stripe payment methods on initial load without forcing validation
+	try { await createOrUpdatePI(true); console.log('[checkout] initial elements mounted'); } catch(e) { try{ console.error('[checkout] initial PI error', e); }catch(_e){} }
+	// Delay PI creation until fields are valid or shipping changes/submit
+	function setLoading(b){ submitBtn.disabled=b; submitBtn.textContent=b?'Processing…':'Pay $' + currentTotal().toFixed(2); submitBtn.classList.toggle('opacity-75', b); }
+	submitBtn.addEventListener('click', async (e) => {
+		e.preventDefault(); msg.textContent=''; setLoading(true);
+		try{ console.log('[checkout] submit clicked'); }catch(_e){}
+		// Always refresh PaymentIntent and order with latest shipping/contact details
+		{ const ok = await createOrUpdatePI(false); if(!ok){ setLoading(false); return; } }
+		const email = document.getElementById('email').value.trim();
+		try{ console.log('[checkout] confirming payment', { email, orderId, clientSecret }); }catch(_e){}
+		let _confirmRes;
+		try{
+			_confirmRes = await stripe.confirmPayment({ elements, confirmParams: { receipt_email: email || undefined }, redirect: 'if_required' });
+		}catch(e){
+			try{ console.error('[checkout] confirm exception', e); }catch(_e){}
+			msg.textContent = (e && e.message) ? e.message : 'Payment failed';
+			setLoading(false);
+			return;
+		}
+		const {error, paymentIntent} = _confirmRes || {};
+		try{ console.log('[checkout] confirm result', { error, paymentIntent }); }catch(_e){}
+		if (error) { msg.textContent = error.message || 'Payment failed'; setLoading(false); return; }
+		if (paymentIntent && paymentIntent.status === 'succeeded') {
+			msg.classList.remove('text-red-400'); msg.classList.add('text-green-400'); msg.textContent = 'Payment successful. Thank you!';
+			
+			// Send GA4 purchase event
+			try{
+				if(typeof gtag === 'function' && orderId){
+					const items = ({{ (cart['items']|length)|tojson }} > 0) ? {{ cart['items']|tojson }} : [];
+					const finalTotal = currentTotal();
+					const transId = orderId.toString();
+					gtag('event', 'purchase', {
+						transaction_id: transId,
+						value: finalTotal,
+						currency: '{{ currency }}',
+						items: items.map(it => ({
+							item_id: it.product_id?.toString() || '',
+							item_name: it.title || '',
+							item_brand: 'Roast Cotton',
+							item_category: 't-shirt',
+							item_variant: (it.variant_id || '').toString(),
+							price: parseFloat(it.price || 0),
+							quantity: parseInt(it.quantity || 1),
+						}))
+					});
+					// Meta Pixel: Purchase
+					try{
+						if(typeof fbq === 'function'){
+							const ids = items.map(it => (it.product_id != null ? String(it.product_id) : null)).filter(Boolean);
+							fbq('track', 'Purchase', {
+								content_ids: ids,
+								value: finalTotal,
+								currency: '{{ currency }}',
+								content_type: 'product'
+							});
+						}
+					}catch(_e){}
+					// Mark as sent to prevent duplicate on confirmation page
+					try{ sessionStorage.setItem('ga4_purchase_' + transId, '1'); }catch(_e){}
+					console.log('[checkout] GA4 purchase event sent', { transaction_id: transId, value: finalTotal, items_count: items.length });
+				}
+			}catch(e){ 
+				try{ console.warn('[checkout] GA4 purchase event failed', e); }catch(_e2){} 
+			}
+			
+			// Send Google Ads conversion
+			try{ gtag_report_conversion(); }catch(e){ try{ console.warn('[checkout] gtag conversion failed', e); }catch(_e2){} }
+			
+			try{ console.log('[checkout] redirecting to confirmation', { orderId }); }catch(_e){}
+			if(orderId){
+				const encEmail = encodeURIComponent(email || '');
+				window.location = `/order/confirm/${orderId}?email=${encEmail}`;
+				return;
+			}
+		} else { msg.textContent = 'Payment processed.'; }
+		setLoading(false);
+	});
+
+    // Remove test order UI. Gelato order is created on webhook after Stripe success.
+})();
+</script>
+{% else %}
+<script>
+(async function(){
+	const shipSel = document.getElementById('ship-select');
+	const shipNote = document.getElementById('ship-note');
+	let selectedShip = null;
+	function applyFallback() {
+		shipSel.innerHTML = '';
+		const fallback = [
+			{ uid: 'free_3_5', name: 'Free shipping (3-5 days)', price: '0.00 USD' },
+			{ uid: 'express_2d', name: 'Express', price: '19.99 USD' },
+		];
+		fallback.forEach(m => {
+			const opt = document.createElement('option');
+			opt.value = m.uid;
+			opt.textContent = `${m.name} — ${m.price}`;
+			shipSel.appendChild(opt);
+		});
+		selectedShip = shipSel.value;
+		shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+		shipNote.textContent = 'Using fallback shipping options.';
+	}
+	try {
+		const r = await fetch('/api/shipment-methods?country=US');
+		const j = await r.json();
+		const methods = Array.isArray(j) ? j : (j.methods || []);
+		shipSel.innerHTML = '';
+		if (!methods.length) { applyFallback(); }
+		else {
+			methods.forEach(m => {
+				const opt = document.createElement('option');
+				const uid = m.uid || m.shipmentMethodUid || m.id;
+				const name = m.name || m.shipmentMethodName || uid;
+				opt.value = uid;
+				opt.textContent = `${name}`;
+				shipSel.appendChild(opt);
+			});
+			selectedShip = shipSel.value;
+			shipSel.addEventListener('change', ()=>{ selectedShip = shipSel.value; });
+			shipNote.textContent = 'Choose a method. This will be sent to Gelato.';
+		}
+	} catch(e) { applyFallback(); }
+    // No test order path when Stripe not configured
+})();
+</script>
+{% endif %}
+{% endblock %}

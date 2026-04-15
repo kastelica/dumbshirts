@@ -1,0 +1,893 @@
+{% extends "base.html" %}
+{% block head %}
+	{# Canonical URL #}
+	{% set canonical = url_for('main.product_detail', slug=product.slug, _external=True) %}
+	{# Pick best image #}
+	{% if images and images[0].src %}
+		{% set raw_image = images[0].src %}
+	{% elif product.design and product.design.preview_url %}
+		{% set raw_image = product.design.preview_url %}
+	{% else %}
+		{% set raw_image = '' %}
+	{% endif %}
+	{% if raw_image and (raw_image.startswith('http://') or raw_image.startswith('https://')) %}
+		{% set image_abs = raw_image %}
+	{% elif raw_image %}
+		{% set image_abs = (request.url_root.rstrip('/') ~ raw_image) %}
+	{% else %}
+		{% set image_abs = '' %}
+	{% endif %}
+	<title>{{ product.title }} | Roast Cotton</title>
+	<meta name="description" content="{{ (product.description or product.title)[:160] }}">
+	<link rel="canonical" href="{{ canonical }}">
+	<link rel="alternate" href="{{ canonical }}" hreflang="x-default">
+	<link rel="alternate" href="{{ canonical }}" hreflang="en-us">
+	{% if product.status != 'active' %}<meta name="robots" content="noindex, nofollow">{% endif %}
+	<meta name="robots" content="max-image-preview:large">
+	{% if prev_slug %}<link rel="prev" href="{{ url_for('main.product_detail', slug=prev_slug, _external=True) }}">{% endif %}
+	{% if next_slug %}<link rel="next" href="{{ url_for('main.product_detail', slug=next_slug, _external=True) }}">{% endif %}
+	<meta property="og:type" content="product">
+	<meta property="og:title" content="{{ product.title }}">
+	<meta property="og:description" content="{{ (product.description or product.title)[:200] }}">
+	<meta property="og:url" content="{{ canonical }}">
+	{% if image_abs %}<meta property="og:image" content="{{ image_abs }}">{% endif %}
+	<meta property="og:site_name" content="Roast Cotton">
+	{% if image_abs %}<meta property="og:image:alt" content="{{ product.title }}">{% endif %}
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="{{ product.title }}">
+	<meta name="twitter:description" content="{{ (product.description or product.title)[:200] }}">
+	{% if image_abs %}<meta name="twitter:image" content="{{ image_abs }}">{% endif %}
+	{% if image_abs %}<meta name="twitter:image:alt" content="{{ product.title }}">{% endif %}
+	<meta property="product:price:amount" content="{{ '%.2f'|format(product.price) }}">
+	<meta property="product:price:currency" content="{{ product.currency }}">
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "Product",
+		"name": {{ product.title|tojson }},
+		{% if image_abs %}"image": [{{ image_abs|tojson }}],{% endif %}
+		"description": {{ (product.description or product.title)|tojson }},
+		"sku": {{ product.id|string|tojson }},
+		"brand": { "@type": "Brand", "name": "Roast Cotton" },
+		"url": {{ canonical|tojson }},
+		"review": {
+			"@type": "Review",
+			"reviewRating": {
+				"@type": "Rating",
+				"ratingValue": "5",
+				"bestRating": "5"
+			},
+			"author": {
+				"@type": "Person",
+				"name": "Customer"
+			},
+			"reviewBody": "Great quality shirt with fast shipping!"
+		},
+		"aggregateRating": {
+			"@type": "AggregateRating",
+			"ratingValue": "4.8",
+			"reviewCount": "127",
+			"bestRating": "5",
+			"worstRating": "1"
+		},
+		"offers": {
+			"@type": "Offer",
+			"priceCurrency": {{ product.currency|tojson }},
+			"price": {{ ('%.2f'|format(product.price))|tojson }},
+			"priceValidUntil": "2025-12-31",
+			"availability": "https://schema.org/{{ 'InStock' if product.status == 'active' else 'PreOrder' }}",
+			"itemCondition": "https://schema.org/NewCondition",
+			"url": {{ canonical|tojson }},
+			"shippingDetails": {
+				"@type": "OfferShippingDetails",
+				"shippingRate": {
+					"@type": "MonetaryAmount",
+					"value": "0",
+					"currency": "USD"
+				},
+				"shippingDestination": {
+					"@type": "DefinedRegion",
+					"addressCountry": "US"
+				},
+				"deliveryTime": {
+					"@type": "ShippingDeliveryTime",
+					"businessDays": {
+						"@type": "OpeningHoursSpecification",
+						"dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+					},
+					"cutoffTime": "14:00",
+					"handlingTime": {
+						"@type": "QuantitativeValue",
+						"minValue": 1,
+						"maxValue": 3,
+						"unitCode": "DAY"
+					},
+					"transitTime": {
+						"@type": "QuantitativeValue",
+						"minValue": 3,
+						"maxValue": 5,
+						"unitCode": "DAY"
+					}
+				}
+			},
+			"hasMerchantReturnPolicy": {
+				"@type": "MerchantReturnPolicy",
+				"returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+				"merchantReturnDays": 30,
+				"returnMethod": "https://schema.org/ReturnByMail",
+				"returnFees": "https://schema.org/FreeReturn",
+				"applicableCountry": "US"
+			}
+		}
+	}
+	</script>
+	<script>
+	// SHA-256 hashing function for TikTok PII data
+	async function sha256Hash(text) {
+		if (!text) return '';
+		const encoder = new TextEncoder();
+		const data = encoder.encode(text.toLowerCase().trim());
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+		return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+	}
+
+	// TikTok Pixel: Identify user if email available
+	(async function(){
+		try{
+			{% if loyalty_email %}
+			const email = {{ loyalty_email|tojson }};
+			if(email && typeof ttq !== 'undefined'){
+				const hashedEmail = await sha256Hash(email);
+				ttq.identify({
+					email: hashedEmail
+				});
+			}
+			{% endif %}
+		}catch(_e){}
+	})();
+
+	// Meta Pixel: ViewContent on product view
+	try{
+		if(typeof fbq === 'function'){
+			fbq('track', 'ViewContent', {
+				content_ids: [{{ product.id|tojson }}],
+				content_type: 'product'
+			});
+		}
+	}catch(_e){}
+
+	// TikTok Pixel: ViewContent on product view
+	(async function(){
+		try{
+			if(typeof ttq !== 'undefined'){
+				{% if google_discount_info %}
+				const salePrice = {{ google_discount_info.discounted_price|tojson }};
+				const currency = {{ google_discount_info.currency|tojson }};
+				{% else %}
+				const salePrice = {{ (((product.price * 85) / 100)|float)|tojson }};
+				const currency = {{ product.currency|tojson }};
+				{% endif %}
+				ttq.track('ViewContent', {
+					contents: [{
+						content_id: {{ product.id|tojson }},
+						content_type: 'product',
+						content_name: {{ product.title|tojson }}
+					}],
+					value: salePrice,
+					currency: currency
+				});
+			}
+		}catch(_e){}
+	})();
+	</script>
+{% endblock %}
+{% block title %}{{ product.title }} | Roast Cotton{% endblock %}
+{% block content %}
+<div class="relative">
+
+	<nav class="mb-3 text-sm text-gray-400 flex items-center gap-2">
+		<a href="/" aria-label="Home" class="text-gray-300 hover:text-white">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M2.25 12l9-7.5 9 7.5V20a1 1 0 01-1 1h-5.25v-6h-5.5v6H3.25a1 1 0 01-1-1v-8z"/></svg>
+		</a>
+		<span>›</span>
+		<a href="/shop" class="hover:underline">Shop</a>
+		<span>›</span>
+		<span class="text-gray-200 truncate">{{ product.title }}</span>
+	</nav>
+
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+		<div>
+			<div class="relative js-gallery">
+				<div class="relative aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					{# Live mockup container: base tee by color + design overlay #}
+					<div id="mockup-wrap" class="absolute inset-0 z-10 pointer-events-none">
+						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
+						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
+					</div>
+					{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
+					{% set imgs = [] %}
+					{% set design_only = product.design.image_url if product.design and product.design.image_url else '' %}
+					{% if design_only %}
+						{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}
+					{% endif %}
+					{% set valid_imgs = imgs | selectattr('src') | list %}
+					{% if valid_imgs %}
+						{% for img in valid_imgs %}
+							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame="{{ loop.index0 }}">
+						{% endfor %}
+					{% else %}
+						<div class="w-full h-full flex items-center justify-center text-gray-500">No image</div>
+					{% endif %}
+				</div>
+				<button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" data-action="prev">‹</button>
+				<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 z-20 pointer-events-auto" data-action="next">›</button>
+			</div>
+		</div>
+		<!-- Gallery Lightbox Modal -->
+		<div id="gallery-lightbox" class="fixed inset-0 z-50 hidden">
+			<div class="absolute inset-0 bg-black/80" data-close></div>
+			<div class="relative mx-auto my-6 max-w-5xl w-[92vw]">
+				<div class="relative bg-gray-900 border border-gray-800 rounded overflow-auto max-h-[88vh]">
+					<!-- Constrain visual area to viewport height so footer is visible -->
+					<div class="relative w-full h-[70vh] md:h-[78vh]">
+						<!-- Mockup mode -->
+						<div id="lightbox-mockup" class="absolute inset-0 hidden">
+							<img id="lightbox-base" alt="Tee base" class="absolute inset-0 w-full h-full object-contain" />
+							<img id="lightbox-design" alt="Design overlay" class="absolute object-contain pointer-events-none" />
+						</div>
+						<!-- Image frame mode -->
+						<img id="lightbox-img" alt="Product image" class="absolute inset-0 w-full h-full object-contain hidden" />
+					</div>
+					<div class="flex items-center justify-between p-3 border-t border-gray-800 sticky bottom-0 bg-gray-900">
+						<div class="text-xs text-gray-400">Press Esc or outside to close</div>
+						<div class="flex items-center gap-2">
+							<button id="lightbox-close" type="button" class="bg-gray-800 text-white px-3 py-1.5 rounded">Close</button>
+							<button id="lightbox-buy" type="button" class="bg-white text-black px-4 py-1.5 rounded font-semibold">Buy Now</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div>
+			<h1 class="text-3xl font-semibold">{{ product.title }}</h1>
+			<p class="text-gray-300 mt-3">{{ product.description }}</p>
+			<div class="mt-6 text-2xl">
+				{% if google_discount_info %}
+					{# Google Shopping automated discount pricing #}
+					<span class="line-through text-red-400">${{ '%.2f'|format(google_discount_info.prior_price or product.price) }}</span>
+					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format(google_discount_info.discounted_price) }} {{ google_discount_info.currency }}</span>
+					<div class="text-sm text-blue-400 mt-1">Google Special Price</div>
+				{% else %}
+					{# Regular 15% off pricing #}
+					<span class="line-through text-red-400">${{ '%.2f'|format(product.price) }}</span>
+					<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format((product.price * 85) / 100) }} {{ product.currency }}</span>
+				{% endif %}
+			</div>
+
+			<form id="add-form" class="mt-6 space-y-4" method="post" action="/cart/add">
+				<input type="hidden" id="buy-now-flag" name="buy_now" value="">
+				<input type="hidden" id="productUidInput" name="product_uid" value="">
+				{% if google_discount_info %}
+				<input type="hidden" name="google_discount_price" value="{{ google_discount_info.discounted_price }}">
+				<input type="hidden" name="google_discount_currency" value="{{ google_discount_info.currency }}">
+				<input type="hidden" name="google_offer_id" value="{{ google_discount_info.offer_id }}">
+				{% endif %}
+				<div>
+					
+					<select id="variant-select" name="variant_id" class="hidden bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100 w-full">
+						{% for v in product.variants %}
+						<option value="{{ v.id }}">{{ v.name }}</option>
+						{% endfor %}
+					</select>
+
+				</div>
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class="block text-sm mb-1">Size</label>
+						<select id="size-select" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100">
+							<option value="S">S</option>
+							<option value="M">M</option>
+							<option value="L" selected>L</option>
+							<option value="XL">XL</option>
+						</select>
+					<input type="hidden" name="size" id="size-field" value="L">
+					</div>
+					<div>
+						<label class="block text-sm mb-1">Color</label>
+						<div id="color-swatches" class="grid grid-cols-5 gap-2"></div>
+				<input type="hidden" id="color-select" value="white">
+				<input type="hidden" name="color" id="color-field" value="white">
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm mb-1">Quantity</label>
+					<input type="number" min="1" name="quantity" value="1" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-24 text-gray-100" />
+				</div>
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+					<button type="submit" class="flex-1 bg-white text-black px-6 py-3 rounded font-semibold text-lg hover:bg-gray-100 transition-colors shadow-md hover:shadow-lg">Add to Cart</button>
+					<button type="submit" id="buy-now-btn" class="flex-1 bg-gray-800 text-white px-6 py-3 rounded font-semibold text-lg hover:bg-gray-700 transition-colors border border-gray-700">Buy Now</button>
+				</div>
+				<div class="mt-2 text-center">
+					<a href="#" id="size-guide-open" class="text-sm underline text-gray-400 hover:text-gray-300">Size guide</a>
+				</div>
+			</form>
+
+			<div class="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+				<h3 class="text-lg font-semibold mb-3">T-Shirt Features</h3>
+				<ul class="space-y-2 text-sm text-gray-300">
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Premium quality materials</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Free shipping on all orders</span>
+					</li>
+					
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>30-day return policy</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Available in multiple sizes and colors</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-green-400 mt-1">✓</span>
+						<span>Fast 3-5 business day delivery</span>
+					</li>
+				</ul>
+			</div>
+
+		</div>
+	</div>
+</div>
+<div class="mt-6 flex items-center justify-between gap-4">
+	{% if prev_slug %}
+	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white flex-shrink-0" aria-label="Previous product">‹</a>
+	{% else %}
+	<span class="w-12 flex-shrink-0"></span>
+	{% endif %}
+	<div class="flex-1 text-center text-xs text-gray-500">Swipe left/right or use arrows to see more T-shirts</div>
+	{% if next_slug %}
+	<a id="edge-next" href="{{ url_for('main.product_detail', slug=next_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white flex-shrink-0" aria-label="Next product">›</a>
+	{% else %}
+	<span class="w-12 flex-shrink-0"></span>
+	{% endif %}
+</div>
+<div class="mt-12" id="reviews">
+	<h2 class="text-2xl font-semibold">Customer Reviews</h2>
+	<div class="mt-4 space-y-4">
+		{% if reviews %}
+			{% for r in reviews %}
+			<div class="bg-gray-900 border border-gray-800 rounded p-4">
+				<div class="flex items-center justify-between">
+					<div class="text-yellow-400" aria-label="{{ r.rating or 5 }} out of 5 stars">
+						{% set rating = r.rating or 5 %}
+						{{ '★' * rating }}{{ '☆' * (5 - rating) }}
+					</div>
+					<div class="text-xs text-gray-500">Verified purchase</div>
+				</div>
+				{% if r.title %}
+				<div class="mt-1 text-gray-100 font-medium">{{ r.title }}</div>
+				{% endif %}
+				<p class="mt-2 text-gray-300">{{ r.content or '' }}</p>
+				<div class="mt-2 text-sm text-gray-400">— {{ r.reviewer_name or 'Customer' }}</div>
+			</div>
+			{% endfor %}
+		{% else %}
+			<div class="bg-gray-900 border border-gray-800 rounded p-4">
+				<p class="text-gray-400">No reviews yet for this product.</p>
+			</div>
+		{% endif %}
+	</div>
+	<div class="mt-4">
+		<a href="/reviews" class="text-sm text-blue-400 hover:underline">Read all reviews</a>
+	</div>
+</div>
+<!-- Floating Add to Cart bubble -->
+<div id="floating-add" class="fixed right-4 bottom-4 z-40">
+	<div class="bg-gray-900 border border-gray-800 rounded-full shadow-lg flex items-center gap-2 px-3 py-2">
+		<button id="fab-minus" type="button" class="w-7 h-7 rounded-full bg-gray-800 text-white flex items-center justify-center text-base font-medium" aria-label="Decrease quantity">−</button>
+		<span id="fab-qty" class="min-w-[24px] text-center text-base font-medium">1</span>
+		<button id="fab-plus" type="button" class="w-7 h-7 rounded-full bg-gray-800 text-white flex items-center justify-center text-base font-medium" aria-label="Increase quantity">+</button>
+		<button id="fab-add" type="button" class="bg-white text-black px-3 py-1.5 rounded-full text-sm font-medium">Add</button>
+	</div>
+</div>
+<script src="/static/js/product-gallery.js"></script>
+<script>
+(function(){
+	const prev = document.getElementById('edge-prev');
+	const next = document.getElementById('edge-next');
+	document.addEventListener('keydown', (e)=>{
+		if(e.key === 'ArrowLeft' && prev){ window.location = prev.href; }
+		if(e.key === 'ArrowRight' && next){ window.location = next.href; }
+	});
+	let startX = null;
+	document.addEventListener('touchstart', (e)=>{ startX = e.touches[0].clientX; });
+	document.addEventListener('touchend', (e)=>{
+		if(startX == null) return;
+		const dx = e.changedTouches[0].clientX - startX;
+		if(dx > 50 && prev){ window.location = prev.href; }
+		if(dx < -50 && next){ window.location = next.href; }
+		startX = null;
+	});
+	// Toggle buy_now on Buy Now click
+	const buyBtn = document.getElementById('buy-now-btn');
+	const buyFlag = document.getElementById('buy-now-flag');
+	if(buyBtn && buyFlag){
+		buyBtn.addEventListener('click', ()=>{ buyFlag.value = '1'; });
+	}
+	// Fetch Gelato product attributes for the current variant's productUid if present
+    const variantSelect = document.getElementById('variant-select');
+
+    // Variant color mappings for syncing selection -> variant id
+    const COLOR_TO_VARIANT_ID = {
+        {% for v in product.variants %}
+        {{ ((v.color or '')|lower)|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    const VARIANT_ID_TO_COLOR = {
+        {% for v in product.variants %}
+        {{ (v.id|string)|tojson }}: {{ ((v.color or '')|lower)|tojson }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    const SIZE_COLOR_TO_VARIANT_ID = {
+        {% for v in product.variants %}
+        {{ (((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower))|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+// Hardcoded mapping from selection -> exact Gelato productUid (edit as needed)
+function lookupProductUid(size, color){
+    const MAP = {
+        'S|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_white_gpr_4-4',
+        'M|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_white_gpr_4-4',
+        'L|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_white_gpr_4-4',
+        'XL|white': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_white_gpr_4-4',
+        'S|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_s_gco_black_gpr_4-4',
+        'M|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_black_gpr_4-4',
+        'L|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_l_gco_black_gpr_4-4',
+        'XL|black': 'apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_xl_gco_black_gpr_4-4',
+    };
+    const key = `${size}|${color}`;
+    return MAP[key] || '';
+}
+
+	// Mockup logic: swap base tee by color and overlay design
+	function updateMockup(){
+		const color = (document.getElementById('color-select')?.value||'white').toLowerCase();
+		const gallery = document.querySelector('.js-gallery');
+		const designSrc = {{ (product.design.image_url or '')|tojson }};
+		if (gallery && window.ProductGallery) {
+			window.ProductGallery.updateMockup(gallery, color, designSrc);
+			// If currently viewing mockup, refresh it to show new color; otherwise stay on current view
+			const mock = gallery.querySelector('#mockup-wrap');
+			if (mock && !mock.classList.contains('hidden')) {
+				// We're on mockup view, update and keep it visible
+				const frames = gallery.querySelectorAll('img[data-frame]');
+				frames.forEach(im => im.classList.add('hidden'));
+				mock.classList.remove('hidden');
+			}
+		}
+	}
+
+    // Preselect color and variant from URL params before building swatches
+    let urlColor = 'white';
+    try{
+        const url = new URL(window.location.href);
+        const qpColor = (url.searchParams.get('color')||'').toLowerCase();
+        const qpSize = (url.searchParams.get('size')||'').toUpperCase();
+        const qpVid = url.searchParams.get('vid') || url.searchParams.get('variant_id');
+        if(qpColor){
+            urlColor = qpColor;
+            const colorHidden = document.getElementById('color-select');
+            if(colorHidden){ colorHidden.value = qpColor; }
+            const colorField = document.getElementById('color-field');
+            if(colorField){ colorField.value = qpColor; }
+        }
+        if(qpSize){
+            const sizeSel = document.getElementById('size-select');
+            if(sizeSel){ sizeSel.value = qpSize; }
+            const sizeField = document.getElementById('size-field');
+            if(sizeField){ sizeField.value = qpSize; }
+        }
+        if(qpVid){
+            const variantSel = document.getElementById('variant-select');
+            if(variantSel){ variantSel.value = qpVid; }
+        }
+    }catch(e){}
+
+	// Initialize product data for unified gallery system
+	window.PRODUCT_DATA = {
+		designSrc: {{ (product.design.image_url or '')|tojson }},
+		colorToVariantId: {
+			{% for v in product.variants %}
+			{{ ((v.color or '')|lower)|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
+			{% endfor %}
+		},
+		sizeColorToVariantId: {
+			{% for v in product.variants %}
+			{{ (((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower))|tojson }}: {{ v.id }}{% if not loop.last %},{% endif %}
+			{% endfor %}
+		},
+		initialColor: urlColor  // Store URL color for initialization
+	};
+
+	// Bing Ads UET conversion reporting function
+	function uet_report_conversion() {
+		window.uetq = window.uetq || [];
+		window.uetq.push('event', 'add_to_cart', {});
+	}
+
+	// GA4 add_to_cart tracking on form submit
+	try{
+		const addForm = document.getElementById('add-form');
+		if(addForm){
+			addForm.addEventListener('submit', function(){
+				try{
+					// Meta Pixel: AddToCart
+					try{
+						if(typeof fbq === 'function'){
+							fbq('track', 'AddToCart', {
+								content_ids: [{{ product.id|tojson }}],
+								content_type: 'product'
+							});
+						}
+					}catch(_e){}
+					const qty = parseInt((document.querySelector('input[name="quantity"]')?.value)||'1', 10) || 1;
+					const size = document.getElementById('size-select').value;
+					const color = document.getElementById('color-select').value;
+					{% if google_discount_info %}
+					const salePrice = {{ google_discount_info.discounted_price|tojson }};
+					const currency = {{ google_discount_info.currency|tojson }};
+					{% else %}
+					const salePrice = {{ (((product.price * 85) / 100)|float)|tojson }};
+					const currency = {{ product.currency|tojson }};
+					{% endif %}
+					if (typeof gtag === 'function') {
+						gtag('event','add_to_cart',{
+							currency: currency,
+							value: salePrice * qty,
+							items: [{
+								item_id: {{ product.id|tojson }},
+								item_name: {{ product.title|tojson }},
+								item_brand: 'Roast Cotton',
+								item_category: 't-shirt',
+								item_variant: size + ' / ' + (color.charAt(0).toUpperCase()+color.slice(1)) + ' / Crewneck',
+								price: salePrice,
+								quantity: qty
+							}]
+						});
+					}
+					// TikTok Pixel: AddToCart
+					try{
+						if(typeof ttq !== 'undefined'){
+							ttq.track('AddToCart', {
+								contents: [{
+									content_id: {{ product.id|tojson }},
+									content_type: 'product',
+									content_name: {{ product.title|tojson }}
+								}],
+								value: salePrice * qty,
+								currency: currency
+							});
+						}
+					}catch(_e){}
+					// Bing Ads UET: Report add_to_cart conversion
+					uet_report_conversion();
+				}catch(e){}
+			});
+		}
+	}catch(e){}
+
+	function updateProductUid(){
+		const size = document.getElementById('size-select').value;
+		const color = document.getElementById('color-select').value;
+    const uid = lookupProductUid(size, color);
+		document.getElementById('productUidInput').value = uid;
+		// If matching variant for color exists, sync hidden variant select so cart stores correct variant/color
+		try{
+			const combo = SIZE_COLOR_TO_VARIANT_ID || {};
+			const simple = COLOR_TO_VARIANT_ID || {};
+			const key = `${String(size).toLowerCase()}|${String(color).toLowerCase()}`;
+			const vid = combo[key] || simple[color.toLowerCase()] || '';
+			if(vid && variantSelect){ variantSelect.value = String(vid); }
+		}catch(e){}
+		// sync hidden color field for POST
+		try{
+			const cf = document.getElementById('color-field');
+			if(cf){ cf.value = color; }
+		}catch(e){}
+		// sync hidden size field for POST
+		try{
+			const sf = document.getElementById('size-field');
+			if(sf){ sf.value = size; }
+		}catch(e){}
+		updateMockup();
+	}
+	// Size changes trigger updateProductUid
+	const sizeSelect = document.getElementById('size-select');
+	if (sizeSelect) {
+		sizeSelect.addEventListener('change', function(){
+			const newSize = sizeSelect.value;
+			
+			// GA4: Size changed
+			if(typeof gtag === 'function'){
+				gtag('event', 'size_changed', {
+					event_category: 'Product Interaction',
+					event_label: 'Size Selection',
+					size: newSize,
+					value: 0
+				});
+				console.log('[product_detail] GA4 size_changed event sent:', newSize);
+			}
+			
+			updateProductUid();
+		});
+	}
+	
+	// Initial call
+	updateProductUid();
+	
+	// GA4: Color swatch change tracking
+	// Watch for changes to the color-select hidden field (updated by product-gallery.js)
+	let previousColor = (document.getElementById('color-select')?.value || 'white').toLowerCase();
+	const colorSelectEl = document.getElementById('color-select');
+	if(colorSelectEl){
+		// Use MutationObserver to detect value changes
+		const colorObserver = new MutationObserver(function(mutations){
+			const currentColor = (colorSelectEl.value || 'white').toLowerCase();
+			if(currentColor !== previousColor){
+				// GA4: Color swatch changed
+				if(typeof gtag === 'function'){
+					gtag('event', 'color_swatch_changed', {
+						event_category: 'Product Interaction',
+						event_label: 'Color Selection',
+						color: currentColor,
+						value: 0
+					});
+					console.log('[product_detail] GA4 color_swatch_changed event sent:', currentColor);
+				}
+				previousColor = currentColor;
+			}
+		});
+		
+		// Also listen to input events as a backup
+		colorSelectEl.addEventListener('input', function(){
+			const currentColor = (colorSelectEl.value || 'white').toLowerCase();
+			if(currentColor !== previousColor){
+				if(typeof gtag === 'function'){
+					gtag('event', 'color_swatch_changed', {
+						event_category: 'Product Interaction',
+						event_label: 'Color Selection',
+						color: currentColor,
+						value: 0
+					});
+					console.log('[product_detail] GA4 color_swatch_changed event sent (input):', currentColor);
+				}
+				previousColor = currentColor;
+			}
+		});
+		
+		// Start observing
+		colorObserver.observe(colorSelectEl, { attributes: true, attributeFilter: ['value'] });
+		
+		// Also listen to clicks on color swatches container as additional backup
+		const colorSwatchesEl = document.getElementById('color-swatches');
+		if(colorSwatchesEl){
+			colorSwatchesEl.addEventListener('click', function(e){
+				// Small delay to let color-select value update
+				setTimeout(function(){
+					const currentColor = (colorSelectEl.value || 'white').toLowerCase();
+					if(currentColor !== previousColor){
+						if(typeof gtag === 'function'){
+							gtag('event', 'color_swatch_changed', {
+								event_category: 'Product Interaction',
+								event_label: 'Color Selection',
+								color: currentColor,
+								value: 0
+							});
+							console.log('[product_detail] GA4 color_swatch_changed event sent (click):', currentColor);
+						}
+						previousColor = currentColor;
+					}
+				}, 100);
+			});
+		}
+	}
+	
+	// Size guide modal
+	function byId(id){ return document.getElementById(id); }
+	const sgBtn = byId('size-guide-open');
+	if(sgBtn){
+		sgBtn.addEventListener('click', function(e){ 
+			e.preventDefault(); 
+			
+			// GA4: Size guide clicked
+			if(typeof gtag === 'function'){
+				gtag('event', 'size_guide_clicked', {
+					event_category: 'Product Interaction',
+					event_label: 'Size Guide',
+					value: 0
+				});
+				console.log('[product_detail] GA4 size_guide_clicked event sent');
+			}
+			
+			openSizeGuide(); 
+		});
+	}
+	function openSizeGuide(){
+		let modal = byId('size-guide-modal');
+		if(!modal){
+			modal = document.createElement('div');
+			modal.id = 'size-guide-modal';
+			modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+			modal.innerHTML = `
+				<div class="absolute inset-0 bg-black/70" data-close></div>
+				<div class="relative bg-gray-900 border border-gray-800 rounded-lg w-11/12 md:w-[600px] max-h-[90vh] overflow-auto">
+					<div class="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-gray-800">
+						<div class="text-base md:text-lg font-semibold">Size guide</div>
+						<button class="bg-gray-800 hover:bg-gray-700 text-white px-2 md:px-3 py-1 md:py-1.5 rounded text-sm transition-colors" data-close>Close</button>
+					</div>
+					<div class="p-4 md:p-6">
+						<!-- T-Shirt Diagram -->
+						<div class="flex justify-center mb-4">
+							<div class="relative" style="width: 160px; height: 200px;">
+								<svg viewBox="0 0 200 240" class="w-full h-full">
+									<!-- T-shirt body -->
+									<path d="M 50 30 L 50 50 L 30 70 L 30 190 L 170 190 L 170 70 L 150 50 L 150 30 L 100 30 Z" 
+										  fill="none" stroke="white" stroke-width="2.5"/>
+									<!-- Left sleeve -->
+									<path d="M 30 70 L 10 80 L 10 100 L 30 110" 
+										  fill="none" stroke="white" stroke-width="2.5"/>
+									<!-- Right sleeve -->
+									<path d="M 170 70 L 190 80 L 190 100 L 170 110" 
+										  fill="none" stroke="white" stroke-width="2.5"/>
+									<!-- Collar opening -->
+									<path d="M 85 30 L 85 50 M 115 30 L 115 50" 
+										  fill="none" stroke="white" stroke-width="2"/>
+									
+									<!-- A) Length measurement line -->
+									<line x1="100" y1="30" x2="100" y2="190" 
+										  stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3"/>
+									<circle cx="100" cy="30" r="4" fill="#3b82f6"/>
+									<circle cx="100" cy="190" r="4" fill="#3b82f6"/>
+									<text x="115" y="110" fill="#3b82f6" font-size="16" font-weight="bold">A</text>
+									
+									<!-- B) Half Chest measurement line -->
+									<line x1="30" y1="110" x2="170" y2="110" 
+										  stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3"/>
+									<circle cx="30" cy="110" r="4" fill="#3b82f6"/>
+									<circle cx="170" cy="110" r="4" fill="#3b82f6"/>
+									<text x="90" y="105" fill="#3b82f6" font-size="16" font-weight="bold">B</text>
+								</svg>
+							</div>
+						</div>
+						
+						<!-- Size Chart with Tabs -->
+						<div class="bg-gray-950 border border-gray-700 rounded-lg overflow-hidden">
+							<!-- Tab Switcher -->
+							<div class="flex border-b border-gray-700">
+								<button class="size-guide-tab size-guide-tab-metric flex-1 px-3 py-2 text-xs md:text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors border-b-2 border-transparent">
+									Metric (cm)
+								</button>
+								<button class="size-guide-tab size-guide-tab-imperial flex-1 px-3 py-2 text-xs md:text-sm font-medium text-gray-200 border-b-2 border-white">
+									Imperial (inches)
+								</button>
+							</div>
+							
+							<!-- Imperial Table (Default) -->
+							<div class="size-guide-table size-guide-table-imperial p-2 md:p-4">
+								<div class="overflow-x-auto -mx-2 md:mx-0">
+									<table class="w-full text-xs md:text-sm min-w-[400px]">
+										<thead class="text-left text-gray-400">
+											<tr>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Size</th>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Length</th>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Width</th>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Half Chest</th>
+											</tr>
+										</thead>
+										<tbody class="text-gray-300">
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">S</td><td class="px-2 md:px-3 py-1.5 md:py-2">28"</td><td class="px-2 md:px-3 py-1.5 md:py-2">36"</td><td class="px-2 md:px-3 py-1.5 md:py-2">18"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">M</td><td class="px-2 md:px-3 py-1.5 md:py-2">29"</td><td class="px-2 md:px-3 py-1.5 md:py-2">40"</td><td class="px-2 md:px-3 py-1.5 md:py-2">20"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">L</td><td class="px-2 md:px-3 py-1.5 md:py-2">30"</td><td class="px-2 md:px-3 py-1.5 md:py-2">44"</td><td class="px-2 md:px-3 py-1.5 md:py-2">22"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">31"</td><td class="px-2 md:px-3 py-1.5 md:py-2">48"</td><td class="px-2 md:px-3 py-1.5 md:py-2">24"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">2XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">32"</td><td class="px-2 md:px-3 py-1.5 md:py-2">52"</td><td class="px-2 md:px-3 py-1.5 md:py-2">26"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">3XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">33"</td><td class="px-2 md:px-3 py-1.5 md:py-2">56"</td><td class="px-2 md:px-3 py-1.5 md:py-2">28"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">4XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">33.9"</td><td class="px-2 md:px-3 py-1.5 md:py-2">59.8"</td><td class="px-2 md:px-3 py-1.5 md:py-2">29.9"</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">5XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">35"</td><td class="px-2 md:px-3 py-1.5 md:py-2">63.8"</td><td class="px-2 md:px-3 py-1.5 md:py-2">31.9"</td></tr>
+										</tbody>
+									</table>
+								</div>
+							</div>
+							
+							<!-- Metric Table (Hidden by default) -->
+							<div class="size-guide-table size-guide-table-metric p-2 md:p-4 hidden">
+								<div class="overflow-x-auto -mx-2 md:mx-0">
+									<table class="w-full text-xs md:text-sm min-w-[400px]">
+										<thead class="text-left text-gray-400">
+											<tr>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Size</th>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Length</th>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Width</th>
+												<th class="px-2 md:px-3 py-1.5 md:py-2 font-normal">Half Chest</th>
+											</tr>
+										</thead>
+										<tbody class="text-gray-300">
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">S</td><td class="px-2 md:px-3 py-1.5 md:py-2">71 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">91 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">46 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">M</td><td class="px-2 md:px-3 py-1.5 md:py-2">74 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">102 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">51 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">L</td><td class="px-2 md:px-3 py-1.5 md:py-2">76 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">112 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">56 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">79 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">122 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">61 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">2XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">81 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">132 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">66 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">3XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">84 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">142 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">71 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">4XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">86 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">152 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">76 cm</td></tr>
+											<tr class="border-t border-gray-800"><td class="px-2 md:px-3 py-1.5 md:py-2">5XL</td><td class="px-2 md:px-3 py-1.5 md:py-2">89 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">162 cm</td><td class="px-2 md:px-3 py-1.5 md:py-2">81 cm</td></tr>
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>`;
+			document.body.appendChild(modal);
+			
+			// Tab switching functionality
+			const tabMetric = modal.querySelector('.size-guide-tab-metric');
+			const tabImperial = modal.querySelector('.size-guide-tab-imperial');
+			const tableMetric = modal.querySelector('.size-guide-table-metric');
+			const tableImperial = modal.querySelector('.size-guide-table-imperial');
+			
+			function switchToMetric(){
+				tabMetric.classList.add('text-gray-200', 'border-white');
+				tabMetric.classList.remove('text-gray-400', 'border-transparent');
+				tabImperial.classList.add('text-gray-400', 'border-transparent');
+				tabImperial.classList.remove('text-gray-200', 'border-white');
+				tableMetric.classList.remove('hidden');
+				tableImperial.classList.add('hidden');
+			}
+			
+			function switchToImperial(){
+				tabImperial.classList.add('text-gray-200', 'border-white');
+				tabImperial.classList.remove('text-gray-400', 'border-transparent');
+				tabMetric.classList.add('text-gray-400', 'border-transparent');
+				tabMetric.classList.remove('text-gray-200', 'border-white');
+				tableImperial.classList.remove('hidden');
+				tableMetric.classList.add('hidden');
+			}
+			
+			if(tabMetric) tabMetric.addEventListener('click', switchToMetric);
+			if(tabImperial) tabImperial.addEventListener('click', switchToImperial);
+		}
+		modal.classList.remove('hidden');
+		modal.querySelectorAll('[data-close]').forEach(el=>{
+			el.addEventListener('click', ()=>{ modal.classList.add('hidden'); });
+		});
+	}
+
+    // Gallery is initialized by unified product-gallery.js
+})();
+</script>
+<script>
+(function(){
+	const qtyInput = document.querySelector('input[name="quantity"]');
+	const addForm = document.getElementById('add-form');
+	const qtyEl = document.getElementById('fab-qty');
+	const minusBtn = document.getElementById('fab-minus');
+	const plusBtn = document.getElementById('fab-plus');
+	const addBtn = document.getElementById('fab-add');
+	if(!qtyInput || !qtyEl || !minusBtn || !plusBtn || !addBtn || !addForm) return;
+	function clamp(n){ n = parseInt(n||1,10)||1; if(n<1) return 1; if(n>10) return 10; return n; }
+	function syncDisplay(){ qtyEl.textContent = String(clamp(qtyInput.value)); }
+	function setQty(n){ const v = clamp(n); qtyInput.value = String(v); qtyEl.textContent = String(v); }
+	try{ setQty(qtyInput.value); }catch(e){ setQty(1); }
+	minusBtn.addEventListener('click', function(){ setQty(clamp(qtyInput.value) - 1); });
+	plusBtn.addEventListener('click', function(){ setQty(clamp(qtyInput.value) + 1); });
+	addBtn.addEventListener('click', function(){ try{ addForm.submit(); }catch(e){} });
+	// Keep bubble in sync if user edits the main quantity field
+	qtyInput.addEventListener('input', syncDisplay);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Google Shopping Reviews</h1>
+
+<div class="border border-gray-800 rounded p-4 bg-gray-900">
+	<h2 class="text-xl font-semibold mb-3">Add Review</h2>
+	<form method="post" action="{{ url_for('admin.add_review') }}" class="space-y-3">
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Product</label>
+				<select name="product_id" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2">
+					{% for p in products %}
+					<option value="{{ p.id }}">#{{ p.id }} — {{ p.title }}</option>
+					{% endfor %}
+				</select>
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Rating (1-5)</label>
+				<input name="rating" type="number" min="1" max="5" value="5" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+			</div>
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Title</label>
+			<input name="title" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="Great quality!" />
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Content</label>
+			<textarea name="content" rows="3" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="Loved the shirt…"></textarea>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Reviewer Name</label>
+				<input name="reviewer_name" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="Alex" />
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Review URL (optional)</label>
+				<input name="review_url" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="https://example.com/review/123" />
+			</div>
+		</div>
+		<button class="bg-white text-black rounded px-4 py-2">Add Review</button>
+	</form>
+</div>
+
+<h2 class="text-xl font-semibold mt-6 mb-2">Existing Reviews</h2>
+<div class="overflow-x-auto">
+	<table class="min-w-full text-left text-sm">
+		<thead>
+			<tr class="border-b border-gray-800 text-gray-300">
+				<th class="py-2 pr-4">ID</th>
+				<th class="py-2 pr-4">Product</th>
+				<th class="py-2 pr-4">Rating</th>
+				<th class="py-2 pr-4">Title</th>
+				<th class="py-2 pr-4">When</th>
+				<th class="py-2 pr-4">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for r in reviews %}
+			<tr class="border-b border-gray-900">
+				<td class="py-2 pr-4">{{ r.review_id }}</td>
+				<td class="py-2 pr-4">#{{ r.product_id }}</td>
+				<td class="py-2 pr-4">{{ r.rating }}</td>
+				<td class="py-2 pr-4">{{ r.title }}</td>
+				<td class="py-2 pr-4">{{ r.created_at }}</td>
+				<td class="py-2 pr-4">
+					<form method="post" action="{{ url_for('admin.delete_review', review_id=r.review_id) }}">
+						<button class="bg-black text-white border border-gray-700 rounded px-3 py-1">Delete</button>
+					</form>
+				</td>
+			</tr>
+			{% else %}
+			<tr>
+				<td class="py-2 pr-4 text-gray-400" colspan="6">No reviews yet.</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</div>
+{% endblock %}
+
+

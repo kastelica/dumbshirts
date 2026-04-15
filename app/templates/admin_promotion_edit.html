@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Edit Promotion {{ promotion.promotion_id }}</h1>
+
+<form method="post" action="{{ url_for('admin.edit_promotion_submit', promotion_id=promotion.promotion_id) }}" class="space-y-3 border border-gray-800 rounded p-4 bg-gray-900">
+	<div>
+		<label class="block text-sm text-gray-300 mb-1">Promotion ID</label>
+		<input name="promotion_id" value="{{ promotion.promotion_id }}" pattern="[A-Za-z0-9_-]{1,50}" title="Only letters, numbers, dashes, underscores (max 50)." class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+	</div>
+	<div>
+		<label class="block text-sm text-gray-300 mb-1">Long Title</label>
+		<input name="long_title" value="{{ promotion.long_title }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+	</div>
+	<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Generic Redemption Code</label>
+			<input name="generic_redemption_code" value="{{ promotion.generic_redemption_code }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Percent Off</label>
+			<input name="percent_off" value="{{ promotion.percent_off }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Product IDs (comma-separated)</label>
+			<input name="product_ids" value="{{ promotion.product_ids }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+	</div>
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Start Date (YYYY-MM-DD)</label>
+			<input name="start_date" value="{{ promotion.start_date }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">End Date (YYYY-MM-DD)</label>
+			<input name="end_date" value="{{ promotion.end_date }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+	</div>
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Display Start (YYYY-MM-DD)</label>
+			<input name="display_start_date" value="{{ promotion.display_start_date }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Display End (YYYY-MM-DD)</label>
+			<input name="display_end_date" value="{{ promotion.display_end_date }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+		</div>
+	</div>
+	<div>
+		<label class="block text-sm text-gray-300 mb-1">Promotion URL</label>
+		<input name="promotion_url" value="{{ promotion.promotion_url }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" />
+	</div>
+	<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Offer Type (optional override)</label>
+			<input name="offer_type" value="{{ promotion.offer_type }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="no_code or generic_code" />
+		</div>
+		<div></div>
+		<div>
+			<label class="block text-sm text-gray-300 mb-1">Destinations (comma-separated)</label>
+			<input name="promotion_destination" value="{% if promotion.promotion_destination is string %}{{ promotion.promotion_destination }}{% else %}{{ promotion.promotion_destination | join(', ') }}{% endif %}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="Shopping_ads, Free_listings" />
+		</div>
+	</div>
+	<div>
+		<label class="block text-sm text-gray-300 mb-1">Redemption Channel</label>
+		<input name="redemption_channel" value="{{ promotion.redemption_channel or 'online' }}" class="w-full bg-black text-white border border-gray-700 rounded px-3 py-2" placeholder="online" />
+	</div>
+	<div class="flex items-center gap-2">
+		<a href="{{ url_for('admin.manage_promotions') }}" class="bg-black text-white border border-gray-700 rounded px-4 py-2">Cancel</a>
+		<button class="bg-white text-black rounded px-4 py-2">Save</button>
+	</div>
+</form>
+{% endblock %}
+
+

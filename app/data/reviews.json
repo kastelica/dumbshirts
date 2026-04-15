@@ -1,0 +1,594 @@
+[
+  {
+    "review_id": "R-1001",
+    "product_id": "1",
+    "title": "Great quality and fit",
+    "content": "Shirt feels soft and the print is crisp. Fit was true to size.",
+    "reviewer_name": "Alex",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2024-11-21T15:12:00Z"
+  },
+  {
+    "review_id": "R-1002",
+    "product_id": "260",
+    "title": "Fast shipping",
+    "content": "Arrived earlier than expected. Love the design.",
+    "reviewer_name": "Sam",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2024-09-19T10:05:00Z"
+  },
+  {
+    "review_id": "R-1003",
+    "product_id": "262",
+    "title": "Nice fabric",
+    "content": "Material feels premium and the color matches photos.",
+    "reviewer_name": "Jordan",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2024-08-15T08:30:00Z"
+  },
+  {
+    "review_id": "R-1004",
+    "product_id": "279",
+    "title": "Perfect fit",
+    "content": "Ordered a Large and it fits exactly as expected. The design is dope and hasn't faded after several washes.",
+    "reviewer_name": "Taylor",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-02-22T14:20:00Z"
+  },
+  {
+    "review_id": "R-1005",
+    "product_id": "1",
+    "title": "Love the design",
+    "content": "Got so many compliments on this shirt! The quality is great and shipping was super fast.",
+    "reviewer_name": "Morgan",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2024-07-20T09:45:00Z"
+  },
+  {
+    "review_id": "R-1006",
+    "product_id": "4",
+    "title": "Comfortable and stylish",
+    "content": "Very soft fabric, perfect for everyday wear. Size chart was accurate.",
+    "reviewer_name": "Casey",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2024-06-18T16:30:00Z"
+  },
+  {
+    "review_id": "R-1007",
+    "product_id": "2",
+    "title": "Good but runs small",
+    "content": "Nice shirt overall, but I should have sized up. The print quality is excellent though.",
+    "reviewer_name": "Riley",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-03-17T11:15:00Z"
+  },
+  {
+    "review_id": "R-1008",
+    "product_id": "5",
+    "title": "Excellent value",
+    "content": "For the price, this is a fantastic shirt. Great design and comfortable fit.",
+    "reviewer_name": "Avery",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-04-16T13:50:00Z"
+  },
+  {
+    "review_id": "R-1009",
+    "product_id": "1",
+    "title": "Fast delivery",
+    "content": "Received my order in just 4 days. The shirt looks exactly like the photos online.",
+    "reviewer_name": "Quinn",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-06-14T10:25:00Z"
+  },
+  {
+    "review_id": "R-1010",
+    "product_id": "3",
+    "title": "Decent quality",
+    "content": "Shirt is okay. The material is thinner than I expected, but the design looks good.",
+    "reviewer_name": "Dakota",
+    "review_url": "",
+    "rating": 3,
+    "created_at": "2025-07-13T07:40:00Z"
+  },
+  {
+    "review_id": "R-1011",
+    "product_id": "6",
+    "title": "Best shirt purchase",
+    "content": "I've ordered multiple shirts from here and they never disappoint. Always great quality and unique designs.",
+    "reviewer_name": "Brooke",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-12T15:55:00Z"
+  },
+  {
+    "review_id": "R-1012",
+    "product_id": "4",
+    "title": "Print could be better",
+    "content": "The shirt itself is comfortable, but the design print feels like it might peel after a few washes. We'll see.",
+    "reviewer_name": "Carter",
+    "review_url": "",
+    "rating": 3,
+    "created_at": "2025-09-11T12:10:00Z"
+  },
+  {
+    "review_id": "R-1013",
+    "product_id": "2",
+    "title": "Exceeded expectations",
+    "content": "Wasn't sure what to expect but I'm really impressed. Great fit, soft material, and the design is exactly as shown.",
+    "reviewer_name": "Phoenix",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-10-10T18:00:00Z"
+  },
+  {
+    "review_id": "R-1014",
+    "product_id": "7",
+    "title": "Amazing quality",
+    "content": "The shirt exceeded my expectations. The print is dumb but great and the fabric is incredibly soft. Will definitely order again!",
+    "reviewer_name": "Blake",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-10-09T14:22:00Z"
+  },
+  {
+    "review_id": "R-1015",
+    "product_id": "1",
+    "title": "Perfect for casual wear",
+    "content": "Great everyday shirt. Comfortable and the design looks even better in person than online.",
+    "reviewer_name": "Cameron",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-10-08T11:30:00Z"
+  },
+  {
+    "review_id": "R-1016",
+    "product_id": "3",
+    "title": "Good value",
+    "content": "Decent shirt for the price. Material feels good and sizing was accurate. Design is fun and unique.",
+    "reviewer_name": "Finley",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-10-07T16:45:00Z"
+  },
+  {
+    "review_id": "R-1017",
+    "product_id": "5",
+    "title": "Love it!",
+    "content": "Such a cool design! Got tons of compliments. Quality is solid and shipping was quick.",
+    "reviewer_name": "Harper",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-10-06T09:15:00Z"
+  },
+  {
+    "review_id": "R-1018",
+    "product_id": "4",
+    "title": "Comfortable fit",
+    "content": "True to size and super comfortable. The design print quality is excellent and hasn't faded after washing.",
+    "reviewer_name": "Kai",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-10-05T13:20:00Z"
+  },
+  {
+    "review_id": "R-1019",
+    "product_id": "6",
+    "title": "Fast shipping",
+    "content": "Received my order faster than expected! Shirt looks great and fits perfectly. Very satisfied.",
+    "reviewer_name": "Logan",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-10-04T10:55:00Z"
+  },
+  {
+    "review_id": "R-1020",
+    "product_id": "2",
+    "title": "Nice shirt",
+    "content": "Good quality material and the design is well printed. Size was accurate. Happy with my purchase.",
+    "reviewer_name": "Micah",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-10-03T15:10:00Z"
+  },
+  {
+    "review_id": "R-1021",
+    "product_id": "8",
+    "title": "Great purchase",
+    "content": "Really happy with this shirt. The fabric is soft and the design is exactly as pictured. Would recommend!",
+    "reviewer_name": "Jane",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-05-02T12:40:00Z"
+  },
+  {
+    "review_id": "R-1022",
+    "product_id": "1",
+    "title": "Perfect gift",
+    "content": "Bought this as a gift and the recipient loved it! Great quality and unique design.",
+    "reviewer_name": "John",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-04-01T14:25:00Z"
+  },
+  {
+    "review_id": "R-1023",
+    "product_id": "3",
+    "title": "Very soft",
+    "content": "Incredibly soft material, perfect for all-day wear. The design is dumb :/",
+    "reviewer_name": "Mike",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-03-30T11:00:00Z"
+  },
+  {
+    "review_id": "R-1024",
+    "product_id": "4",
+    "title": "Good but could improve",
+    "content": "Shirt is decent but the fabric could be a bit thicker. Design looks good though.",
+    "reviewer_name": "Quinn",
+    "review_url": "",
+    "rating": 3,
+    "created_at": "2025-02-29T09:30:00Z"
+  },
+  {
+    "review_id": "R-1025",
+    "product_id": "5",
+    "title": "Excellent quality",
+    "content": "Top-notch quality! The print is sharp and the shirt has held up well after multiple washes. Very satisfied!",
+    "reviewer_name": "Steve",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-01-28T16:15:00Z"
+  },
+  {
+    "review_id": "R-1026",
+    "product_id": "7",
+    "title": "Awesome design",
+    "content": "Love the design! It's unique and eye-catching. Quality is great and shipping was super fast.",
+    "reviewer_name": "Sawyer",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-27T13:50:00Z"
+  },
+  {
+    "review_id": "R-1027",
+    "product_id": "2",
+    "title": "True to size",
+    "content": "Fits exactly as expected. Comfortable and the design print is high quality. Will order more!",
+    "reviewer_name": "Skylar",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-26T10:20:00Z"
+  },
+  {
+    "review_id": "R-1028",
+    "product_id": "6",
+    "title": "Nice everyday shirt",
+    "content": "Perfect for casual wear. Soft material and good fit. The design is fun and gets lots of attention.",
+    "reviewer_name": "Jackson",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-01-25T15:35:00Z"
+  },
+  {
+    "review_id": "R-1029",
+    "product_id": "8",
+    "title": "Fast delivery",
+    "content": "Order arrived quickly and was well packaged. Shirt quality is excellent and the design looks great!",
+    "reviewer_name": "Winter",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-24T08:45:00Z"
+  },
+  {
+    "review_id": "R-1030",
+    "product_id": "1",
+    "title": "Great shirt",
+    "content": "Really like this shirt. Comfortable fit, soft fabric, and the design is exactly as advertised. Highly recommend!",
+    "reviewer_name": "Billy",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-23T12:10:00Z"
+  },
+  {
+    "review_id": "R-1031",
+    "product_id": "5",
+    "title": "Good value",
+    "content": "Solid shirt for the price point. Design is unique and the material feels nice. Sizing was accurate.",
+    "reviewer_name": "Rowan",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-09-22T14:55:00Z"
+  },
+  {
+    "review_id": "R-1032",
+    "product_id": "3",
+    "title": "Love the quality",
+    "content": "Impressed with the overall quality. The print hasn't faded and the shirt still looks new after several wears.",
+    "reviewer_name": "Emery",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-21T11:25:00Z"
+  },
+  {
+    "review_id": "R-1033",
+    "product_id": "4",
+    "title": "Perfect fit",
+    "content": "Fits like a dream! Ordered my usual size and it's perfect. Great design and very comfortable to wear.",
+    "reviewer_name": "Lennox",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-20T09:40:00Z"
+  },
+  {
+    "review_id": "R-1034",
+    "product_id": "7",
+    "title": "Super comfortable",
+    "content": "One of the most comfortable shirts I own. The fabric is soft and breathable. Design is unique and well-printed.",
+    "reviewer_name": "Atlas",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-19T16:30:00Z"
+  },
+  {
+    "review_id": "R-1035",
+    "product_id": "112",
+    "title": "Quick shipping",
+    "content": "Ordered on Monday, received by Thursday. Shirt looks great and fits perfectly. Very satisfied with my purchase!",
+    "reviewer_name": "Ellis",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-18T11:15:00Z"
+  },
+  {
+    "review_id": "R-1036",
+    "product_id": "8",
+    "title": "Love the design",
+    "content": "The design is even better in person! Quality fabric and the print is crisp. Would definitely order from here again.",
+    "reviewer_name": "Hayden",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-17T14:20:00Z"
+  },
+  {
+    "review_id": "R-1037",
+    "product_id": "13",
+    "title": "Good but not perfect",
+    "content": "Decent shirt overall. The design is nice but I wish the fabric was a bit thicker. Still happy with the purchase.",
+    "reviewer_name": "Indigo",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-09-16T10:50:00Z"
+  },
+  {
+    "review_id": "R-1038",
+    "product_id": "5",
+    "title": "Amazing quality",
+    "content": "Really impressed with the quality. The shirt feels premium and the design print looks professional. Fast shipping too!",
+    "reviewer_name": "Jaden",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-15T13:45:00Z"
+  },
+  {
+    "review_id": "R-1039",
+    "product_id": "132",
+    "title": "Perfect for casual Fridays",
+    "content": "Great shirt for work casual days. Comfortable enough to wear all day and the design is fun without being unprofessional.",
+    "reviewer_name": "Aaron",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-14T09:25:00Z"
+  },
+  {
+    "review_id": "R-1040",
+    "product_id": "6",
+    "title": "Nice shirt",
+    "content": "Good quality shirt with a unique design. Fit was accurate and the material is soft. Happy with my purchase.",
+    "reviewer_name": "Lane",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-09-13T15:10:00Z"
+  },
+  {
+    "review_id": "R-1041",
+    "product_id": "4",
+    "title": "Exceeded expectations",
+    "content": "Was expecting decent quality but got excellent quality! The shirt is well-made and the design is perfectly printed. Love it!",
+    "reviewer_name": "Randy",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-12T11:40:00Z"
+  },
+  {
+    "review_id": "R-1042",
+    "product_id": "128",
+    "title": "Great value",
+    "content": "For the price, this is a fantastic shirt. Quality materials and the design is well-executed. Shipping was fast too.",
+    "reviewer_name": "Oakley",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-11T14:55:00Z"
+  },
+  {
+    "review_id": "R-1043",
+    "product_id": "157",
+    "title": "Comfortable fit",
+    "content": "Very comfortable shirt that fits true to size. The design is goofy and hasn't faded after multiple washes.",
+    "reviewer_name": "Peyton",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-10T10:20:00Z"
+  },
+  {
+    "review_id": "R-1044",
+    "product_id": "261",
+    "title": "Solid purchase",
+    "content": "Good quality shirt with a nice design. Material feels good and the fit is accurate. Would consider ordering again.",
+    "reviewer_name": "Reed",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-09-09T16:05:00Z"
+  },
+  {
+    "review_id": "R-1045",
+    "product_id": "8",
+    "title": "Love it!",
+    "content": "One of my favorite shirts now! The design is unique and the quality is excellent. Already planning to order more.",
+    "reviewer_name": "Remi",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-08T12:30:00Z"
+  },
+  {
+    "review_id": "R-1046",
+    "product_id": "159",
+    "title": "Good quality",
+    "content": "Nice shirt with good print quality. The fabric is comfortable and the sizing chart was accurate. Happy with purchase.",
+    "reviewer_name": "Tyler",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-09-07T09:15:00Z"
+  },
+  {
+    "review_id": "R-1047",
+    "product_id": "103",
+    "title": "Perfect sizing",
+    "content": "Ordered based on the size chart and it fit perfectly! The design is exactly as shown and quality is great.",
+    "reviewer_name": "Chris",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-06T13:50:00Z"
+  },
+  {
+    "review_id": "R-1048",
+    "product_id": "6",
+    "title": "Fast shipping",
+    "content": "Received my order quickly and well-packaged. Shirt looks great and fits perfectly. Very satisfied!",
+    "reviewer_name": "Christine",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-05T11:25:00Z"
+  },
+  {
+    "review_id": "R-1049",
+    "product_id": "109",
+    "title": "Nice design",
+    "content": "Really like the design and the quality is solid. The shirt is comfortable and the print looks good.",
+    "reviewer_name": "Andrew",
+    "review_url": "",
+    "rating": 4,
+    "created_at": "2025-09-04T15:40:00Z"
+  },
+  {
+    "review_id": "R-1050",
+    "product_id": "202",
+    "title": "Great purchase",
+    "content": "Excellent shirt! The quality exceeded my expectations and the design is exactly as pictured. Will order again.",
+    "reviewer_name": "Dylan",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-03T10:10:00Z"
+  },
+  {
+    "review_id": "R-1051",
+    "product_id": "7",
+    "title": "Soft fabric",
+    "content": "Very soft and comfortable fabric. The design print is high quality and the shirt fits well. Great purchase!",
+    "reviewer_name": "Ethan",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-02T14:35:00Z"
+  },
+  {
+    "review_id": "R-1052",
+    "product_id": "1",
+    "title": "Excellent value",
+    "content": "Great value for the money. Quality materials and well-printed design. Shipping was fast and packaging was good.",
+    "reviewer_name": "Drew",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-09-01T12:00:00Z"
+  },
+  {
+    "review_id": "R-1053",
+    "product_id": "8",
+    "title": "Highly recommend",
+    "content": "Would definitely recommend this shirt to others. Great quality, comfortable fit, and unique design. Very happy!",
+    "reviewer_name": "Eden",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-31T16:20:00Z"
+  },
+  {
+    "review_id": "R-1054",
+    "product_id": "260",
+    "title": "Perfect addition to my wardrobe",
+    "content": "This shirt has become one of my favorites. The design is unique and the quality is outstanding. Fits perfectly and looks great!",
+    "reviewer_name": "Brooke",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-30T10:15:00Z"
+  },
+  {
+    "review_id": "R-1055",
+    "product_id": "262",
+    "title": "Great quality for the price",
+    "content": "Really impressed with this purchase. The material is soft, the print is clear, and it's held up well after several washes. Would buy again!",
+    "reviewer_name": "Carter",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-29T14:30:00Z"
+  },
+  {
+    "review_id": "R-1056",
+    "product_id": "279",
+    "title": "Love the vibrant colors",
+    "content": "The colors are even more bold in person than in the photos. Comfortable fit and excellent print quality. Shipping was fast too!",
+    "reviewer_name": "James",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-28T09:45:00Z"
+  },
+  {
+    "review_id": "R-1057",
+    "product_id": "202",
+    "title": "Exactly as described",
+    "content": "Received exactly what I ordered. The shirt fits well, the design is crisp, and the quality is solid. Very satisfied with my purchase!",
+    "reviewer_name": "Richard",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-27T16:20:00Z"
+  },  
+  {
+    "review_id": "R-1058",
+    "product_id": "202",
+    "title": "Exactly as described",
+    "content": "Received exactly what I ordered. The shirt fits well, the design is crisp, and the quality is solid. Very satisfied with my purchase!",
+    "reviewer_name": "Daniel",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-27T16:20:00Z"
+  },  
+  {
+    "review_id": "R-1059",
+    "product_id": "202",
+    "title": "Exactly as described",
+    "content": "Received exactly what I ordered. The shirt fits well, the design is crisp, and the quality is solid. Very satisfied with my purchase!",
+    "reviewer_name": "Drea",
+    "review_url": "",
+    "rating": 5,
+    "created_at": "2025-08-27T16:20:00Z"
+  }
+]
+
+

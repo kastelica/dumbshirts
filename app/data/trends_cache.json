@@ -1,0 +1,25 @@
+{
+  "US": {
+    "phrases": [
+      "happy boss's day meme",
+      "boss day meme",
+      "hasan piker dog meme",
+      "rabbit with clock meme",
+      "columbus day meme",
+      "hasan dog meme",
+      "rabbit clock meme",
+      "kirby smart meme",
+      "president of puerto rico meme",
+      "what is 6 7 meme"
+    ],
+    "debug": {
+      "geo": "US",
+      "limit": "10",
+      "endpoint": "serpapi.google_trends",
+      "seed_meme_status": "200",
+      "count": "10",
+      "source": "serpapi"
+    },
+    "ts": "2025-10-18T03:13:22.832554Z"
+  }
+}

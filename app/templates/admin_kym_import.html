@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-4">
+	<div class="flex items-center justify-between mb-4">
+		<h1 class="text-2xl font-semibold">Know Your Meme Import</h1>
+		<a href="{{ url_for('admin.products_list') }}" class="text-sm underline text-gray-300">Back to Products</a>
+	</div>
+	
+	<div class="bg-gray-900 border border-gray-800 rounded p-4 mb-4">
+		<h2 class="text-lg font-semibold mb-3">Import Configuration</h2>
+		<p class="text-sm text-gray-400 mb-4">Import products from Know Your Meme. Products are created as drafts with images from KYM entries.</p>
+		
+		<form method="post" action="{{ url_for('admin.kym_import_run') }}" class="space-y-4">
+			<div>
+				<label for="limit" class="block text-sm font-medium mb-1">Number of products to create</label>
+				<input type="number" id="limit" name="limit" value="5" min="1" max="20" class="w-full md:w-64 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100">
+				<p class="text-xs text-gray-500 mt-1">Maximum 20 products per import</p>
+			</div>
+			
+			<div>
+				<label for="url" class="block text-sm font-medium mb-1">KYM URL (optional)</label>
+				<input type="url" id="url" name="url" value="https://knowyourmeme.com/memes?kind=all&sort=views" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100" placeholder="https://knowyourmeme.com/memes?kind=all&sort=views">
+				<p class="text-xs text-gray-500 mt-1">Leave blank to use default trending memes page</p>
+			</div>
+			
+			<div>
+				<button type="submit" class="bg-white text-black px-6 py-2 rounded font-medium">Start Import</button>
+			</div>
+		</form>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded p-4 mb-4">
+		<h3 class="text-md font-semibold mb-2">How it works</h3>
+		<ul class="text-sm text-gray-300 space-y-1 list-disc list-inside">
+			<li>Fetches meme listings from Know Your Meme</li>
+			<li>Skips duplicates automatically (checks titles, slugs, and fuzzy matching)</li>
+			<li>Creates draft products with the meme title + "T-Shirt"</li>
+			<li>Downloads and uses images from KYM detail pages</li>
+			<li>Creates variants for sizes S-XL and colors Black/White</li>
+		</ul>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded p-4" id="progressPanel">
+		<div class="flex items-center justify-between mb-3">
+			<h2 class="text-lg font-semibold">Progress Log</h2>
+			<div class="flex items-center gap-2">
+				<span id="importStatus" class="text-sm text-gray-400">○ Ready</span>
+				<button id="refreshProgress" class="text-xs underline text-gray-400 hover:text-gray-200">Refresh</button>
+			</div>
+		</div>
+		<div id="progressMessages" class="space-y-1 max-h-[500px] overflow-y-auto font-mono text-sm">
+			<div class="text-gray-500">No import activity yet. Click "Start Import" to begin.</div>
+		</div>
+	</div>
+</div>
+
+<script>
+(function(){
+	var panel = document.getElementById('progressPanel');
+	var messagesDiv = document.getElementById('progressMessages');
+	var statusSpan = document.getElementById('importStatus');
+	var refreshBtn = document.getElementById('refreshProgress');
+	var autoRefreshInterval = null;
+	
+	function fetchStatus() {
+		fetch("{{ url_for('admin.auto_mode_status') }}")
+			.then(function(r) { return r.json(); })
+			.then(function(d) {
+				if (!panel || !messagesDiv) return;
+				
+				var msgs = d.messages || [];
+				// Filter for KYM messages only
+				var kymMsgs = msgs.filter(function(msg) {
+					return typeof msg === 'string' && msg.includes('[KYM]');
+				});
+				
+				// Update status
+				var hasKymActivity = kymMsgs.length > 0;
+				var lastMsg = hasKymActivity ? (kymMsgs[kymMsgs.length - 1] || '') : '';
+				if (statusSpan) {
+					if (hasKymActivity) {
+						if (lastMsg.includes('complete') || lastMsg.includes('failed')) {
+							statusSpan.textContent = '● Complete';
+							statusSpan.className = 'text-sm text-gray-400';
+						} else {
+							statusSpan.textContent = '● Running';
+							statusSpan.className = 'text-sm text-green-400';
+						}
+					} else {
+						statusSpan.textContent = '○ Ready';
+						statusSpan.className = 'text-sm text-gray-400';
+					}
+				}
+				
+				// Update progress messages
+				messagesDiv.innerHTML = '';
+				if (kymMsgs.length === 0) {
+					messagesDiv.innerHTML = '<div class="text-gray-500">No import activity yet. Click "Start Import" to begin.</div>';
+				} else {
+					kymMsgs.forEach(function(msg) {
+						var div = document.createElement('div');
+						div.className = 'text-gray-200';
+						div.textContent = msg;
+						messagesDiv.appendChild(div);
+					});
+					// Auto-scroll to bottom
+					messagesDiv.scrollTop = messagesDiv.scrollHeight;
+				}
+				
+				// Auto-refresh if there's active KYM import
+				var isActive = hasKymActivity && lastMsg && !lastMsg.includes('complete') && !lastMsg.includes('failed');
+				if (isActive && !autoRefreshInterval) {
+					autoRefreshInterval = setInterval(fetchStatus, 2000);
+				} else if (!isActive && autoRefreshInterval) {
+					clearInterval(autoRefreshInterval);
+					autoRefreshInterval = null;
+				}
+			})
+			.catch(function(e) { 
+				console.warn('Failed to fetch status', e);
+			});
+	}
+	
+	if (refreshBtn) {
+		refreshBtn.addEventListener('click', function(e) {
+			e.preventDefault();
+			fetchStatus();
+		});
+	}
+	
+	// Initial fetch
+	fetchStatus();
+	
+	// Start auto-refresh
+	if (!autoRefreshInterval) {
+		autoRefreshInterval = setInterval(fetchStatus, 2000);
+	}
+	
+	// Refresh when form is submitted
+	var form = document.querySelector('form');
+	if (form) {
+		form.addEventListener('submit', function() {
+			setTimeout(function() {
+				fetchStatus();
+				// Keep refreshing for a bit after submission
+				if (!autoRefreshInterval) {
+					autoRefreshInterval = setInterval(fetchStatus, 2000);
+				}
+			}, 500);
+		});
+	}
+})();
+</script>
+{% endblock %}
+

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-4">
+	<div class="flex items-center justify-between mb-4">
+		<h1 class="text-2xl font-semibold">Auto Product Generator</h1>
+		<a href="{{ url_for('admin.products_list') }}" class="text-sm underline text-gray-300">Back to Products</a>
+	</div>
+	
+	<div class="bg-gray-900 border border-gray-800 rounded p-4 mb-4">
+		<h2 class="text-lg font-semibold mb-3">Configuration</h2>
+		<form method="post" action="{{ url_for('admin.toggle_auto_mode') }}" class="space-y-3" id="autoModeForm">
+			<div class="flex items-center gap-4">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" name="skip_images" value="1" class="h-4 w-4" {% if auto_mode_skip_images %}checked{% endif %}>
+					<span class="text-sm">Skip image generation</span>
+				</label>
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" name="continuous" value="1" class="h-4 w-4" {% if auto_mode_continuous %}checked{% endif %}>
+					<span class="text-sm">Continuous mode (runs 2 iterations)</span>
+				</label>
+			</div>
+			<div>
+				<input type="hidden" name="redirect_to" value="auto_product">
+				<button type="submit" class="bg-white text-black px-6 py-2 rounded font-medium">
+					{{ 'Stop Auto Mode' if auto_mode_enabled else 'Start Auto Mode' }}
+				</button>
+			</div>
+		</form>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded p-4" id="progressPanel">
+		<div class="flex items-center justify-between mb-3">
+			<h2 class="text-lg font-semibold">Progress Log</h2>
+			<div class="flex items-center gap-2">
+				<span id="autoStatus" class="text-sm {% if auto_mode_enabled %}text-green-400{% else %}text-gray-400{% endif %}">
+					{{ '● Running' if auto_mode_enabled else '○ Stopped' }}
+				</span>
+				<button id="refreshProgress" class="text-xs underline text-gray-400 hover:text-gray-200">Refresh</button>
+			</div>
+		</div>
+		<div id="progressMessages" class="space-y-1 max-h-[500px] overflow-y-auto font-mono text-sm">
+			{% if auto_mode_progress %}
+				{% for line in auto_mode_progress %}
+				<div class="text-gray-200">{{ line }}</div>
+				{% endfor %}
+			{% else %}
+				<div class="text-gray-500">No progress yet. Click "Start Auto Mode" to begin.</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+<script>
+(function(){
+	var form = document.getElementById('autoModeForm');
+	var panel = document.getElementById('progressPanel');
+	var messagesDiv = document.getElementById('progressMessages');
+	var statusSpan = document.getElementById('autoStatus');
+	var refreshBtn = document.getElementById('refreshProgress');
+	var autoRefreshInterval = null;
+	
+	function fetchStatus() {
+		fetch("{{ url_for('admin.auto_mode_status') }}")
+			.then(function(r) { return r.json(); })
+			.then(function(d) {
+				if (!panel || !messagesDiv) return;
+				
+				// Update status indicator
+				var enabled = d.enabled || false;
+				if (statusSpan) {
+					statusSpan.textContent = enabled ? '● Running' : '○ Stopped';
+					statusSpan.className = 'text-sm ' + (enabled ? 'text-green-400' : 'text-gray-400');
+				}
+				
+				// Update progress messages
+				var msgs = d.messages || [];
+				messagesDiv.innerHTML = '';
+				if (msgs.length === 0) {
+					messagesDiv.innerHTML = '<div class="text-gray-500">No progress yet. Click "Start Auto Mode" to begin.</div>';
+				} else {
+					msgs.forEach(function(msg) {
+						var div = document.createElement('div');
+						div.className = 'text-gray-200';
+						div.textContent = msg;
+						messagesDiv.appendChild(div);
+					});
+					// Auto-scroll to bottom
+					messagesDiv.scrollTop = messagesDiv.scrollHeight;
+				}
+				
+				// Auto-refresh if running
+				if (enabled && !autoRefreshInterval) {
+					autoRefreshInterval = setInterval(fetchStatus, 2000); // Every 2 seconds
+				} else if (!enabled && autoRefreshInterval) {
+					clearInterval(autoRefreshInterval);
+					autoRefreshInterval = null;
+				}
+			})
+			.catch(function(e) { 
+				console.warn('Failed to fetch status', e);
+			});
+	}
+	
+	if (refreshBtn) {
+		refreshBtn.addEventListener('click', function(e) {
+			e.preventDefault();
+			fetchStatus();
+		});
+	}
+	
+	// Initial fetch and start auto-refresh if enabled
+	fetchStatus();
+	
+	// If auto mode is enabled, start auto-refresh
+	{% if auto_mode_enabled %}
+	if (!autoRefreshInterval) {
+		autoRefreshInterval = setInterval(fetchStatus, 2000);
+	}
+	{% endif %}
+	
+	// Update form button text when form is submitted
+	if (form) {
+		form.addEventListener('submit', function() {
+			// Small delay then refresh status
+			setTimeout(fetchStatus, 500);
+		});
+	}
+})();
+</script>
+{% endblock %}
+

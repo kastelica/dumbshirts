@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your Free Shirt is Waiting!</title>
+</head>
+<body style="margin:0;padding:0;background:#0b0b0b;color:#e5e7eb;font-family:Inter,Arial,sans-serif;">
+    <div style="max-width:640px;margin:0 auto;padding:20px;">
+        <div style="font-size:22px;font-weight:700;margin-bottom:4px;">Roast Cotton</div>
+        <div style="font-size:14px;color:#9ca3af;margin-bottom:24px;">You're Getting a FREE Shirt!</div>
+
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:8px;padding:24px;margin-bottom:20px;">
+            <div style="font-size:20px;font-weight:600;margin-bottom:12px;color:#ffffff;">🎉 Congratulations!</div>
+            <div style="font-size:15px;color:#d1d5db;line-height:1.6;">
+                You've claimed your free t-shirt! We're excited to send you one of our awesome designs absolutely free.
+            </div>
+        </div>
+
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:8px;padding:20px;margin-bottom:20px;">
+            <div style="font-size:18px;font-weight:600;margin-bottom:16px;color:#ffffff;">What Happens Next?</div>
+            <div style="font-size:14px;color:#d1d5db;line-height:1.8;">
+                <div style="margin-bottom:12px;">
+                    <strong style="color:#ffffff;">📧 Check Your Inbox:</strong> We'll send you a follow-up email with instructions on how to claim your free shirt.
+                </div>
+                <div style="margin-bottom:12px;">
+                    <strong style="color:#ffffff;">🎨 Choose Your Design:</strong> Pick from our collection of trending designs.
+                </div>
+                <div style="margin-bottom:12px;">
+                    <strong style="color:#ffffff;">📦 Free Shipping:</strong> Your free shirt ships at no cost to you.
+                </div>
+                <div>
+                    <strong style="color:#ffffff;">⏰ Limited Time:</strong> This offer is valid for a limited time, so claim yours soon!
+                </div>
+            </div>
+        </div>
+
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:8px;padding:20px;margin-bottom:20px;">
+            <div style="font-size:18px;font-weight:600;margin-bottom:12px;color:#ffffff;">Bonus: You're Now a Loyalty Member!</div>
+            <div style="font-size:14px;color:#d1d5db;line-height:1.6;">
+                As a thank you, you've been automatically enrolled in our loyalty program. Start earning 1 point for every $1 you spend, and unlock VIP status at 100 points!
+            </div>
+        </div>
+
+        <div style="margin-top:24px;text-align:center;">
+            <a href="{{ url_for('main.loyalty_page', _external=True) }}" style="display:inline-block;background:#ffffff;color:#000000;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:15px;">View Your Rewards</a>
+        </div>
+
+        <div style="margin-top:32px;padding-top:20px;border-top:1px solid #1f2937;font-size:12px;color:#9ca3af;line-height:1.6;">
+            <div style="margin-bottom:8px;"><strong style="color:#d1d5db;">Questions?</strong> Reply to this email or visit our <a href="{{ url_for('main.loyalty_page', _external=True) }}" style="color:#60a5fa;text-decoration:underline;">loyalty page</a>.</div>
+            <div style="margin-top:16px;">Roast Cotton — Wear the roast. Keep it cotton.</div>
+        </div>
+    </div>
+</body>
+</html>
+

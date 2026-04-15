@@ -1,0 +1,1092 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard | Roast Cotton{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto">
+	<h1 class="text-3xl font-bold mb-6">Admin Dashboard</h1>
+	
+	<!-- Dashboard Grid -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+		
+		<!-- Product Management Card -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-xl font-semibold mb-4 flex items-center justify-between">
+				<span>Product Management</span>
+				<a href="{{ url_for('admin.products_list') }}" class="text-sm text-gray-400 hover:text-white">View All →</a>
+			</h2>
+			
+			<!-- Quick Stats -->
+			<div class="grid grid-cols-3 gap-4 mb-4">
+				<div class="bg-gray-950 border border-gray-800 rounded p-3 text-center">
+					<div class="text-2xl font-bold">{{ stats.total_products }}</div>
+					<div class="text-xs text-gray-400">Total</div>
+				</div>
+				<div class="bg-gray-950 border border-gray-800 rounded p-3 text-center">
+					<div class="text-2xl font-bold text-green-400">{{ stats.active_products }}</div>
+					<div class="text-xs text-gray-400">Active</div>
+				</div>
+				<div class="bg-gray-950 border border-gray-800 rounded p-3 text-center">
+					<div class="text-2xl font-bold text-yellow-400">{{ stats.draft_products }}</div>
+					<div class="text-xs text-gray-400">Draft</div>
+				</div>
+			</div>
+			
+			<!-- Quick Actions -->
+			<div class="space-y-2">
+				<form method="post" action="{{ url_for('admin.create_blank_product') }}" class="inline-block w-full">
+					<button type="submit" class="w-full bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">+ New Product</button>
+				</form>
+				<a href="{{ url_for('admin.products_list') }}" class="block w-full bg-gray-800 text-white px-4 py-2 rounded text-center hover:bg-gray-700">Manage Products</a>
+			</div>
+			
+			<!-- Bulk Actions -->
+			<div class="mt-4 pt-4 border-t border-gray-800">
+				<h3 class="text-sm font-semibold mb-2">Bulk Actions</h3>
+				<div class="space-y-2">
+					<button id="bulk-publish-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">Publish Selected</button>
+					<button id="bulk-unpublish-btn" class="w-full bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700">Unpublish Selected</button>
+					<button id="bulk-delete-btn" class="w-full bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700">Delete Selected</button>
+					<button id="append-tshirt-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Append "T-Shirt" to Titles</button>
+				</div>
+			</div>
+		</div>
+		
+		<!-- Image Creation Card -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-xl font-semibold mb-4">Image Creation</h2>
+			
+			<div class="space-y-4">
+				<!-- OpenAI Generation -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Generate with AI</label>
+					<textarea id="ai-prompt-input" rows="3" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm" placeholder="Describe the design (solid colors, transparent background)"></textarea>
+					<button id="generate-ai-btn" class="mt-2 w-full bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">Generate Image</button>
+					<div id="ai-status" class="mt-2 text-xs text-gray-400"></div>
+				</div>
+				
+				<!-- Image Upload -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Upload Image</label>
+					<input type="file" id="image-upload" accept="image/*" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm">
+					<div class="mt-2 flex gap-2">
+						<button id="upload-process-btn" class="flex-1 bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">Process & Remove BG</button>
+						<button id="upload-simple-btn" class="flex-1 bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">Upload Only</button>
+					</div>
+					<div id="upload-status" class="mt-2 text-xs text-gray-400"></div>
+				</div>
+				
+				<!-- Preview -->
+				<div id="image-preview-container" class="hidden">
+					<label class="block text-sm font-medium mb-2">Preview</label>
+					<div class="bg-gray-950 border border-gray-700 rounded p-4 flex items-center justify-center">
+						<img id="image-preview" src="" alt="Preview" class="max-w-full max-h-48 object-contain">
+					</div>
+					<div class="mt-2 flex gap-2">
+						<button id="use-image-btn" class="flex-1 bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">Use This Image</button>
+						<button id="clear-preview-btn" class="flex-1 bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">Clear</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+
+		<!-- Google Trends (SerpAPI) Card -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-xl font-semibold mb-4">Google Trends (SerpAPI)</h2>
+			
+			<div class="space-y-3">
+				<div class="flex flex-col sm:flex-row gap-2">
+					<div class="flex-1">
+						<label class="block text-sm font-medium mb-1">Geo</label>
+						<input id="trends-geo" type="text" value="US" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm uppercase">
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Limit</label>
+						<input id="trends-limit" type="number" min="1" max="50" value="30" class="w-28 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm">
+					</div>
+				</div>
+				<div class="flex gap-2">
+					<button id="trends-fetch" class="bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">Fetch Trends</button>
+					<button id="trends-import-selected" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 hidden">Import Selected</button>
+					<button id="trends-load-db" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">Load DB Trends</button>
+				</div>
+				<div id="trends-status" class="text-xs text-gray-400"></div>
+				<div id="trends-results" class="hidden">
+					<div class="text-sm text-gray-400 mb-2">New items are pre-selected:</div>
+					<div id="trends-list" class="space-y-2"></div>
+					<div id="trends-db-wrap" class="mt-4">
+						<div class="text-sm font-semibold mb-2">All Trends in DB</div>
+						<div class="flex items-center gap-2 mb-2">
+							<input id="trends-db-filter" type="text" placeholder="Filter..." class="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm">
+							<button id="trends-db-refresh" class="bg-gray-800 text-white px-3 py-2 rounded text-sm hover:bg-gray-700">Refresh</button>
+						</div>
+						<div id="trends-db-list" class="max-h-64 overflow-auto space-y-2 border border-gray-800 rounded p-2 bg-gray-950"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<!-- KYM Import Card -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-xl font-semibold mb-4">KYM Import</h2>
+			
+			<div class="space-y-4">
+				<div>
+					<label class="block text-sm font-medium mb-2">Search KYM</label>
+					<div class="flex gap-2">
+						<input type="text" id="kym-search" class="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm" placeholder="Search memes...">
+						<button id="kym-search-btn" class="bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">Search</button>
+					</div>
+				</div>
+				
+				<div id="kym-results" class="hidden space-y-2">
+					<div class="text-sm text-gray-400 mb-2">Select memes to import:</div>
+					<div id="kym-results-list"></div>
+					<button id="kym-show-more" class="w-full bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 hidden">Show more</button>
+					<button id="kym-import-selected-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 hidden">Import Selected</button>
+				</div>
+				
+				<div id="kym-status" class="text-xs text-gray-400"></div>
+			</div>
+		</div>
+		
+		<!-- Bulk Product Creation Card -->
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+			<h2 class="text-xl font-semibold mb-4">Bulk Product Creation</h2>
+			
+			<div class="space-y-4">
+				<div>
+					<label class="block text-sm font-medium mb-2">Paste product ideas (one per line)</label>
+					<textarea id="bulk-terms" rows="8" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm font-mono" placeholder="fuck around and find out&#10;play stupid games&#10;lets circle back"></textarea>
+				</div>
+				
+				<div class="flex items-center gap-2">
+					<input type="checkbox" id="bulk-generate-ai" class="w-4 h-4">
+					<label for="bulk-generate-ai" class="text-sm text-gray-300">Auto-generate images with AI</label>
+				</div>
+				
+				<button id="bulk-create-btn" class="w-full bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">Create Products</button>
+				
+				<div id="bulk-status" class="text-xs text-gray-400"></div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- Recent Products Table -->
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+		<h2 class="text-xl font-semibold mb-4">Recent Products</h2>
+		
+		<div class="mb-4 flex items-center gap-4">
+			<input type="text" id="product-search" class="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm" placeholder="Search products...">
+			<select id="status-filter" class="bg-gray-950 border border-gray-700 rounded px-3 py-2 text-gray-100 text-sm">
+				<option value="">All Status</option>
+				<option value="active">Active</option>
+				<option value="draft">Draft</option>
+			</select>
+		</div>
+		
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm">
+				<thead class="text-gray-400 border-b border-gray-800">
+					<tr>
+						<th class="py-2 text-left"><input type="checkbox" id="select-all"></th>
+						<th class="py-2 text-left">Product</th>
+						<th class="py-2 text-left">Status</th>
+						<th class="py-2 text-left">Price</th>
+						<th class="py-2 text-left">Actions</th>
+					</tr>
+				</thead>
+				<tbody id="products-tbody">
+					{% for p in recent_products %}
+					<tr class="border-b border-gray-800 hover:bg-gray-950" data-product-id="{{ p.id }}" data-status="{{ p.status }}">
+						<td class="py-2">
+							<input type="checkbox" class="product-checkbox" value="{{ p.id }}">
+						</td>
+						<td class="py-2">
+							<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="flex items-center gap-3 hover:text-white">
+								<div class="w-12 h-12 bg-gray-950 border border-gray-700 rounded overflow-hidden flex items-center justify-center">
+									{% if p.design and p.design.image_url %}
+									<img src="{{ p.design.image_url }}" alt="{{ p.title }}" class="w-full h-full object-contain">
+									{% else %}
+									<span class="text-gray-600 text-xs">No</span>
+									{% endif %}
+								</div>
+								<span class="font-medium">{{ p.title }}</span>
+							</a>
+						</td>
+						<td class="py-2">
+							<span class="px-2 py-1 rounded text-xs {% if p.status == 'active' %}bg-green-900 text-green-300{% else %}bg-yellow-900 text-yellow-300{% endif %}">
+								{{ p.status|upper }}
+							</span>
+						</td>
+						<td class="py-2">${{ '%.2f'|format(p.price) }}</td>
+						<td class="py-2">
+							<div class="flex items-center gap-2">
+								<button class="generate-image-btn text-xs text-blue-400 hover:text-blue-300" data-product-id="{{ p.id }}">Generate Image</button>
+								<button class="generate-video-btn text-xs text-purple-400 hover:text-purple-300" data-product-id="{{ p.id }}">Generate Video</button>
+								<button class="generate-sora-btn text-xs text-pink-400 hover:text-pink-300" data-product-id="{{ p.id }}">Generate Sora Video</button>
+								<form method="post" action="{{ url_for('admin.toggle_product_visibility', product_id=p.id) }}" class="inline">
+									<button type="submit" class="text-xs text-gray-400 hover:text-white">{{ 'Hide' if p.status == 'active' else 'Show' }}</button>
+								</form>
+								<a href="{{ url_for('admin.edit_product_page', product_id=p.id) }}" class="text-xs text-gray-400 hover:text-white">Edit</a>
+							</div>
+						</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="5" class="py-4 text-center text-gray-400">No products found.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+	<div class="mt-4">
+		<button id="show-more-products" class="w-full bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 hidden">Show more</button>
+	</div>
+</div>
+
+<script>
+(function(){
+	// Shared default prompt for AI image generation
+	const DEFAULT_TEE_PROMPT = `Bold interesting graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+	// Ensure the main AI textarea shows this as the editable placeholder
+	(function(){
+		const aiInput = document.getElementById('ai-prompt-input');
+		if (aiInput) {
+			aiInput.setAttribute('placeholder', DEFAULT_TEE_PROMPT);
+		}
+	})();
+	// Product search and filter
+	const searchInput = document.getElementById('product-search');
+	const statusFilter = document.getElementById('status-filter');
+	const tbody = document.getElementById('products-tbody');
+	const showMoreBtn = document.getElementById('show-more-products');
+	
+	let visibleCount = 20;
+	const SHOW_INCREMENT = 20;
+	
+	function filterProducts() {
+		const search = (searchInput?.value || '').toLowerCase();
+		const status = statusFilter?.value || '';
+		const rows = tbody?.querySelectorAll('tr') || [];
+		
+		let shown = 0;
+		let matchesTotal = 0;
+		
+		rows.forEach(row => {
+			const text = row.textContent?.toLowerCase() || '';
+			const rowStatus = row.dataset.status || '';
+			const matchesSearch = !search || text.includes(search);
+			const matchesStatus = !status || rowStatus === status;
+			const matches = (matchesSearch && matchesStatus);
+			
+			if (matches) {
+				matchesTotal++;
+				if (shown < visibleCount) {
+					row.style.display = '';
+					shown++;
+				} else {
+					row.style.display = 'none';
+				}
+			} else {
+				row.style.display = 'none';
+			}
+		});
+		
+		// Toggle Show more button
+		if (showMoreBtn) {
+			showMoreBtn.classList.toggle('hidden', shown >= matchesTotal);
+		}
+	}
+	
+	searchInput?.addEventListener('input', filterProducts);
+	statusFilter?.addEventListener('change', filterProducts);
+	showMoreBtn?.addEventListener('click', function () {
+		visibleCount += SHOW_INCREMENT;
+		filterProducts();
+	});
+	
+	// 1-click Sora video generation on product rows
+	document.querySelectorAll('.generate-sora-btn').forEach(btn => {
+		btn.addEventListener('click', async function() {
+			const productId = parseInt(this.dataset.productId);
+			if (!productId) return;
+			
+			this.textContent = 'Generating...';
+			this.disabled = true;
+			try{
+				const resp = await fetch(`/admin/products/${productId}/generate-sora`, { method: 'POST' });
+				const data = await resp.json();
+				if(!data.ok){
+					alert('Error: ' + (data.error || 'Failed to start Sora video job'));
+					return;
+				}
+				// Poll for status
+				let attempts = 0;
+				const maxAttempts = 120; // allow more time for Sora
+				const row = this.closest('tr');
+				const poll = setInterval(async ()=>{
+					attempts++;
+					if(attempts > maxAttempts){
+						clearInterval(poll);
+						alert('Timed out waiting for Sora video. Please check again later.');
+						this.disabled = false;
+						this.textContent = 'Generate Sora Video';
+						return;
+					}
+					try{
+						const s = await fetch(`/admin/products/${productId}/sora-status`);
+						const js = await s.json();
+						if(js.ready && js.url){
+							clearInterval(poll);
+							try{
+								const wrap = document.createElement('div');
+								wrap.className = 'mt-2';
+								wrap.innerHTML = `<video src="${js.url}" controls class="w-64 h-auto rounded border border-gray-800"></video>`;
+								if(row && row.parentElement){
+									row.parentElement.insertBefore(wrap, row.nextSibling);
+								}else{
+									alert('Sora video ready: ' + js.url);
+								}
+							}catch(_e){
+								alert('Sora video ready: ' + js.url);
+							}
+							this.disabled = false;
+							this.textContent = 'Generate Sora Video';
+						} else if (js.error){
+							// include stage/progress if available
+							clearInterval(poll);
+							alert(`Error: ${js.error}${js.stage ? ' (stage: ' + js.stage + ')' : ''}`);
+							this.disabled = false;
+							this.textContent = 'Generate Sora Video';
+						}
+					}catch(_e){}
+				}, 5000);
+			}catch(e){
+				alert('Error: ' + e.message);
+			}finally{
+				// button state handled in polling result
+			}
+		});
+	});
+	// Initialize pagination on load
+	filterProducts();
+	
+	// Google Trends (SerpAPI) helpers
+	const trendsStatus = document.getElementById('trends-status');
+	const trendsList = document.getElementById('trends-list');
+	const trendsResults = document.getElementById('trends-results');
+	const importSelectedBtn = document.getElementById('trends-import-selected');
+	
+	function renderTrends(items){
+		if(!trendsList) return;
+		trendsList.innerHTML = '';
+		let anyNew = false;
+		items.forEach((it, idx) => {
+			const row = document.createElement('div');
+			row.className = 'flex items-center gap-3 p-2 bg-gray-950 border border-gray-700 rounded';
+			const isNew = !!it.is_new;
+			if(isNew) anyNew = true;
+			row.innerHTML = `
+				<input type="checkbox" class="trends-checkbox" data-index="${idx}" ${isNew ? 'checked' : ''}>
+				<div class="flex-1">
+					<div class="font-medium text-sm">${(it.term || it.normalized || '').replace(/</g,'&lt;')}</div>
+					<div class="text-xs ${isNew ? 'text-green-400' : 'text-gray-500'}">${isNew ? 'NEW' : 'Existing'}</div>
+				</div>
+			`;
+			trendsList.appendChild(row);
+		});
+		if(trendsResults){
+			trendsResults.classList.remove('hidden');
+		}
+		if(importSelectedBtn){
+			importSelectedBtn.classList.toggle('hidden', !anyNew);
+		}
+	}
+	
+	document.getElementById('trends-fetch')?.addEventListener('click', async function(){
+		const geo = (document.getElementById('trends-geo')?.value || 'US').toUpperCase().trim();
+		const limit = parseInt(document.getElementById('trends-limit')?.value || '30', 10) || 30;
+		trendsStatus.textContent = 'Fetching...';
+		try{
+			const qs = new URLSearchParams({ geo, limit: String(limit) });
+			const resp = await fetch(`/admin/trends/search?${qs.toString()}`);
+			const js = await resp.json();
+			if(!js.ok){
+				trendsStatus.textContent = 'Error: ' + (js.error || 'Failed to fetch');
+				return;
+			}
+			trendsStatus.textContent = `Source: ${js.source || 'unknown'} — ${js.trends?.length || 0} items`;
+			renderTrends(js.trends || []);
+			// store for import
+			trendsList.dataset.raw = JSON.stringify(js.trends || []);
+		}catch(e){
+			trendsStatus.textContent = 'Error: ' + (e && e.message ? e.message : 'unknown');
+		}
+	});
+	
+	importSelectedBtn?.addEventListener('click', async function(){
+		try{
+			const raw = trendsList?.dataset?.raw || '[]';
+			const arr = JSON.parse(raw || '[]');
+			// collect checked indices
+			const checks = Array.from(document.querySelectorAll('.trends-checkbox'));
+			const selected = [];
+			checks.forEach(cb => {
+				if(cb.checked){
+					const i = parseInt(cb.getAttribute('data-index') || '-1', 10);
+					if(i >= 0 && arr[i]){
+						selected.push({ term: arr[i].term || arr[i].normalized || '' });
+					}
+				}
+			});
+			if(selected.length === 0){
+				alert('Please select at least one trend');
+				return;
+			}
+			this.disabled = true;
+			trendsStatus.textContent = 'Importing selected...';
+			const resp = await fetch('/admin/trends/import-selected', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items: selected })
+			});
+			const js = await resp.json();
+			if(!js.ok){
+				trendsStatus.textContent = 'Error: ' + (js.error || 'Failed to import');
+			}else{
+				trendsStatus.textContent = `Imported ${js.created || 0} trend(s).`;
+				// optionally re-fetch to refresh NEW badges
+			}
+		}catch(e){
+			trendsStatus.textContent = 'Error: ' + (e && e.message ? e.message : 'unknown');
+		}finally{
+			this.disabled = false;
+		}
+	});
+	
+	// Load all trends from DB
+	async function loadDbTrends(){
+		const list = document.getElementById('trends-db-list');
+		const filterInput = document.getElementById('trends-db-filter');
+		if(!list) return;
+		try{
+			const resp = await fetch('/admin/trends/list');
+			const js = await resp.json();
+			if(!js.ok){
+				trendsStatus.textContent = 'Error loading DB trends: ' + (js.error || 'unknown');
+				return;
+			}
+			const items = js.trends || [];
+			// Store raw for filtering
+			list.dataset.raw = JSON.stringify(items);
+			renderDbTrends(items, (filterInput?.value || '').trim().toLowerCase());
+		}catch(e){
+			trendsStatus.textContent = 'Error loading DB trends: ' + (e && e.message ? e.message : 'unknown');
+		}
+	}
+	function renderDbTrends(items, q){
+		const list = document.getElementById('trends-db-list');
+		if(!list) return;
+		list.innerHTML = '';
+		const rows = (q ? items.filter(it => ((it.term||'') + ' ' + (it.normalized||'') + ' ' + (it.status||'')).toLowerCase().includes(q)) : items);
+		if(rows.length === 0){
+			const empty = document.createElement('div');
+			empty.className = 'text-xs text-gray-500';
+			empty.textContent = 'No trends found.';
+			list.appendChild(empty);
+			return;
+		}
+		rows.forEach(it => {
+			const div = document.createElement('div');
+			div.className = 'flex items-center justify-between p-2 bg-gray-900 border border-gray-800 rounded';
+			div.innerHTML = `
+				<div class="min-w-0">
+					<div class="text-sm font-medium truncate">${(it.term || '').replace(/</g,'&lt;')}</div>
+					<div class="text-[11px] text-gray-400 truncate">${(it.normalized || '')}</div>
+				</div>
+				<div class="ml-3 text-xs px-2 py-1 rounded ${it.status === 'approved' ? 'bg-green-900 text-green-300' : (it.status === 'ignored' ? 'bg-red-900 text-red-300' : 'bg-yellow-900 text-yellow-300')}">
+					${(it.status || 'new').toUpperCase()}
+				</div>
+			`;
+			list.appendChild(div);
+		});
+	}
+	document.getElementById('trends-load-db')?.addEventListener('click', loadDbTrends);
+	document.getElementById('trends-db-refresh')?.addEventListener('click', loadDbTrends);
+	document.getElementById('trends-db-filter')?.addEventListener('input', function(){
+		const list = document.getElementById('trends-db-list');
+		try{
+			const raw = JSON.parse(list?.dataset?.raw || '[]');
+			renderDbTrends(raw, (this.value || '').trim().toLowerCase());
+		}catch(_e){}
+	});
+	
+	// Select all checkbox
+	const selectAll = document.getElementById('select-all');
+	const checkboxes = document.querySelectorAll('.product-checkbox');
+	
+	selectAll?.addEventListener('change', function() {
+		checkboxes.forEach(cb => cb.checked = this.checked);
+	});
+	
+	// Bulk actions
+	function getSelectedProducts() {
+		return Array.from(checkboxes)
+			.filter(cb => cb.checked)
+			.map(cb => parseInt(cb.value));
+	}
+	
+	document.getElementById('bulk-publish-btn')?.addEventListener('click', async function() {
+		const ids = getSelectedProducts();
+		if (ids.length === 0) {
+			alert('Please select products first');
+			return;
+		}
+		if (!confirm(`Publish ${ids.length} product(s)?`)) return;
+		
+		try {
+			const resp = await fetch('/admin/products/bulk-publish', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ product_ids: ids })
+			});
+			const data = await resp.json();
+			if (data.ok) {
+				alert(`Published ${data.updated || 0} product(s)`);
+				location.reload();
+			} else {
+				alert('Error: ' + (data.error || 'Unknown error'));
+			}
+		} catch (e) {
+			alert('Error: ' + e.message);
+		}
+	});
+	
+	document.getElementById('bulk-unpublish-btn')?.addEventListener('click', async function() {
+		const ids = getSelectedProducts();
+		if (ids.length === 0) {
+			alert('Please select products first');
+			return;
+		}
+		if (!confirm(`Unpublish ${ids.length} product(s)?`)) return;
+		
+		try {
+			const resp = await fetch('/admin/products/bulk-unpublish', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ product_ids: ids })
+			});
+			const data = await resp.json();
+			if (data.ok) {
+				alert(`Unpublished ${data.updated || 0} product(s)`);
+				location.reload();
+			} else {
+				alert('Error: ' + (data.error || 'Unknown error'));
+			}
+		} catch (e) {
+			alert('Error: ' + e.message);
+		}
+	});
+	
+	document.getElementById('bulk-delete-btn')?.addEventListener('click', async function() {
+		const ids = getSelectedProducts();
+		if (ids.length === 0) {
+			alert('Please select products first');
+			return;
+		}
+		if (!confirm(`Delete ${ids.length} product(s)? This cannot be undone.`)) return;
+		
+		try {
+			const resp = await fetch('/admin/products/bulk-delete', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ product_ids: ids })
+			});
+			const data = await resp.json();
+			if (data.ok) {
+				alert(`Deleted ${data.deleted || 0} product(s)`);
+				location.reload();
+			} else {
+				alert('Error: ' + (data.error || 'Unknown error'));
+			}
+		} catch (e) {
+			alert('Error: ' + e.message);
+		}
+	});
+	
+	// AI Image Generation
+	document.getElementById('generate-ai-btn')?.addEventListener('click', async function() {
+		const prompt = document.getElementById('ai-prompt-input')?.value?.trim();
+		if (!prompt) {
+			alert('Please enter a prompt');
+			return;
+		}
+		
+		const statusDiv = document.getElementById('ai-status');
+		const btn = this;
+		statusDiv.textContent = 'Generating...';
+		btn.disabled = true;
+		
+		try {
+			const resp = await fetch('/admin/image/generate', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ prompt })
+			});
+			const data = await resp.json();
+			
+			if (data.error) {
+				statusDiv.textContent = 'Error: ' + data.error;
+				btn.disabled = false;
+			} else {
+				statusDiv.textContent = 'Generation started, polling for result...';
+				// Poll for result
+				let attempts = 0;
+				const maxAttempts = 30;
+				const pollInterval = setInterval(async () => {
+					attempts++;
+					if (attempts > maxAttempts) {
+						clearInterval(pollInterval);
+						statusDiv.textContent = 'Timeout - generation may still be processing';
+						btn.disabled = false;
+						return;
+					}
+					
+					try {
+						const statusResp = await fetch(`/admin/image/generate-status?prompt=${encodeURIComponent(prompt)}`);
+						const statusData = await statusResp.json();
+						
+						if (statusData.ready && statusData.url) {
+							clearInterval(pollInterval);
+							statusDiv.textContent = 'Generated!';
+							showImagePreview(statusData.url);
+							btn.disabled = false;
+						}
+					} catch (e) {
+						// Continue polling
+					}
+				}, 2000);
+			}
+		} catch (e) {
+			statusDiv.textContent = 'Error: ' + e.message;
+			btn.disabled = false;
+		}
+	});
+	
+	// Image Upload
+	document.getElementById('upload-process-btn')?.addEventListener('click', async function() {
+		const fileInput = document.getElementById('image-upload');
+		const file = fileInput?.files[0];
+		if (!file) {
+			alert('Please select an image file');
+			return;
+		}
+		
+		const formData = new FormData();
+		formData.append('image', file);
+		formData.append('remove_bg', '1');
+		
+		const statusDiv = document.getElementById('upload-status');
+		statusDiv.textContent = 'Processing...';
+		this.disabled = true;
+		
+		try {
+			const resp = await fetch('/admin/image/upload', {
+				method: 'POST',
+				body: formData
+			});
+			const data = await resp.json();
+			
+			if (data.error) {
+				statusDiv.textContent = 'Error: ' + data.error;
+			} else if (data.url) {
+				statusDiv.textContent = 'Uploaded and processed!';
+				showImagePreview(data.url);
+			}
+		} catch (e) {
+			statusDiv.textContent = 'Error: ' + e.message;
+		} finally {
+			this.disabled = false;
+		}
+	});
+	
+	document.getElementById('upload-simple-btn')?.addEventListener('click', async function() {
+		const fileInput = document.getElementById('image-upload');
+		const file = fileInput?.files[0];
+		if (!file) {
+			alert('Please select an image file');
+			return;
+		}
+		
+		const formData = new FormData();
+		formData.append('image', file);
+		
+		const statusDiv = document.getElementById('upload-status');
+		statusDiv.textContent = 'Uploading...';
+		this.disabled = true;
+		
+		try {
+			const resp = await fetch('/admin/image/upload', {
+				method: 'POST',
+				body: formData
+			});
+			const data = await resp.json();
+			
+			if (data.error) {
+				statusDiv.textContent = 'Error: ' + data.error;
+			} else if (data.url) {
+				statusDiv.textContent = 'Uploaded!';
+				showImagePreview(data.url);
+			}
+		} catch (e) {
+			statusDiv.textContent = 'Error: ' + e.message;
+		} finally {
+			this.disabled = false;
+		}
+	});
+	
+	// Show image preview
+	let currentImageUrl = null;
+	function showImagePreview(url) {
+		currentImageUrl = url;
+		const container = document.getElementById('image-preview-container');
+		const img = document.getElementById('image-preview');
+		if (container && img) {
+			img.src = url;
+			container.classList.remove('hidden');
+		}
+	}
+	
+	document.getElementById('clear-preview-btn')?.addEventListener('click', function() {
+		currentImageUrl = null;
+		document.getElementById('image-preview-container')?.classList.add('hidden');
+	});
+	
+	// Use image button - redirect to product creation or show modal
+	document.getElementById('use-image-btn')?.addEventListener('click', function() {
+		if (!currentImageUrl) return;
+		// For now, just show the URL - can be enhanced to create product
+		alert('Image URL: ' + currentImageUrl + '\n\nYou can use this URL when creating/editing products.');
+	});
+	
+	// KYM Search
+	let selectedKymMemes = [];
+	let kymAllResults = [];
+	let kymVisibleCount = 20;
+	const KYM_INCREMENT = 20;
+	document.getElementById('kym-search-btn')?.addEventListener('click', async function() {
+		const query = document.getElementById('kym-search')?.value?.trim();
+		if (!query) {
+			alert('Please enter a search term');
+			return;
+		}
+		
+		const statusDiv = document.getElementById('kym-status');
+		statusDiv.textContent = 'Searching...';
+		this.disabled = true;
+		
+		try {
+			// Ask backend for broader fuzzy results (pages/limit are hints)
+			const params = new URLSearchParams({ q: query, pages: '3', limit: '60' });
+			const resp = await fetch('/admin/kym/search?' + params.toString());
+			const data = await resp.json();
+			
+			if (data.error) {
+				statusDiv.textContent = 'Error: ' + data.error;
+			} else if (data.memes && data.memes.length > 0) {
+				kymAllResults = data.memes;
+				kymVisibleCount = 20;
+				statusDiv.textContent = `Found ${kymAllResults.length} memes`;
+				displayKymResults();
+			} else {
+				statusDiv.textContent = 'No memes found';
+			}
+		} catch (e) {
+			statusDiv.textContent = 'Error: ' + e.message;
+		} finally {
+			this.disabled = false;
+		}
+	});
+	
+	function displayKymResults() {
+		const container = document.getElementById('kym-results');
+		const list = document.getElementById('kym-results-list');
+		const showMoreBtn = document.getElementById('kym-show-more');
+		const importBtn = document.getElementById('kym-import-selected-btn');
+		
+		if (!container || !list) return;
+		
+		container.classList.remove('hidden');
+		list.innerHTML = '';
+		selectedKymMemes = [];
+		
+		const slice = kymAllResults.slice(0, kymVisibleCount);
+		slice.forEach((meme, idx) => {
+			const div = document.createElement('div');
+			div.className = 'flex items-center gap-3 p-2 bg-gray-950 border border-gray-700 rounded';
+			div.innerHTML = `
+				<input type="checkbox" class="kym-checkbox" data-index="${idx}" id="kym-${idx}">
+				<label for="kym-${idx}" class="flex-1 cursor-pointer">
+					<div class="font-medium text-sm">${meme.title || 'Untitled'}</div>
+					${meme.image ? `<img src="${meme.image}" alt="${meme.title}" class="w-16 h-16 object-cover mt-1 rounded">` : ''}
+				</label>
+			`;
+			list.appendChild(div);
+		});
+		
+		// Handle checkbox changes
+		list.querySelectorAll('.kym-checkbox').forEach(cb => {
+			cb.addEventListener('change', function() {
+				const idx = parseInt(this.dataset.index);
+				const memesSlice = kymAllResults.slice(0, kymVisibleCount);
+				if (this.checked) {
+					if (!selectedKymMemes.find(m => m.title === memesSlice[idx].title)) {
+						selectedKymMemes.push(memesSlice[idx]);
+					}
+				} else {
+					selectedKymMemes = selectedKymMemes.filter(m => m.title !== memesSlice[idx].title);
+				}
+				importBtn.classList.toggle('hidden', selectedKymMemes.length === 0);
+			});
+		});
+		
+		// Show more button
+		if (showMoreBtn) {
+			showMoreBtn.classList.toggle('hidden', kymVisibleCount >= kymAllResults.length);
+			showMoreBtn.onclick = function () {
+				kymVisibleCount += KYM_INCREMENT;
+				displayKymResults();
+			};
+		}
+	}
+	
+	document.getElementById('kym-import-selected-btn')?.addEventListener('click', async function() {
+		if (selectedKymMemes.length === 0) return;
+		
+		if (!confirm(`Import ${selectedKymMemes.length} meme(s)?`)) return;
+		
+		const statusDiv = document.getElementById('kym-status');
+		statusDiv.textContent = 'Importing...';
+		this.disabled = true;
+		
+		try {
+			const resp = await fetch('/admin/kym/import-selected', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ memes: selectedKymMemes })
+			});
+			const data = await resp.json();
+			
+			if (data.error) {
+				statusDiv.textContent = 'Error: ' + data.error;
+			} else {
+				statusDiv.textContent = `Imported ${data.created || 0} product(s)`;
+				setTimeout(() => location.reload(), 2000);
+			}
+		} catch (e) {
+			statusDiv.textContent = 'Error: ' + e.message;
+		} finally {
+			this.disabled = false;
+		}
+	});
+	
+	// Bulk Product Creation
+	document.getElementById('bulk-create-btn')?.addEventListener('click', async function() {
+		const textarea = document.getElementById('bulk-terms');
+		const generateAi = document.getElementById('bulk-generate-ai')?.checked || false;
+		const terms = (textarea?.value || '').trim().split('\n').filter(t => t.trim()).map(t => t.trim());
+		
+		if (terms.length === 0) {
+			alert('Please enter at least one product idea');
+			return;
+		}
+		
+		if (!confirm(`Create ${terms.length} product(s)${generateAi ? ' with AI image generation' : ''}?`)) return;
+		
+		const statusDiv = document.getElementById('bulk-status');
+		statusDiv.textContent = 'Creating products...';
+		this.disabled = true;
+		
+		try {
+			const resp = await fetch('/admin/products/bulk-create', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ terms, generate_ai: generateAi })
+			});
+			const data = await resp.json();
+			
+			if (data.error) {
+				statusDiv.textContent = 'Error: ' + data.error;
+			} else {
+				statusDiv.textContent = `Created ${data.created || 0} product(s)`;
+				setTimeout(() => location.reload(), 2000);
+			}
+		} catch (e) {
+			statusDiv.textContent = 'Error: ' + e.message;
+		} finally {
+			this.disabled = false;
+		}
+	});
+	
+	// 1-click image generation on product rows
+	document.querySelectorAll('.generate-image-btn').forEach(btn => {
+		btn.addEventListener('click', async function() {
+			const productId = parseInt(this.dataset.productId);
+			if (!productId) return;
+			
+			// Build default prompt including the product title
+			const titleFromAttr = this.dataset.productTitle || '';
+			const titleFromRow = this.closest('tr')?.querySelector('span.font-medium')?.textContent?.trim() || '';
+			const productTitle = titleFromAttr || titleFromRow || 'T-Shirt';
+			const buildDefaultPrompt = (t) => `Design for "${t}". Bold interesting graphic for a T-shirt. Solid colors only, no gradients, simple icon or bold typography, transparent background PNG, centered composition.`;
+			
+			const userPrompt = window.prompt('Enter image generation prompt (you can edit):', buildDefaultPrompt(productTitle));
+			if (userPrompt === null) return; // User cancelled
+			
+			let finalPrompt = (userPrompt || '').trim();
+			if (!finalPrompt) {
+				finalPrompt = buildDefaultPrompt(productTitle);
+			} else if (!finalPrompt.toLowerCase().includes(productTitle.toLowerCase())) {
+				finalPrompt = `Design for "${productTitle}". ` + finalPrompt;
+			}
+			
+			this.textContent = 'Generating...';
+			this.disabled = true;
+			
+			try {
+				const resp = await fetch(`/admin/products/${productId}/generate-image`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ prompt: finalPrompt })
+				});
+				const data = await resp.json();
+				
+				if (data.error) {
+					alert('Error: ' + data.error);
+				} else {
+					alert('Image generation started! Check the product edit page in a moment.');
+					// Poll for status
+					pollImageStatus(productId, this);
+				}
+			} catch (e) {
+				alert('Error: ' + e.message);
+			} finally {
+				this.disabled = false;
+				this.textContent = 'Generate Image';
+			}
+		});
+	});
+	
+	// 1-click video (Veo3) generation on product rows
+	document.querySelectorAll('.generate-video-btn').forEach(btn => {
+		btn.addEventListener('click', async function() {
+			const productId = parseInt(this.dataset.productId);
+			if (!productId) return;
+			
+			this.textContent = 'Generating...';
+			this.disabled = true;
+			try{
+				const resp = await fetch(`/admin/products/${productId}/generate-video`, { method: 'POST' });
+				const data = await resp.json();
+				if(!data.ok){
+					alert('Error: ' + (data.error || 'Failed to start video job'));
+					return;
+				}
+				// Poll for status
+				let attempts = 0;
+				const maxAttempts = 60; // up to ~2 minutes if needed
+				const row = this.closest('tr');
+				const poll = setInterval(async ()=>{
+					attempts++;
+					if(attempts > maxAttempts){
+						clearInterval(poll);
+						alert('Timed out waiting for video. Please check again later.');
+						this.disabled = false;
+						this.textContent = 'Generate Video';
+						return;
+					}
+					try{
+						const s = await fetch(`/admin/products/${productId}/video-status`);
+						const js = await s.json();
+						if(js.ready && js.url){
+							clearInterval(poll);
+							// Insert a small preview below the row
+							try{
+								const wrap = document.createElement('div');
+								wrap.className = 'mt-2';
+								wrap.innerHTML = `<video src="${js.url}" controls class="w-64 h-auto rounded border border-gray-800"></video>`;
+								if(row && row.parentElement){
+									row.parentElement.insertBefore(wrap, row.nextSibling);
+								}else{
+									alert('Video ready: ' + js.url);
+								}
+							}catch(_e){
+								alert('Video ready: ' + js.url);
+							}
+							this.disabled = false;
+							this.textContent = 'Generate Video';
+						} else if (js.error){
+							clearInterval(poll);
+							alert('Error: ' + js.error);
+							this.disabled = false;
+							this.textContent = 'Generate Video';
+						}
+					}catch(_e){}
+				}, 2000);
+			}catch(e){
+				alert('Error: ' + e.message);
+			}finally{
+				// button state handled in polling result
+			}
+		});
+	});
+	
+	// Append "T-Shirt" to product titles (bulk)
+	document.getElementById('append-tshirt-btn')?.addEventListener('click', async function() {
+		if (!confirm('Append " T-Shirt" to all product titles that do not already end with it?')) return;
+		this.disabled = true;
+		try {
+			const resp = await fetch('/admin/products/append-tshirt', { method: 'POST' });
+			const data = await resp.json();
+			if (data.ok) {
+				alert(`Updated ${data.updated || 0} product title(s).`);
+				location.reload();
+			} else {
+				alert('Error: ' + (data.error || 'Unknown error'));
+			}
+		} catch (e) {
+			alert('Error: ' + e.message);
+		} finally {
+			this.disabled = false;
+		}
+	});
+	
+	function pollImageStatus(productId, btn) {
+		let attempts = 0;
+		const maxAttempts = 30;
+		const interval = setInterval(async () => {
+			attempts++;
+			if (attempts > maxAttempts) {
+				clearInterval(interval);
+				return;
+			}
+			
+			try {
+				const resp = await fetch(`/admin/products/${productId}/generate-status`);
+				const data = await resp.json();
+				if (data.ready && data.url) {
+					clearInterval(interval);
+					btn.textContent = 'Done!';
+					setTimeout(() => location.reload(), 1000);
+				}
+			} catch (e) {
+				// Ignore errors
+			}
+		}, 2000);
+	}
+})();
+</script>
+{% endblock %}
+
+

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Admin Dashboard</h1>
+<p class="text-gray-300">Approve new designs and manage products here.</p>
+
+<h2 class="text-xl font-semibold mt-6 mb-2">Pending Designs</h2>
+<ul class="space-y-2">
+	{% for d in pending %}
+	<li class="flex items-center justify-between border border-gray-800 rounded px-3 py-2 bg-gray-900">
+		<span>{{ d.text }}</span>
+		<div class="space-x-2">
+			<form method="post" action="{{ url_for('admin.approve_design', design_id=d.id) }}" class="inline">
+				<button class="bg-white text-black rounded px-3 py-1">Approve</button>
+			</form>
+			<form method="post" action="{{ url_for('admin.create_product_from_design', design_id=d.id) }}" class="inline">
+				<button class="bg-white text-black rounded px-3 py-1">Create Product</button>
+			</form>
+		</div>
+	</li>
+	{% else %}
+	<li class="text-gray-400">No pending designs.</li>
+	{% endfor %}
+</ul>
+
+<ul class="list-disc ml-6 mt-6 text-gray-200">
+	<li><a class="underline" href="{{ url_for('admin.trends_page') }}">Fetch trending phrases</a></li>
+	<li><a class="underline" href="{{ url_for('admin.products_list') }}">Manage products</a></li>
+	<li><a class="underline" href="{{ url_for('admin.manage_promotions') }}">Google Shopping promotions</a></li>
+	<li><a class="underline" href="{{ url_for('admin.manage_reviews') }}">Google Shopping reviews</a></li>
+</ul>
+{% endblock %}

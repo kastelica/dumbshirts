@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmation | Roast Cotton{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-2">Thank you for your order!</h1>
+<p class="text-gray-300 mb-6">Order <span class="font-mono">#{{ order.id }}</span> has been received. A confirmation email has been sent to {{ email or 'your inbox' }}.</p>
+
+<div class="bg-gray-900 border border-gray-800 rounded p-4 mb-6">
+	<h2 class="text-lg font-semibold mb-3">Summary</h2>
+	<ul class="text-sm text-gray-300 space-y-1">
+		<li><strong>Status:</strong> {{ order.status }}</li>
+		<li><strong>Total:</strong> {{ '%.2f'|format(order.total_amount) }} {{ order.currency }}</li>
+		<li><strong>Estimated delivery:</strong> {{ est_delivery }}</li>
+	</ul>
+</div>
+
+<script src="https://apis.google.com/js/platform.js?onload=renderOptIn" async defer></script>
+<script>
+window.renderOptIn = function() {
+  window.gapi.load('surveyoptin', function() {
+    window.gapi.surveyoptin.render({
+      "merchant_id": {{ merchant_id }},
+      "order_id": {{ (order.stripe_payment_intent_id or ('ORDER-' ~ order.id))|tojson }},
+      "email": {{ (email or '')|tojson }},
+      "delivery_country": {{ (country or 'US')|tojson }},
+      "estimated_delivery_date": {{ est_delivery|tojson }},
+      "products": {{ (products or [])|tojson }}
+    });
+  });
+}
+
+// SHA-256 hashing function for TikTok PII data
+async function sha256Hash(text) {
+	if (!text) return '';
+	const encoder = new TextEncoder();
+	const data = encoder.encode(text.toLowerCase().trim());
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// TikTok Pixel: Identify user if email available
+(async function(){
+	try{
+		{% if email %}
+		const userEmail = {{ email|tojson }};
+		if(userEmail && typeof ttq !== 'undefined'){
+			const hashedEmail = await sha256Hash(userEmail);
+			ttq.identify({
+				email: hashedEmail
+			});
+		}
+		{% endif %}
+	}catch(_e){}
+})();
+
+// Send GA4 purchase event (backup in case it didn't fire on checkout page)
+(function(){
+	try{
+		if(typeof gtag === 'function'){
+			// Check if purchase event already sent (stored in sessionStorage to avoid duplicates)
+			const eventKey = 'ga4_purchase_' + {{ order.id|tojson }};
+			if(!sessionStorage.getItem(eventKey)){
+				const items = {{ order_items|tojson }} || [];
+				gtag('event', 'purchase', {
+					transaction_id: {{ (order.stripe_payment_intent_id or order.id)|tojson }},
+					value: {{ (order.total_amount or 0)|float|tojson }},
+					currency: {{ (order.currency or 'USD')|tojson }},
+					items: items.map(function(it){
+						return {
+							item_id: (it.product_id || '').toString(),
+							item_name: it.title || '',
+							item_brand: 'Roast Cotton',
+							item_category: 't-shirt',
+							item_variant: (it.variant_id || '').toString(),
+							price: parseFloat(it.unit_price || it.price || 0),
+							quantity: parseInt(it.quantity || 1),
+						};
+					})
+				});
+				sessionStorage.setItem(eventKey, '1');
+				console.log('[confirmation] GA4 purchase event sent', { transaction_id: {{ order.id|tojson }}, value: {{ (order.total_amount or 0)|float|tojson }} });
+			}
+		}
+	}catch(e){
+		console.warn('[confirmation] GA4 purchase event failed', e);
+	}
+})();
+
+// TikTok Pixel: Purchase event
+(async function(){
+	try{
+		if(typeof ttq !== 'undefined'){
+			// Check if purchase event already sent (stored in sessionStorage to avoid duplicates)
+			const eventKey = 'ttq_purchase_' + {{ order.id|tojson }};
+			if(!sessionStorage.getItem(eventKey)){
+				const items = {{ order_items|tojson }} || [];
+				const contents = items.map(function(it){
+					return {
+						content_id: (it.product_id || '').toString(),
+						content_type: 'product',
+						content_name: it.title || ''
+					};
+				});
+				ttq.track('Purchase', {
+					contents: contents,
+					value: {{ (order.total_amount or 0)|float|tojson }},
+					currency: {{ (order.currency or 'USD')|tojson }}
+				});
+				sessionStorage.setItem(eventKey, '1');
+				console.log('[confirmation] TikTok Pixel purchase event sent', { order_id: {{ order.id|tojson }}, value: {{ (order.total_amount or 0)|float|tojson }} });
+			}
+		}
+	}catch(e){
+		console.warn('[confirmation] TikTok Pixel purchase event failed', e);
+	}
+})();
+</script>
+
+<div class="mt-6">
+	<a href="{{ url_for('main.index') }}" class="bg-white text-black px-4 py-2 rounded">Continue Shopping</a>
+</div>
+{% endblock %}
+

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Search</h1>
+{% if trend_bubbles %}
+<div class="mb-4 flex flex-wrap gap-2">
+    {% for tb in trend_bubbles %}
+    <a href="{{ url_for('main.search') }}?q={{ tb.normalized }}" class="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-sm hover:bg-gray-800">#{{ tb.normalized }}</a>
+    {% endfor %}
+    {% if not trend_bubbles %}
+    <span class="text-gray-500 text-sm">No recent trends</span>
+    {% endif %}
+    <div class="text-xs text-gray-600 ml-auto">Try a recent trend</div>
+    <div class="w-full border-b border-gray-800 mt-2"></div>
+    
+</div>
+{% endif %}
+{% if q %}
+<p class="text-gray-400 mb-4">Results for "{{ q }}"</p>
+{% endif %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+	{% for p in results %}
+	{# Auto-select a different color for each product using product ID #}
+	{% set color_set = ['white','black','heather','red','blue'] %}
+	{% set auto_color = color_set[p.id % color_set|length] %}
+	<a href="{{ url_for('main.product_detail', slug=p.slug) }}?color={{ auto_color }}" class="group border border-gray-800 rounded overflow-hidden bg-gray-900 hover:bg-gray-800 transition-colors" data-auto-color="{{ auto_color }}">
+		<div class="relative js-card-gallery">
+			{# Live mockup container: base tee by color + design overlay #}
+			<div class="absolute inset-0 z-10 pointer-events-none mockup-wrap">
+				<img alt="Tee base" class="w-full h-full object-contain mockup-base" />
+				<img alt="Design overlay" class="absolute object-contain mockup-design" style="width:35%; left:32%; top:26%;" data-design-src="{{ p.design.image_url if p.design and p.design.image_url else '' }}" />
+			</div>
+			<div class="aspect-square bg-gray-950 flex items-center justify-center overflow-hidden">
+				{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
+				{% set design_only = p.design.image_url if p.design and p.design.image_url else '' %}
+				{% if design_only %}
+					<img src="{{ design_only }}" alt="{{ p.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame="0" />
+			{% else %}
+			<span class="text-gray-600 text-sm">No image</span>
+			{% endif %}
+			</div>
+			<button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-lg flex items-center justify-center z-10" data-action="prev">‹</button>
+			<button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-900 border border-gray-800 text-gray-200 text-lg flex items-center justify-center z-10" data-action="next">›</button>
+		</div>
+		<div class="p-4">
+			<div class="font-semibold leading-snug">{{ p.title }}</div>
+			<div class="text-sm mt-1">
+				<span class="line-through text-red-400">${{ '%.2f'|format(p.price) }}</span>
+				<span class="ml-2 text-green-400 font-semibold">${{ '%.2f'|format((p.price * 85) / 100) }} {{ p.currency }}</span>
+			</div>
+			{# lightweight color selector and add-to-cart #}
+			{% set color_set = ['white','black','heather','red','blue'] %}
+			<div class="mt-3 flex items-center justify-between gap-3">
+				<div class="flex items-center gap-2 js-swatch-wrap" data-card-color-map='{
+					{% for v in p.variants %}
+					"{{ (v.color or '')|lower }}": {{ v.id }}{% if not loop.last %},{% endif %}
+					{% endfor %}
+				}' data-card-variant-map='{
+					{% for v in p.variants %}
+					"{{ ((v.size or '')|lower) ~ '|' ~ ((v.color or '')|lower) }}": {{ v.id }}{% if not loop.last %},{% endif %}
+					{% endfor %}
+				}'>
+					{% for c in color_set[:5] %}
+					<button type="button" class="w-8 h-8 rounded border border-gray-700" aria-label="{{ c }}" data-color="{{ c }}" style="background-color: {{ 'black' if c=='black' else ('white' if c=='white' else ( 'red' if c=='red' else ( 'blue' if c=='blue' else ( 'gray' if c in ['heather','grey','gray'] else c ))) ) }};"></button>
+					{% endfor %}
+				</div>
+				<form method="post" action="/cart/add" class="flex items-center gap-2 js-add-to-cart-form" data-product-id="{{ p.id }}" data-product-title="{{ p.title }}" data-product-price="{{ ((p.price * 85) / 100)|float }}" data-currency="{{ p.currency }}">
+					<input type="hidden" name="product_id" value="{{ p.id }}">
+					<input type="hidden" name="variant_id" value="{{ p.variants[0].id if p.variants else '' }}" class="js-variant-id">
+					<input type="hidden" name="color" value="{{ auto_color }}" class="js-color-val">
+					<input type="hidden" name="size" value="L" class="js-size-val">
+					<input type="hidden" name="quantity" value="1">
+					<button class="text-xs bg-white text-black px-3 py-1 rounded">Add</button>
+				</form>
+			</div>
+			<div class="mt-2 flex items-center justify-end gap-2">
+				<div class="text-xs text-gray-400">Size</div>
+				<select class="js-size-select text-xs bg-gray-900 border border-gray-800 rounded px-2 py-1 text-gray-100">
+					<option value="S">S</option>
+					<option value="M">M</option>
+					<option value="L" selected>L</option>
+					<option value="XL">XL</option>
+				</select>
+				
+			</div>
+		</div>
+	</a>
+	{% else %}
+	<div class="text-gray-400">No results.</div>
+	{% endfor %}
+</div>
+{% endblock %}
+
+{% block head %}
+<script src="/static/js/product-gallery.js"></script>
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    var q = document.querySelector('input[name="q"]');
+    if(q){ q.placeholder = 'meme'; }
+  });
+})();
+</script>
+<script>
+// GA4 add_to_cart tracking for product cards - use event delegation
+(function(){
+	function handleAddToCart(e){
+		// For submit events, e.target is usually the form, but could be button
+		let form = e.target;
+		if(form.tagName !== 'FORM'){
+			form = form.closest ? form.closest('.js-add-to-cart-form') : (form.form || null);
+		}
+		if(!form || !form.classList || !form.classList.contains('js-add-to-cart-form')) return;
+		
+		try{
+			const productId = form.getAttribute('data-product-id');
+			const productTitle = form.getAttribute('data-product-title');
+			const productPrice = parseFloat(form.getAttribute('data-product-price') || '0');
+			const currency = form.getAttribute('data-currency') || 'USD';
+			const qtyInput = form.querySelector('input[name="quantity"]');
+			const qty = parseInt(qtyInput?.value || '1', 10) || 1;
+			const colorInput = form.querySelector('.js-color-val');
+			const sizeInput = form.querySelector('.js-size-val');
+			const variantInput = form.querySelector('.js-variant-id');
+			const color = colorInput?.value || '';
+			const size = sizeInput?.value || '';
+			const variantId = variantInput?.value || '';
+			
+			if(typeof gtag === 'function'){
+				gtag('event', 'add_to_cart', {
+					currency: currency,
+					value: productPrice * qty,
+					items: [{
+						item_id: productId?.toString() || '',
+						item_name: productTitle || '',
+						item_brand: 'Roast Cotton',
+						item_category: 't-shirt',
+						item_variant: variantId?.toString() || (size + ' / ' + (color.charAt(0).toUpperCase() + color.slice(1)) + ' / Crewneck'),
+						price: productPrice,
+						quantity: qty
+					}]
+				});
+				console.log('[search] GA4 add_to_cart event sent', { product_id: productId, quantity: qty });
+			}
+		}catch(err){
+			console.warn('[search] add_to_cart tracking failed', err);
+		}
+	}
+	
+	function init(){
+		// Use event delegation on document for reliability
+		document.addEventListener('submit', function(e){
+			handleAddToCart(e);
+		}, true); // Use capture phase to catch early
+	}
+	
+	if(document.readyState === 'loading'){
+		document.addEventListener('DOMContentLoaded', init);
+	}else{
+		init();
+	}
+})();
+</script>
+{% endblock %}

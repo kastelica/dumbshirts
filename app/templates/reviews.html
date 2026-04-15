@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Customer Reviews | Roast Cotton{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-4">Customer Reviews</h1>
+  <p class="text-sm text-gray-400 mb-4">Our customers reviews.</p>
+
+  <div class="space-y-4">
+    {% for r in reviews %}
+    <div class="bg-gray-900 border border-gray-800 rounded p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-yellow-400 text-lg" aria-label="{{ r.rating }} out of 5 stars">{{ '★' * (r.rating or 5) }}{{ '☆' * (5 - (r.rating or 5)) }}</div>
+        <div class="text-xs text-gray-500" data-date="{{ r.created_at or '' }}">{{ r.created_at or 'Recently' }}</div>
+      </div>
+      <div class="mt-1 text-gray-100 font-medium">{{ r.title }}</div>
+      <p class="mt-2 text-gray-300 leading-relaxed">{{ r.content }}</p>
+      <div class="mt-3 flex items-center justify-between">
+        <div class="text-sm text-gray-400">- {{ r.reviewer_name or 'Customer' }}</div>
+        {% if r.rating and r.rating >= 4 %}
+        <span class="text-xs text-green-400 bg-green-400/10 px-2 py-1 rounded">Verified Purchase</span>
+        {% endif %}
+      </div>
+      {% set pid = (r.product_id|string) if r.product_id is not none else '' %}
+      {% if pid and products.get(pid|int) %}
+      {% set p = products.get(pid|int) %}
+      <div class="mt-3">
+        <a class="text-blue-400 hover:underline text-sm" href="{{ url_for('main.product_detail', slug=p.slug) }}">View product: {{ p.title }}</a>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="text-gray-400">No reviews yet.</div>
+    {% endfor %}
+  </div>
+
+  
+</div>
+<script>
+// Format dates to readable format
+(function(){
+	document.querySelectorAll('[data-date]').forEach(function(el){
+		const dateStr = el.getAttribute('data-date');
+		if(!dateStr || dateStr === 'Recently') return;
+		
+		try{
+			// Parse ISO 8601 format: "2025-10-21T15:12:00Z"
+			const date = new Date(dateStr);
+			if(isNaN(date.getTime())) return;
+			
+			const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+			const month = months[date.getMonth()];
+			const day = date.getDate();
+			const year = date.getFullYear();
+			let hours = date.getHours();
+			const minutes = date.getMinutes();
+			const ampm = hours >= 12 ? 'PM' : 'AM';
+			hours = hours % 12;
+			hours = hours ? hours : 12; // the hour '0' should be '12'
+			const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+			
+			el.textContent = month + ' ' + day + ', ' + year + ' at ' + hours + ':' + minutesStr + ' ' + ampm;
+		}catch(e){
+			// Keep original if parsing fails
+		}
+	});
+})();
+</script>
+{% endblock %}
+
+
