@@ -17,7 +17,7 @@
 	{% else %}
 		{% set image_abs = '' %}
 	{% endif %}
-	<title>{{ product.title }} | Dumbshirts.store</title>
+	<title>{{ product.title }} | Roast Cotton</title>
 	<meta name="description" content="{{ (product.description or product.title)[:160] }}">
 	<link rel="canonical" href="{{ canonical }}">
 	<link rel="alternate" href="{{ canonical }}" hreflang="x-default">
@@ -31,7 +31,7 @@
 	<meta property="og:description" content="{{ (product.description or product.title)[:200] }}">
 	<meta property="og:url" content="{{ canonical }}">
 	{% if image_abs %}<meta property="og:image" content="{{ image_abs }}">{% endif %}
-	<meta property="og:site_name" content="Dumbshirts.store">
+	<meta property="og:site_name" content="Roast Cotton">
 	{% if image_abs %}<meta property="og:image:alt" content="{{ product.title }}">{% endif %}
 	<meta name="twitter:card" content="summary_large_image">
 	<meta name="twitter:title" content="{{ product.title }}">
@@ -48,7 +48,7 @@
 		{% if image_abs %}"image": [{{ image_abs|tojson }}],{% endif %}
 		"description": {{ (product.description or product.title)|tojson }},
 		"sku": {{ product.id|string|tojson }},
-		"brand": { "@type": "Brand", "name": "Dumbshirts.store" },
+		"brand": { "@type": "Brand", "name": "Roast Cotton" },
 		"url": {{ canonical|tojson }},
 		"review": {
 			"@type": "Review",
@@ -182,7 +182,7 @@
 	})();
 	</script>
 {% endblock %}
-{% block title %}{{ product.title }} | Dumbshirts.store{% endblock %}
+{% block title %}{{ product.title }} | Roast Cotton{% endblock %}
 {% block content %}
 <div class="relative">
 
@@ -553,7 +553,7 @@ function lookupProductUid(size, color){
 							items: [{
 								item_id: {{ product.id|tojson }},
 								item_name: {{ product.title|tojson }},
-								item_brand: 'Dumbshirts.store',
+								item_brand: 'Roast Cotton',
 								item_category: 't-shirt',
 								item_variant: size + ' / ' + (color.charAt(0).toUpperCase()+color.slice(1)) + ' / Crewneck',
 								price: salePrice,

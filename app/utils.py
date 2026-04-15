@@ -47,15 +47,15 @@ def send_email_via_sendgrid(to_email: str, subject: str, html_body: str, *, from
     """Send an email using SendGrid. Returns (ok, message).
 
     Requires SENDGRID_API_KEY in config/env. Default sender is
-    email@dumbshirts.store unless overridden.
-    Default from_name is "Dumb Shirts Store" unless overridden.
+    email@roastcotton.com unless overridden.
+    Default from_name is "Roast Cotton" unless overridden.
     """
     try:
         api_key = os.getenv("SENDGRID_API_KEY", "").strip()
         if not api_key or SendGridAPIClient is None:
             return False, "SendGrid not configured"
-        sender_email = (from_email or os.getenv("EMAIL_SENDER", "email@dumbshirts.store")).strip()
-        sender_name = (from_name or os.getenv("EMAIL_SENDER_NAME", "Dumb Shirts Store")).strip()
+        sender_email = (from_email or os.getenv("EMAIL_SENDER", "email@roastcotton.com")).strip()
+        sender_name = (from_name or os.getenv("EMAIL_SENDER_NAME", "Roast Cotton")).strip()
         msg = Mail(
             from_email=Email(sender_email, sender_name),
             to_emails=[To(to_email)],
@@ -77,7 +77,7 @@ def render_simple_email(title: str, body_lines: Sequence[str]) -> str:
         "<div style='background:#0b0b0b;color:#e5e7eb;padding:20px;font-family:Inter,Arial,sans-serif'>"
         f"<h2 style='margin:0 0 12px 0'>{title}</h2>"
         f"{inner}"
-        "<p style='margin-top:16px;font-size:12px;color:#9ca3af'>Dumbshirts.store</p>"
+        "<p style='margin-top:16px;font-size:12px;color:#9ca3af'>Roast Cotton</p>"
         "</div>"
     )
 

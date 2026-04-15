@@ -5,19 +5,32 @@ import csv
 import io
 
 
+def _feed_base_url() -> str:
+	"""Return the canonical public base URL for feed metadata."""
+	base = str(current_app.config.get("BASE_URL", "https://roastcotton.com")).strip()
+	if not base:
+		base = "https://roastcotton.com"
+	base = base.replace("http://dumbshirts.store", "https://roastcotton.com")
+	base = base.replace("https://dumbshirts.store", "https://roastcotton.com")
+	return base.rstrip("/")
+
+
 def render_google_shopping_feed(items):
 	rss = Element("rss", attrib={"version": "2.0", "xmlns:g": "http://base.google.com/ns/1.0"})
 	channel = SubElement(rss, "channel")
-	SubElement(channel, "title").text = "TrendMerch Products"
-	# Use configured BASE_URL for channel link
-	SubElement(channel, "link").text = current_app.config.get("BASE_URL", "http://localhost:5000")
-	SubElement(channel, "description").text = "Trending POD products"
+	base_url = _feed_base_url()
+	SubElement(channel, "title").text = "Roast Cotton Products"
+	SubElement(channel, "link").text = base_url
+	SubElement(channel, "description").text = "Roast Cotton trending POD products"
 
 	for item in items:
 		it = SubElement(channel, "item")
 		SubElement(it, "title").text = item.get("title", "")
 		SubElement(it, "link").text = item.get("link", "")
-		SubElement(it, "description").text = item.get("description", "")
+		item_description = (item.get("description") or "").strip()
+		if not item_description:
+			item_description = f"{item.get('title', 'Product')} — available at Roast Cotton."
+		SubElement(it, "description").text = item_description
 		SubElement(it, "g:id").text = str(item.get("id", ""))
 		# Manufacturer Part Number - use our item id as requested
 		SubElement(it, "g:mpn").text = str(item.get("id", ""))
@@ -115,7 +128,7 @@ def render_google_promotions_feed(promotions: list) -> Response:
 	})
 	SubElement(root, "title").text = "Promotion Feed"
 	# Self link
-	base = current_app.config.get("BASE_URL", "http://localhost:5000").rstrip("/")
+	base = _feed_base_url()
 	SubElement(root, "link", attrib={
 		"rel": "self",
 		"href": f"{base}/feeds/promotions.xml",
