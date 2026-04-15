@@ -28,7 +28,7 @@ def wrap_text(text: str, width: int = 18) -> str:
 
 
 def main() -> int:
-    text = sys.argv[1] if len(sys.argv) > 1 else "Dumbshirts.store"
+    text = sys.argv[1] if len(sys.argv) > 1 else "Roast Cotton"
     here = os.path.dirname(os.path.abspath(__file__))
     uploads = os.path.join(os.path.dirname(here), "app", "static", "uploads")
     os.makedirs(uploads, exist_ok=True)
