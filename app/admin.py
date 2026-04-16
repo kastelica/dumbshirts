@@ -360,13 +360,45 @@ def ad_center_generate_lifestyle():
 				job_state = _ad_job_get(jid) or {"status": "running", "url": "", "error": "", "product_id": p.id}
 				job_state["prompt"] = prompt
 				_ad_job_set(jid, job_state)
-				res = client.images.generate(
-					model="gpt-image-1",
-					prompt=prompt,
-					size=size,
-				)
-				b64 = res.data[0].b64_json
-				img_bytes = b64decode(b64)
+
+				# Prefer Responses API image edit with high input fidelity so artwork/logo details
+				# from the selected catalog image are preserved more accurately.
+				img_bytes = None
+				try:
+					content_parts = [
+						{"type": "input_text", "text": prompt},
+						{"type": "input_image", "image_url": src},
+					]
+					if mockup_src:
+						content_parts.append({"type": "input_image", "image_url": mockup_src})
+
+					resp = client.responses.create(
+						model="gpt-4.1",
+						input=[{"role": "user", "content": content_parts}],
+						tools=[{"type": "image_generation", "input_fidelity": "high", "action": "edit"}],
+					)
+
+					b64 = None
+					for out in (getattr(resp, "output", None) or []):
+						otype = getattr(out, "type", None) or (out.get("type") if isinstance(out, dict) else None)
+						if otype == "image_generation_call":
+							b64 = getattr(out, "result", None) or (out.get("result") if isinstance(out, dict) else None)
+							if b64:
+								break
+					if b64:
+						img_bytes = b64decode(b64)
+				except Exception as e:
+					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
+
+				# Fallback: regular image generation
+				if not img_bytes:
+					res = client.images.generate(
+						model="gpt-image-1",
+						prompt=prompt,
+						size=size,
+					)
+					b64 = res.data[0].b64_json
+					img_bytes = b64decode(b64)
 
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
