@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block head %}
-	<title>Design Your Own Custom T-Shirt | Dumbshirts.store</title>
+	<title>Design Your Own Custom T-Shirt | Roast Cotton</title>
 	<meta name="description" content="Upload your own image or create one with AI to design your custom t-shirt. Personalize your shirt with your own design today!">
 	<link rel="canonical" href="{{ url_for('main.custom_shirt', _external=True) }}">
 {% endblock %}
-{% block title %}Design Your Own Custom T-Shirt | Dumbshirts.store{% endblock %}
+{% block title %}Design Your Own Custom T-Shirt | Roast Cotton{% endblock %}
 {% block content %}
 <div class="relative">
 	<nav class="mb-3 text-sm text-gray-400 flex items-center gap-2">
@@ -637,7 +637,7 @@
 						items: [{
 							item_id: 'custom_shirt',
 							item_name: 'Custom T-Shirt',
-							item_brand: 'Dumbshirts.store',
+							item_brand: 'Roast Cotton',
 							item_category: 't-shirt',
 							item_variant: size + ' / ' + (color.charAt(0).toUpperCase() + color.slice(1)) + ' / Crewneck',
 							price: price,

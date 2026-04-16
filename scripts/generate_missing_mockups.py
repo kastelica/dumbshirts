@@ -39,7 +39,7 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes, app) -> bytes | None:
     """Composite the design PNG onto a blank white t-shirt image and return PNG bytes.
     
     Uses BLANK_TEE_URL from config if set; otherwise falls back to
-    `https://dumbshirts.store/static/uploads/whitetshirt.png` and finally to local `/static/uploads/whitetshirt.png`.
+    `https://roastcotton.com/static/uploads/whitetshirt.png` and finally to local `/static/uploads/whitetshirt.png`.
     """
     try:
         if not design_png_bytes or len(design_png_bytes) == 0:
@@ -49,7 +49,7 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes, app) -> bytes | None:
         print(f"  [INFO] Starting composition, design size: {len(design_png_bytes)} bytes")
         
         # Load base tee image
-        base_url = (app.config.get("BLANK_TEE_URL") or "").strip() or "https://dumbshirts.store/static/uploads/whitetshirt.png"
+        base_url = (app.config.get("BLANK_TEE_URL") or "").strip() or "https://roastcotton.com/static/uploads/whitetshirt.png"
         base_bytes = None
         if base_url.startswith("http://") or base_url.startswith("https://"):
             print(f"  [INFO] Loading base tee from URL: {base_url}")

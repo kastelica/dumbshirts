@@ -26,7 +26,7 @@ def google_feed():
 		base = current_app.config.get("BASE_URL", "http://localhost:5000")
 		return urljoin(base, u)
 
-	def _optimize_title(product_title: str, brand: str = "Dumbshirts.store") -> str:
+	def _optimize_title(product_title: str, brand: str = "Roast Cotton") -> str:
 		"""Optimize product title for Google Shopping per best practices.
 		
 		Principles:
@@ -160,7 +160,7 @@ def google_feed():
 		checkout_url = url_for('main.checkout', item_id=p.id, _external=True)
 		
 		# Optimize title for Google Shopping
-		optimized_title = _optimize_title(p.title, "Dumbshirts.store")
+		optimized_title = _optimize_title(p.title, "Roast Cotton")
 		
 		items.append({
 			"id": p.id,
@@ -175,7 +175,7 @@ def google_feed():
 			"image": main_image,
 			"additional_images": add_imgs,
 			"video": _absolute_url(getattr(p, "video_url", "") or ""),
-			"brand": "Dumbshirts.store",
+			"brand": "Roast Cotton",
 			"age_group": "adult",
 			"color": "white",
 			"gender": "unisex",
@@ -238,7 +238,7 @@ def reviews_feed():
     
     # Publisher (required)
     publisher = SubElement(root, "publisher")
-    SubElement(publisher, "name").text = "Dumbshirts.store"
+    SubElement(publisher, "name").text = "Roast Cotton"
     base = current_app.config.get("BASE_URL", "http://localhost:5000").rstrip("/")
     SubElement(publisher, "favicon").text = f"{base}/static/uploads/brand.png"
     
@@ -317,7 +317,7 @@ def reviews_feed():
         
         # Brands (required for products with known brand)
         brands = SubElement(product_ids, "brands")
-        SubElement(brands, "brand").text = "Dumbshirts.store"
+        SubElement(brands, "brand").text = "Roast Cotton"
         
         # Optional fields
         if r.get("title"):
@@ -421,7 +421,7 @@ def tiktok_feed():
 		return urljoin(base, u)
 	
 	# Defaults (override via config)
-	default_brand = current_app.config.get("STORE_BRAND", "Dumbshirts.store")
+	default_brand = current_app.config.get("STORE_BRAND", "Roast Cotton")
 	def_w = float(current_app.config.get("DEFAULT_PACKAGE_WEIGHT_LB", 0.5))
 	def_l = float(current_app.config.get("DEFAULT_PACKAGE_LENGTH_IN", 12))
 	def_wd = float(current_app.config.get("DEFAULT_PACKAGE_WIDTH_IN", 9))
