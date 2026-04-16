@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 from datetime import datetime
 from ..gelato_client import GelatoClient
 from datetime import timedelta
+from xml.sax.saxutils import escape as xml_escape
 from ..utils import send_email_via_sendgrid, render_simple_email, validate_google_jwt_token, extract_google_discount_info, is_google_discount_valid
 from ..extensions import db
 
@@ -1409,15 +1410,15 @@ def sitemap_xml():
 	iso_today = datetime.utcnow().date().isoformat()
 
 	def add_url(loc: str, lastmod: str | None = None, changefreq: str | None = None, priority: str | None = None, image: str | None = None, image_title: str | None = None):
-		parts = [f"<loc>{loc}</loc>"]
+		parts = [f"<loc>{xml_escape(loc)}</loc>"]
 		if lastmod:
-			parts.append(f"<lastmod>{lastmod}</lastmod>")
+			parts.append(f"<lastmod>{xml_escape(lastmod)}</lastmod>")
 		if changefreq:
-			parts.append(f"<changefreq>{changefreq}</changefreq>")
+			parts.append(f"<changefreq>{xml_escape(changefreq)}</changefreq>")
 		if priority:
-			parts.append(f"<priority>{priority}</priority>")
+			parts.append(f"<priority>{xml_escape(priority)}</priority>")
 		if image:
-			img = f"<image:image><image:loc>{image}</image:loc>" + (f"<image:title>{image_title}</image:title>" if image_title else "") + "</image:image>"
+			img = f"<image:image><image:loc>{xml_escape(image)}</image:loc>" + (f"<image:title>{xml_escape(image_title)}</image:title>" if image_title else "") + "</image:image>"
 			parts.append(img)
 		items.append("<url>" + "".join(parts) + "</url>")
 
