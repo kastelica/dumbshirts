@@ -393,6 +393,8 @@ def ad_center_generate_lifestyle():
 				import time as _time
 				from openai import OpenAI
 				from base64 import b64decode
+				from io import BytesIO as _BytesIO
+				import requests as _req
 				_os.environ["OPENAI_API_KEY"] = api_key
 				client = OpenAI().with_options(timeout=120.0)
 
@@ -411,7 +413,7 @@ def ad_center_generate_lifestyle():
 						"This is a hard requirement."
 					)
 					prompt = (
-						f"Create a realistic e-commerce lifestyle photo with human models wearing this exact t-shirt mockup design. "
+						f"Create a realistic lifestyle photo with human models wearing this exact t-shirt mockup design. "
 						f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
 						f"Reference image URL (must preserve logo/art exactly): {mockup_src or src}. "
 						f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
@@ -419,7 +421,7 @@ def ad_center_generate_lifestyle():
 						f"Show this same design on regular shirt colors: {color_text}. "
 					f"{overlay_text}"
 					f"Keep composition clean and ad-ready with realistic lighting. "
-					f"Brand style: edgy, meme-culture streetwear vibe. "
+					f"Brand style: nuetral "
 					f"Do not include any other logos or trademarks."
 				)
 
