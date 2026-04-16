@@ -393,6 +393,8 @@ def ad_center_generate_lifestyle():
 				import time as _time
 				from openai import OpenAI
 				from base64 import b64decode
+				from io import BytesIO as _BytesIO
+				import requests as _req
 				_os.environ["OPENAI_API_KEY"] = api_key
 				client = OpenAI().with_options(timeout=120.0)
 
@@ -460,31 +462,16 @@ def ad_center_generate_lifestyle():
 					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
 
 				# Fallback: regular image generation
-				if not img_bytes:
-					res = client.images.generate(
-						model="gpt-image-1",
-						prompt=prompt,
-						size=out_size,
-						quality=out_quality,
-						background=out_bg,
-					)
-					b64 = res.data[0].b64_json
-					img_bytes = b64decode(b64)
-
-				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
-				if cloud_url:
-					import cloudinary.uploader as cu
-					public_id = f"ad_center_{p.id}_{int(_time.time())}"
-					res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
-					final_url = res_up.get("secure_url") or res_up.get("url")
-				else:
-					fname = f"ad_center_{p.id}_{int(_time.time())}.png"
-					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-					os.makedirs(upload_dir, exist_ok=True)
-					path = os.path.join(upload_dir, fname)
-					with open(path, "wb") as f:
-						f.write(img_bytes)
-					final_url = f"/static/uploads/{fname}"
+					if not img_bytes:
+						res = client.images.generate(
+							model="gpt-image-1",
+							prompt=prompt,
+							size=out_size,
+							quality=out_quality,
+							background=out_bg,
+						)
+						b64 = res.data[0].b64_json
+						img_bytes = b64decode(b64)
 
 				job_state = _ad_job_get(jid) or {"product_id": p.id}
 				job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
