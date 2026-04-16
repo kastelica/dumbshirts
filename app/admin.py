@@ -508,11 +508,11 @@ def ad_center_generate_lifestyle():
 				job_state.update({"status": "error", "error": str(e)})
 				_ad_job_set(jid, job_state)
 
-		thr = threading.Thread(
-			target=_worker,
-			args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background, previous_image_id),
-			daemon=True
-		)
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background, previous_image_id),
+		daemon=True
+	)
 	thr.start()
 	return jsonify({"ok": True, "job_id": job_id})
 
