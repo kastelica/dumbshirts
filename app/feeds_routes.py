@@ -184,7 +184,12 @@ def google_feed():
 			# Google Shopping
 			"google_product_category": "Apparel & Accessories > Clothing > Shirts & Tops",
 			"product_type": "t-shirt",
-			"shipping": {"country": "US"},
+			"shipping": {
+				"country": "US",
+				"service": "Standard",
+				"price": "0.00",
+				"currency": "USD",
+			},
 		})
 		# Removed monthly subscription items from Shopping feed
 	return render_google_shopping_feed(items)
