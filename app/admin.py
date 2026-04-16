@@ -19,6 +19,7 @@ import unicodedata
 import difflib
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+_AD_CENTER_JOBS_LOCK = threading.Lock()
 
 
 # --------------
@@ -44,6 +45,50 @@ def _progress_add(msg: str) -> None:
 				del msgs[:-100]
 	except Exception:
 		pass
+
+
+def _ad_jobs_path() -> str:
+	"""Path for cross-worker ad job state persistence."""
+	custom = (current_app.config.get("AD_CENTER_JOBS_PATH") or "").strip()
+	if custom:
+		return custom
+	return "/tmp/ad_center_jobs.json"
+
+
+def _ad_jobs_load() -> dict:
+	path = _ad_jobs_path()
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f) or {}
+			return data if isinstance(data, dict) else {}
+	except Exception:
+		return {}
+
+
+def _ad_jobs_save(data: dict) -> None:
+	path = _ad_jobs_path()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	tmp = f"{path}.tmp"
+	with open(tmp, "w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False)
+	os.replace(tmp, path)
+
+
+def _ad_job_set(job_id: str, payload: dict) -> None:
+	with _AD_CENTER_JOBS_LOCK:
+		jobs = _ad_jobs_load()
+		jobs[job_id] = payload
+		# Keep file bounded to latest 200 jobs
+		if len(jobs) > 200:
+			keys = list(jobs.keys())
+			for k in keys[:-200]:
+				jobs.pop(k, None)
+		_ad_jobs_save(jobs)
+
+
+def _ad_job_get(job_id: str) -> dict | None:
+	with _AD_CENTER_JOBS_LOCK:
+		return _ad_jobs_load().get(job_id)
 
 
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
@@ -275,8 +320,7 @@ def ad_center_generate_lifestyle():
 
 	import uuid
 	job_id = str(uuid.uuid4())
-	jobs = current_app.config.setdefault("AD_CENTER_JOBS", {})
-	jobs[job_id] = {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id}
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
 
 	def _worker(app_ctx, jid: str, p: Product, src: str, h: str, cta: str, sc: str, aud: str, asp: str):
 		with app_ctx:
@@ -299,7 +343,9 @@ def ad_center_generate_lifestyle():
 					f"Do not include any other logos or trademarks."
 				)
 
-				jobs[jid]["prompt"] = prompt
+				job_state = _ad_job_get(jid) or {"status": "running", "url": "", "error": "", "product_id": p.id}
+				job_state["prompt"] = prompt
+				_ad_job_set(jid, job_state)
 				res = client.images.generate(
 					model="gpt-image-1",
 					prompt=prompt,
@@ -323,10 +369,14 @@ def ad_center_generate_lifestyle():
 						f.write(img_bytes)
 					final_url = f"/static/uploads/{fname}"
 
-				jobs[jid].update({"status": "done", "url": final_url, "error": ""})
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "done", "url": final_url, "error": ""})
+				_ad_job_set(jid, job_state)
 			except Exception as e:
 				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
-				jobs[jid].update({"status": "error", "error": str(e)})
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "error", "error": str(e)})
+				_ad_job_set(jid, job_state)
 
 	thr = threading.Thread(
 		target=_worker,
@@ -340,8 +390,7 @@ def ad_center_generate_lifestyle():
 @admin_bp.get("/ad-center/generate-status/<string:job_id>")
 @login_required
 def ad_center_generate_status(job_id: str):
-	jobs = current_app.config.get("AD_CENTER_JOBS", {})
-	job = jobs.get(job_id)
+	job = _ad_job_get(job_id)
 	if not job:
 		return jsonify({"error": "job not found"}), 404
 	return jsonify(job)
