@@ -231,6 +231,122 @@ def dashboard():
 	return render_template("admin_dashboard_new.html", stats=stats, recent_products=recent_products)
 
 
+@admin_bp.get("/ad-center")
+@login_required
+def ad_center_page():
+	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(300).all()
+	return render_template("admin_ad_center.html", products=products)
+
+
+@admin_bp.post("/ad-center/generate-lifestyle")
+@login_required
+def ad_center_generate_lifestyle():
+	"""Generate lifestyle ad creative for a catalog product using OpenAI image API."""
+	data = request.get_json(silent=True) or {}
+	product_id = data.get("product_id")
+	headline = (data.get("headline") or "").strip()
+	cta_text = (data.get("cta_text") or "").strip() or "Shop Now"
+	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
+	audience = (data.get("audience") or "").strip() or "young adults"
+	aspect = (data.get("aspect") or "").strip() or "landscape"
+
+	try:
+		product_id = int(product_id)
+	except Exception:
+		return jsonify({"error": "Invalid product_id"}), 400
+
+	product = Product.query.get(product_id)
+	if not product or product.status != "active":
+		return jsonify({"error": "Product not found or inactive"}), 404
+
+	api_key = current_app.config.get("OPENAI_API_KEY", "")
+	if not api_key:
+		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+
+	source_image = ""
+	if getattr(product, "design", None):
+		source_image = (product.design.preview_url or product.design.image_url or "").strip()
+	if not source_image:
+		return jsonify({"error": "Product has no design image to base creative on"}), 400
+
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	if source_image.startswith("/"):
+		source_image = f"{base}{source_image}"
+
+	import uuid
+	job_id = str(uuid.uuid4())
+	jobs = current_app.config.setdefault("AD_CENTER_JOBS", {})
+	jobs[job_id] = {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id}
+
+	def _worker(app_ctx, jid: str, p: Product, src: str, h: str, cta: str, sc: str, aud: str, asp: str):
+		with app_ctx:
+			try:
+				import os as _os
+				import time as _time
+				from openai import OpenAI
+				from base64 import b64decode
+				_os.environ["OPENAI_API_KEY"] = api_key
+				client = OpenAI().with_options(timeout=120.0)
+
+				size = "1536x1024" if asp == "landscape" else ("1024x1536" if asp == "portrait" else "1024x1024")
+				overlay_headline = h or p.title
+				prompt = (
+					f"Create a high-converting e-commerce lifestyle ad image featuring a model wearing a t-shirt design based on this reference image: {src}. "
+					f"Target audience: {aud}. Scene/style: {sc}. "
+					f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+					f"Keep text legible with strong contrast and clean modern layout. "
+					f"Brand style: edgy, meme-culture streetwear. "
+					f"Do not include any other logos or trademarks."
+				)
+
+				jobs[jid]["prompt"] = prompt
+				res = client.images.generate(
+					model="gpt-image-1",
+					prompt=prompt,
+					size=size,
+				)
+				b64 = res.data[0].b64_json
+				img_bytes = b64decode(b64)
+
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					public_id = f"ad_center_{p.id}_{int(_time.time())}"
+					res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
+					final_url = res_up.get("secure_url") or res_up.get("url")
+				else:
+					fname = f"ad_center_{p.id}_{int(_time.time())}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img_bytes)
+					final_url = f"/static/uploads/{fname}"
+
+				jobs[jid].update({"status": "done", "url": final_url, "error": ""})
+			except Exception as e:
+				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
+				jobs[jid].update({"status": "error", "error": str(e)})
+
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), job_id, product, source_image, headline, cta_text, scene, audience, aspect),
+		daemon=True
+	)
+	thr.start()
+	return jsonify({"ok": True, "job_id": job_id})
+
+
+@admin_bp.get("/ad-center/generate-status/<string:job_id>")
+@login_required
+def ad_center_generate_status(job_id: str):
+	jobs = current_app.config.get("AD_CENTER_JOBS", {})
+	job = jobs.get(job_id)
+	if not job:
+		return jsonify({"error": "job not found"}), 404
+	return jsonify(job)
+
+
 @admin_bp.get("/trends")
 @login_required
 def trends_page():
