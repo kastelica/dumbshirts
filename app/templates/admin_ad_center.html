@@ -146,6 +146,8 @@
 	const promptPre = document.getElementById('ad-prompt');
 
 	let pollTimer = null;
+	let pollAttempts = 0;
+	const maxPollAttempts = 120; // ~4 minutes at 2s interval
 	let lastProductId = '';
 	let previousImageId = '';
 
@@ -176,7 +178,15 @@
 
 	function startPoll(jobId){
 		if (pollTimer) clearInterval(pollTimer);
+		pollAttempts = 0;
 		pollTimer = setInterval(async function(){
+			pollAttempts += 1;
+			if (pollAttempts > maxPollAttempts){
+				setStatus('Timed out waiting for generation. Please try again.', true);
+				clearInterval(pollTimer);
+				btn.disabled = false;
+				return;
+			}
 			try{
 				const r = await fetch(`/admin/ad-center/generate-status/${encodeURIComponent(jobId)}`);
 				const data = await r.json();
@@ -185,10 +195,10 @@
 					clearInterval(pollTimer);
 					return;
 				}
-					promptPre.textContent = data.prompt || '';
-					if (data.status === 'done' && data.url){
-						if (data.image_id) previousImageId = String(data.image_id);
-						preview.src = data.url;
+				promptPre.textContent = data.prompt || '';
+				if (data.status === 'done' && data.url){
+					if (data.image_id) previousImageId = String(data.image_id);
+					preview.src = data.url;
 					preview.classList.remove('hidden');
 					empty.classList.add('hidden');
 					openLink.href = data.url;
@@ -198,6 +208,10 @@
 					btn.disabled = false;
 				} else if (data.status === 'error'){
 					setStatus(data.error || 'Generation failed', true);
+					clearInterval(pollTimer);
+					btn.disabled = false;
+				} else if (data.status !== 'running'){
+					setStatus(`Unexpected job status: ${data.status || 'unknown'}`, true);
 					clearInterval(pollTimer);
 					btn.disabled = false;
 				} else {
@@ -212,8 +226,8 @@
 	}
 
 	productEl?.addEventListener('change', function(){
-		const current = (productEl?.value || '').trim();
-		if (lastProductId && current !== lastProductId){
+		const selected = (productEl?.value || '').trim();
+		if (lastProductId && selected !== lastProductId){
 			previousImageId = '';
 		}
 	});
@@ -231,9 +245,9 @@
 		links.classList.add('hidden');
 		promptPre.textContent = '';
 
-		try{
-			const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
-			const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
+			try{
+				const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
+				const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
 				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
 				const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
 				const selectedProductId = (productEl?.value || '').trim();

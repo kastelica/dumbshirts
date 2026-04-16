@@ -93,14 +93,14 @@ def _ad_job_get(job_id: str) -> dict | None:
 
 
 def _resp_val(obj, key, default=None):
-	"""Read key from SDK object or dict."""
+	"""Read a property from an SDK object or plain dict."""
 	if isinstance(obj, dict):
 		return obj.get(key, default)
 	return getattr(obj, key, default)
 
 
 def _extract_response_image_data(resp) -> tuple[str | None, str | None]:
-	"""Extract (base64_result, image_id) from mixed response output shapes."""
+	"""Extract (base64_result, image_id) from Responses output."""
 	for out in (_resp_val(resp, "output", []) or []):
 		if _resp_val(out, "type") != "image_generation_call":
 			continue
@@ -384,7 +384,7 @@ def ad_center_generate_lifestyle():
 
 	import uuid
 	job_id = str(uuid.uuid4())
-	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id, "image_id": previous_image_id or ""})
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id, "image_id": previous_image_id})
 
 	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str, prev_img_id: str):
 		with app_ctx:
@@ -403,18 +403,24 @@ def ad_center_generate_lifestyle():
 				audience_text = f"Target audience: {aud}. " if aud else ""
 				scene_text = f"Scene/style: {sc}. " if sc else ""
 				if include_text:
-					overlay_text = f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+					overlay_text = (
+						f"Include visible ad text overlay. Headline must be exactly '{overlay_headline}'. "
+						f"CTA button text must be exactly '{cta}'. "
+					)
 				else:
-					overlay_text = "Do NOT add any text overlay, captions, CTA buttons, stickers, or typography anywhere in the image. "
+					overlay_text = (
+						"Do NOT include any text overlay, captions, CTA buttons, stickers, labels, or typography anywhere in the image. "
+						"This is a hard requirement."
+					)
 				prompt = (
-					f"Create a high-converting e-commerce lifestyle ad image featuring models wearing t-shirts that use the EXACT same artwork/logo from this reference design image: {src}. "
-					f"If available, use this product mockup as style reference for placement/scale: {mockup_src}. "
+					f"Create a realistic e-commerce lifestyle photo with human models wearing this exact t-shirt mockup design. "
+					f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
+					f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
 					f"{audience_text}{scene_text}"
 					f"Show this same design on regular shirt colors: {color_text}. "
-					f"Do not change, redraw, paraphrase, or replace the logo/artwork text. Keep the original design faithful. "
 					f"{overlay_text}"
-					f"Keep text legible with strong contrast and clean modern layout. "
-					f"Brand style: edgy, meme-culture streetwear. "
+					f"Keep composition clean and ad-ready with realistic lighting. "
+					f"Brand style: edgy, meme-culture streetwear vibe. "
 					f"Do not include any other logos or trademarks."
 				)
 
@@ -422,34 +428,17 @@ def ad_center_generate_lifestyle():
 				job_state["prompt"] = prompt
 				_ad_job_set(jid, job_state)
 
-				# Prefer Responses API image edit with high input fidelity so artwork/logo details
-				# from the selected catalog image are preserved more accurately.
+				# Use Responses image edit with a single image input (product mockup URL).
 				img_bytes = None
 				final_image_id = prev_img_id or ""
 				try:
-					def _upload_ref_image(url: str, label: str) -> str | None:
-						if not url:
-							return None
-						r = _req.get(url, timeout=20)
-						r.raise_for_status()
-						filename = f"{label}.png"
-						buf = _BytesIO(r.content)
-						buf.name = filename
-						up = client.files.create(file=buf, purpose="vision")
-						return _resp_val(up, "id")
-
-					content_parts = [{"type": "input_text", "text": prompt}]
-					source_file_id = _upload_ref_image(src, "design_reference")
-					if source_file_id:
-						content_parts.append({"type": "input_image", "file_id": source_file_id})
-					if mockup_src and mockup_src != src:
-						mockup_file_id = _upload_ref_image(mockup_src, "mockup_reference")
-						if mockup_file_id:
-							content_parts.append({"type": "input_image", "file_id": mockup_file_id})
+					content_parts = [
+						{"type": "input_text", "text": prompt},
+						{"type": "input_image", "image_url": mockup_src or src},
+					]
 
 					tool_payload = {
 						"type": "image_generation",
-						"input_fidelity": "high",
 						"action": "edit",
 						"size": out_size,
 						"quality": out_quality,
@@ -459,7 +448,7 @@ def ad_center_generate_lifestyle():
 						tool_payload["image"] = prev_img_id
 
 					resp = client.responses.create(
-						model="gpt-4.1",
+						model="gpt-5",
 						input=[{"role": "user", "content": content_parts}],
 						tools=[tool_payload],
 					)
@@ -484,24 +473,9 @@ def ad_center_generate_lifestyle():
 						b64 = res.data[0].b64_json
 						img_bytes = b64decode(b64)
 
-					cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
-					if cloud_url:
-						import cloudinary.uploader as cu
-						public_id = f"ad_center_{p.id}_{int(_time.time())}"
-						res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
-						final_url = res_up.get("secure_url") or res_up.get("url")
-					else:
-						fname = f"ad_center_{p.id}_{int(_time.time())}.png"
-						upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-						os.makedirs(upload_dir, exist_ok=True)
-						path = os.path.join(upload_dir, fname)
-						with open(path, "wb") as f:
-							f.write(img_bytes)
-						final_url = f"/static/uploads/{fname}"
-
-					job_state = _ad_job_get(jid) or {"product_id": p.id}
-					job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
-					_ad_job_set(jid, job_state)
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
+				_ad_job_set(jid, job_state)
 			except Exception as e:
 				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
 				job_state = _ad_job_get(jid) or {"product_id": p.id}
