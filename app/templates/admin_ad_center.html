@@ -35,18 +35,24 @@
 					<option value="streetwear and sneaker culture buyers">Streetwear / Sneaker Culture</option>
 					<option value="gift shoppers looking for funny t-shirts">Gift Buyers (Funny Tees)</option>
 					<option value="pop-culture and internet trend fans">Pop Culture / Internet Trend Fans</option>
+					<option value="__custom__">Custom Audience…</option>
+					<option value="__none__">No Specific Audience</option>
 				</select>
+				<input id="ad-audience-custom" type="text" class="hidden mt-2 w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Describe custom audience" />
 			</div>
-			<div>
-				<label class="block text-sm mb-1">Scene Preset</label>
-				<select id="ad-scene-preset" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+				<div>
+					<label class="block text-sm mb-1">Scene Preset</label>
+					<select id="ad-scene-preset" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
 					<option value="Streetwear lifestyle scene, modern city background, energetic mood, premium ad composition." selected>Urban Streetwear (City)</option>
 					<option value="Golden hour boardwalk shoot, candid motion blur, upbeat summer vibe.">Boardwalk / Summer</option>
 					<option value="Music festival crowd scene, colorful lighting, energetic editorial style.">Festival Crowd</option>
 					<option value="Studio lifestyle lookbook, clean backdrop, crisp product-forward lighting.">Studio Lookbook</option>
 					<option value="Coffee shop casual scene, natural daylight, everyday wearable styling.">Casual Everyday</option>
-				</select>
-			</div>
+					<option value="__custom__">Custom Scene…</option>
+						<option value="__none__">No Specific Scene</option>
+					</select>
+					<input id="ad-scene-custom" type="text" class="hidden mt-2 w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Describe custom scene" />
+				</div>
 			<div>
 				<label class="block text-sm mb-1">Extra Scene Direction (optional)</label>
 				<textarea id="ad-scene-extra" rows="2" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Any extra shot direction…"></textarea>
@@ -62,14 +68,38 @@
 					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="blue"> Blue</label>
 				</div>
 			</div>
+			<div class="flex items-center gap-2">
+				<input id="ad-include-overlay" type="checkbox" checked class="h-4 w-4">
+				<label for="ad-include-overlay" class="text-sm">Include headline + CTA text overlay</label>
+			</div>
 			<div>
-				<label class="block text-sm mb-1">Aspect</label>
-				<select id="ad-aspect" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
-					<option value="landscape" selected>Landscape (1536x1024)</option>
-					<option value="portrait">Portrait (1024x1536)</option>
-					<option value="square">Square (1024x1024)</option>
+				<label class="block text-sm mb-1">Output Size</label>
+				<select id="ad-size" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="1536x1024" selected>Landscape (1536x1024)</option>
+					<option value="1024x1536">Portrait (1024x1536)</option>
+					<option value="1024x1024">Square (1024x1024)</option>
+					<option value="auto">Auto</option>
 				</select>
 			</div>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+				<div>
+					<label class="block text-sm mb-1">Quality</label>
+					<select id="ad-quality" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+						<option value="auto" selected>Auto</option>
+						<option value="low">Low</option>
+						<option value="medium">Medium</option>
+						<option value="high">High</option>
+					</select>
+				</div>
+					<div>
+						<label class="block text-sm mb-1">Background</label>
+						<select id="ad-background" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+							<option value="auto" selected>Auto</option>
+							<option value="transparent">Transparent</option>
+							<option value="opaque">Opaque</option>
+						</select>
+					</div>
+				</div>
 			<div class="flex items-center gap-3">
 				<button id="ad-generate-btn" class="bg-white text-black px-4 py-2 rounded font-semibold hover:bg-gray-100">Generate Creative</button>
 				<span id="ad-status" class="text-sm text-gray-400"></span>
@@ -99,9 +129,14 @@
 	const headlineEl = document.getElementById('ad-headline');
 	const ctaEl = document.getElementById('ad-cta');
 	const audiencePresetEl = document.getElementById('ad-audience-preset');
+	const audienceCustomEl = document.getElementById('ad-audience-custom');
 	const scenePresetEl = document.getElementById('ad-scene-preset');
+	const sceneCustomEl = document.getElementById('ad-scene-custom');
 	const sceneExtraEl = document.getElementById('ad-scene-extra');
-	const aspectEl = document.getElementById('ad-aspect');
+	const sizeEl = document.getElementById('ad-size');
+	const qualityEl = document.getElementById('ad-quality');
+	const backgroundEl = document.getElementById('ad-background');
+	const includeOverlayEl = document.getElementById('ad-include-overlay');
 	const btn = document.getElementById('ad-generate-btn');
 	const statusEl = document.getElementById('ad-status');
 	const preview = document.getElementById('ad-preview');
@@ -111,6 +146,25 @@
 	const promptPre = document.getElementById('ad-prompt');
 
 	let pollTimer = null;
+
+	function resolvePresetValue(selectEl, customEl){
+		const v = (selectEl?.value || '').trim();
+		if (v === '__none__') return '';
+		if (v === '__custom__') return (customEl?.value || '').trim();
+		return v;
+	}
+
+	function toggleCustomInputs(){
+		if (audienceCustomEl) {
+			audienceCustomEl.classList.toggle('hidden', (audiencePresetEl?.value || '') !== '__custom__');
+		}
+		if (sceneCustomEl) {
+			sceneCustomEl.classList.toggle('hidden', (scenePresetEl?.value || '') !== '__custom__');
+		}
+	}
+	audiencePresetEl?.addEventListener('change', toggleCustomInputs);
+	scenePresetEl?.addEventListener('change', toggleCustomInputs);
+	toggleCustomInputs();
 
 	function setStatus(msg, err){
 		if (!statusEl) return;
@@ -169,7 +223,9 @@
 
 		try{
 			const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
-			const sceneCombined = [(scenePresetEl?.value || '').trim(), (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+			const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
+			const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+			const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
 			const res = await fetch('/admin/ad-center/generate-lifestyle', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -177,10 +233,13 @@
 					product_id: parseInt(productId, 10),
 					headline: (headlineEl?.value || '').trim(),
 					cta_text: (ctaEl?.value || '').trim(),
-					audience: (audiencePresetEl?.value || '').trim(),
+					audience: audienceValue,
 					scene: sceneCombined,
 					shirt_colors: selectedColors,
-					aspect: (aspectEl?.value || 'landscape').trim()
+					include_overlay: !!includeOverlayEl?.checked,
+					size: (sizeEl?.value || '1536x1024').trim(),
+					quality: (qualityEl?.value || 'auto').trim(),
+					background: (backgroundEl?.value || 'auto').trim()
 				})
 			});
 			const data = await res.json();

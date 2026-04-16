@@ -293,13 +293,26 @@ def ad_center_generate_lifestyle():
 	cta_text = (data.get("cta_text") or "").strip() or "Shop Now"
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
+	include_overlay = bool(data.get("include_overlay", True))
 	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
 	if not isinstance(shirt_colors, list):
 		shirt_colors = ["black", "white", "heather gray"]
 	shirt_colors = [str(c).strip().lower() for c in shirt_colors if str(c).strip()]
 	if not shirt_colors:
 		shirt_colors = ["black", "white", "heather gray"]
-	aspect = (data.get("aspect") or "").strip() or "landscape"
+	# Output options
+	size = (data.get("size") or "").strip().lower()
+	aspect = (data.get("aspect") or "").strip().lower()  # backwards compatibility
+	if not size:
+		size = "1536x1024" if aspect == "landscape" else ("1024x1536" if aspect == "portrait" else "1024x1024")
+	if size not in {"1024x1024", "1536x1024", "1024x1536", "auto"}:
+		size = "1536x1024"
+	quality = (data.get("quality") or "auto").strip().lower()
+	if quality not in {"auto", "low", "medium", "high"}:
+		quality = "auto"
+	background = (data.get("background") or "auto").strip().lower()
+	if background not in {"auto", "transparent", "opaque"}:
+		background = "auto"
 
 	try:
 		product_id = int(product_id)
@@ -332,7 +345,7 @@ def ad_center_generate_lifestyle():
 	job_id = str(uuid.uuid4())
 	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
 
-	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], asp: str):
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str):
 		with app_ctx:
 			try:
 				import os as _os
@@ -342,16 +355,21 @@ def ad_center_generate_lifestyle():
 				_os.environ["OPENAI_API_KEY"] = api_key
 				client = OpenAI().with_options(timeout=120.0)
 
-				size = "1536x1024" if asp == "landscape" else ("1024x1536" if asp == "portrait" else "1024x1024")
 				overlay_headline = h or p.title
 				color_text = ", ".join(colors)
+				audience_text = f"Target audience: {aud}. " if aud else ""
+				scene_text = f"Scene/style: {sc}. " if sc else ""
+				if include_text:
+					overlay_text = f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+				else:
+					overlay_text = "Do NOT add any text overlay, captions, CTA buttons, stickers, or typography anywhere in the image. "
 				prompt = (
 					f"Create a high-converting e-commerce lifestyle ad image featuring models wearing t-shirts that use the EXACT same artwork/logo from this reference design image: {src}. "
 					f"If available, use this product mockup as style reference for placement/scale: {mockup_src}. "
-					f"Target audience: {aud}. Scene/style: {sc}. "
+					f"{audience_text}{scene_text}"
 					f"Show this same design on regular shirt colors: {color_text}. "
 					f"Do not change, redraw, paraphrase, or replace the logo/artwork text. Keep the original design faithful. "
-					f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+					f"{overlay_text}"
 					f"Keep text legible with strong contrast and clean modern layout. "
 					f"Brand style: edgy, meme-culture streetwear. "
 					f"Do not include any other logos or trademarks."
@@ -375,7 +393,14 @@ def ad_center_generate_lifestyle():
 					resp = client.responses.create(
 						model="gpt-4.1",
 						input=[{"role": "user", "content": content_parts}],
-						tools=[{"type": "image_generation", "input_fidelity": "high", "action": "edit"}],
+						tools=[{
+							"type": "image_generation",
+							"input_fidelity": "high",
+							"action": "edit",
+							"size": out_size,
+							"quality": out_quality,
+							"background": out_bg,
+						}],
 					)
 
 					b64 = None
@@ -395,7 +420,9 @@ def ad_center_generate_lifestyle():
 					res = client.images.generate(
 						model="gpt-image-1",
 						prompt=prompt,
-						size=size,
+						size=out_size,
+						quality=out_quality,
+						background=out_bg,
 					)
 					b64 = res.data[0].b64_json
 					img_bytes = b64decode(b64)
@@ -426,7 +453,7 @@ def ad_center_generate_lifestyle():
 
 	thr = threading.Thread(
 		target=_worker,
-		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, aspect),
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background),
 		daemon=True
 	)
 	thr.start()
