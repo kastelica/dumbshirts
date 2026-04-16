@@ -92,6 +92,25 @@ def _ad_job_get(job_id: str) -> dict | None:
 		return _ad_jobs_load().get(job_id)
 
 
+def _resp_val(obj, key, default=None):
+	"""Read key from SDK object or dict."""
+	if isinstance(obj, dict):
+		return obj.get(key, default)
+	return getattr(obj, key, default)
+
+
+def _extract_response_image_data(resp) -> tuple[str | None, str | None]:
+	"""Extract (base64_result, image_id) from mixed response output shapes."""
+	for out in (_resp_val(resp, "output", []) or []):
+		if _resp_val(out, "type") != "image_generation_call":
+			continue
+		result = _resp_val(out, "result")
+		image_id = _resp_val(out, "image_id")
+		if result or image_id:
+			return result, image_id
+	return None, None
+
+
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 	"""Composite the design PNG onto a blank white t-shirt image and return PNG bytes.
 
@@ -295,6 +314,7 @@ def ad_center_generate_lifestyle():
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
 	include_overlay = bool(data.get("include_overlay", True))
+	previous_image_id = (data.get("previous_image_id") or "").strip()
 	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
 	if not isinstance(shirt_colors, list):
 		shirt_colors = ["black", "white", "heather gray"]
@@ -364,15 +384,17 @@ def ad_center_generate_lifestyle():
 
 	import uuid
 	job_id = str(uuid.uuid4())
-	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id, "image_id": previous_image_id or ""})
 
-	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str):
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str, prev_img_id: str):
 		with app_ctx:
 			try:
 				import os as _os
 				import time as _time
 				from openai import OpenAI
 				from base64 import b64decode
+				from io import BytesIO as _BytesIO
+				import requests as _req
 				_os.environ["OPENAI_API_KEY"] = api_key
 				client = OpenAI().with_options(timeout=120.0)
 
@@ -403,80 +425,94 @@ def ad_center_generate_lifestyle():
 				# Prefer Responses API image edit with high input fidelity so artwork/logo details
 				# from the selected catalog image are preserved more accurately.
 				img_bytes = None
+				final_image_id = prev_img_id or ""
 				try:
-					content_parts = [
-						{"type": "input_text", "text": prompt},
-						{"type": "input_image", "image_url": src},
-					]
-					if mockup_src:
-						content_parts.append({"type": "input_image", "image_url": mockup_src})
+					def _upload_ref_image(url: str, label: str) -> str | None:
+						if not url:
+							return None
+						r = _req.get(url, timeout=20)
+						r.raise_for_status()
+						filename = f"{label}.png"
+						buf = _BytesIO(r.content)
+						buf.name = filename
+						up = client.files.create(file=buf, purpose="vision")
+						return _resp_val(up, "id")
+
+					content_parts = [{"type": "input_text", "text": prompt}]
+					source_file_id = _upload_ref_image(src, "design_reference")
+					if source_file_id:
+						content_parts.append({"type": "input_image", "file_id": source_file_id})
+					if mockup_src and mockup_src != src:
+						mockup_file_id = _upload_ref_image(mockup_src, "mockup_reference")
+						if mockup_file_id:
+							content_parts.append({"type": "input_image", "file_id": mockup_file_id})
+
+					tool_payload = {
+						"type": "image_generation",
+						"input_fidelity": "high",
+						"action": "edit",
+						"size": out_size,
+						"quality": out_quality,
+						"background": out_bg,
+					}
+					if prev_img_id:
+						tool_payload["image"] = prev_img_id
 
 					resp = client.responses.create(
 						model="gpt-4.1",
 						input=[{"role": "user", "content": content_parts}],
-						tools=[{
-							"type": "image_generation",
-							"input_fidelity": "high",
-							"action": "edit",
-							"size": out_size,
-							"quality": out_quality,
-							"background": out_bg,
-						}],
+						tools=[tool_payload],
 					)
 
-					b64 = None
-					for out in (getattr(resp, "output", None) or []):
-						otype = getattr(out, "type", None) or (out.get("type") if isinstance(out, dict) else None)
-						if otype == "image_generation_call":
-							b64 = getattr(out, "result", None) or (out.get("result") if isinstance(out, dict) else None)
-							if b64:
-								break
+					b64, image_id = _extract_response_image_data(resp)
 					if b64:
 						img_bytes = b64decode(b64)
+					if image_id:
+						final_image_id = image_id
 				except Exception as e:
 					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
 
 				# Fallback: regular image generation
-				if not img_bytes:
-					res = client.images.generate(
-						model="gpt-image-1",
-						prompt=prompt,
-						size=out_size,
-						quality=out_quality,
-						background=out_bg,
-					)
-					b64 = res.data[0].b64_json
-					img_bytes = b64decode(b64)
+					if not img_bytes:
+						res = client.images.generate(
+							model="gpt-image-1",
+							prompt=prompt,
+							size=out_size,
+							quality=out_quality,
+							background=out_bg,
+						)
+						b64 = res.data[0].b64_json
+						img_bytes = b64decode(b64)
 
-				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
-				if cloud_url:
-					import cloudinary.uploader as cu
-					public_id = f"ad_center_{p.id}_{int(_time.time())}"
-					res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
-					final_url = res_up.get("secure_url") or res_up.get("url")
-				else:
-					fname = f"ad_center_{p.id}_{int(_time.time())}.png"
-					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-					os.makedirs(upload_dir, exist_ok=True)
-					path = os.path.join(upload_dir, fname)
-					with open(path, "wb") as f:
-						f.write(img_bytes)
-					final_url = f"/static/uploads/{fname}"
+					cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+					if cloud_url:
+						import cloudinary.uploader as cu
+						public_id = f"ad_center_{p.id}_{int(_time.time())}"
+						res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
+						final_url = res_up.get("secure_url") or res_up.get("url")
+					else:
+						fname = f"ad_center_{p.id}_{int(_time.time())}.png"
+						upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+						os.makedirs(upload_dir, exist_ok=True)
+						path = os.path.join(upload_dir, fname)
+						with open(path, "wb") as f:
+							f.write(img_bytes)
+						final_url = f"/static/uploads/{fname}"
 
-				job_state = _ad_job_get(jid) or {"product_id": p.id}
-				job_state.update({"status": "done", "url": final_url, "error": ""})
-				_ad_job_set(jid, job_state)
+					job_state = _ad_job_get(jid) or {"product_id": p.id}
+					job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
+					_ad_job_set(jid, job_state)
 			except Exception as e:
 				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
 				job_state = _ad_job_get(jid) or {"product_id": p.id}
 				job_state.update({"status": "error", "error": str(e)})
 				_ad_job_set(jid, job_state)
 
-	thr = threading.Thread(
-		target=_worker,
-		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background),
-		daemon=True
-	)
+		thr = threading.Thread(
+			target=_worker,
+			args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background, previous_image_id),
+			daemon=True
+		)
 	thr.start()
 	return jsonify({"ok": True, "job_id": job_id})
 
