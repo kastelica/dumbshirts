@@ -92,6 +92,25 @@ def _ad_job_get(job_id: str) -> dict | None:
 		return _ad_jobs_load().get(job_id)
 
 
+def _resp_val(obj, key, default=None):
+	"""Read a property from an SDK object or plain dict."""
+	if isinstance(obj, dict):
+		return obj.get(key, default)
+	return getattr(obj, key, default)
+
+
+def _extract_response_image_data(resp) -> tuple[str | None, str | None]:
+	"""Extract (base64_result, image_id) from Responses output."""
+	for out in (_resp_val(resp, "output", []) or []):
+		if _resp_val(out, "type") != "image_generation_call":
+			continue
+		result = _resp_val(out, "result")
+		image_id = _resp_val(out, "image_id")
+		if result or image_id:
+			return result, image_id
+	return None, None
+
+
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 	"""Composite the design PNG onto a blank white t-shirt image and return PNG bytes.
 
@@ -295,6 +314,7 @@ def ad_center_generate_lifestyle():
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
 	include_overlay = bool(data.get("include_overlay", True))
+	previous_image_id = (data.get("previous_image_id") or "").strip()
 	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
 	if not isinstance(shirt_colors, list):
 		shirt_colors = ["black", "white", "heather gray"]
@@ -364,9 +384,9 @@ def ad_center_generate_lifestyle():
 
 	import uuid
 	job_id = str(uuid.uuid4())
-	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id, "image_id": previous_image_id})
 
-	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str):
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str, prev_img_id: str):
 		with app_ctx:
 			try:
 				import os as _os
@@ -381,18 +401,24 @@ def ad_center_generate_lifestyle():
 				audience_text = f"Target audience: {aud}. " if aud else ""
 				scene_text = f"Scene/style: {sc}. " if sc else ""
 				if include_text:
-					overlay_text = f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+					overlay_text = (
+						f"Include visible ad text overlay. Headline must be exactly '{overlay_headline}'. "
+						f"CTA button text must be exactly '{cta}'. "
+					)
 				else:
-					overlay_text = "Do NOT add any text overlay, captions, CTA buttons, stickers, or typography anywhere in the image. "
+					overlay_text = (
+						"Do NOT include any text overlay, captions, CTA buttons, stickers, labels, or typography anywhere in the image. "
+						"This is a hard requirement."
+					)
 				prompt = (
-					f"Create a high-converting e-commerce lifestyle ad image featuring models wearing t-shirts that use the EXACT same artwork/logo from this reference design image: {src}. "
-					f"If available, use this product mockup as style reference for placement/scale: {mockup_src}. "
+					f"Create a realistic e-commerce lifestyle photo with human models wearing this exact t-shirt mockup design. "
+					f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
+					f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
 					f"{audience_text}{scene_text}"
 					f"Show this same design on regular shirt colors: {color_text}. "
-					f"Do not change, redraw, paraphrase, or replace the logo/artwork text. Keep the original design faithful. "
 					f"{overlay_text}"
-					f"Keep text legible with strong contrast and clean modern layout. "
-					f"Brand style: edgy, meme-culture streetwear. "
+					f"Keep composition clean and ad-ready with realistic lighting. "
+					f"Brand style: edgy, meme-culture streetwear vibe. "
 					f"Do not include any other logos or trademarks."
 				)
 
@@ -400,39 +426,36 @@ def ad_center_generate_lifestyle():
 				job_state["prompt"] = prompt
 				_ad_job_set(jid, job_state)
 
-				# Prefer Responses API image edit with high input fidelity so artwork/logo details
-				# from the selected catalog image are preserved more accurately.
+				# Use Responses image edit with a single image input (product mockup URL).
 				img_bytes = None
+				final_image_id = prev_img_id or ""
 				try:
 					content_parts = [
 						{"type": "input_text", "text": prompt},
-						{"type": "input_image", "image_url": src},
+						{"type": "input_image", "image_url": mockup_src or src},
 					]
-					if mockup_src:
-						content_parts.append({"type": "input_image", "image_url": mockup_src})
+
+					tool_payload = {
+						"type": "image_generation",
+						"action": "edit",
+						"size": out_size,
+						"quality": out_quality,
+						"background": out_bg,
+					}
+					if prev_img_id:
+						tool_payload["image"] = prev_img_id
 
 					resp = client.responses.create(
-						model="gpt-4.1",
+						model="gpt-5",
 						input=[{"role": "user", "content": content_parts}],
-						tools=[{
-							"type": "image_generation",
-							"input_fidelity": "high",
-							"action": "edit",
-							"size": out_size,
-							"quality": out_quality,
-							"background": out_bg,
-						}],
+						tools=[tool_payload],
 					)
 
-					b64 = None
-					for out in (getattr(resp, "output", None) or []):
-						otype = getattr(out, "type", None) or (out.get("type") if isinstance(out, dict) else None)
-						if otype == "image_generation_call":
-							b64 = getattr(out, "result", None) or (out.get("result") if isinstance(out, dict) else None)
-							if b64:
-								break
+					b64, image_id = _extract_response_image_data(resp)
 					if b64:
 						img_bytes = b64decode(b64)
+					if image_id:
+						final_image_id = image_id
 				except Exception as e:
 					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
 
@@ -464,7 +487,7 @@ def ad_center_generate_lifestyle():
 					final_url = f"/static/uploads/{fname}"
 
 				job_state = _ad_job_get(jid) or {"product_id": p.id}
-				job_state.update({"status": "done", "url": final_url, "error": ""})
+				job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
 				_ad_job_set(jid, job_state)
 			except Exception as e:
 				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
@@ -474,7 +497,7 @@ def ad_center_generate_lifestyle():
 
 	thr = threading.Thread(
 		target=_worker,
-		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background),
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background, previous_image_id),
 		daemon=True
 	)
 	thr.start()

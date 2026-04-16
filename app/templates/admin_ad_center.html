@@ -146,6 +146,10 @@
 	const promptPre = document.getElementById('ad-prompt');
 
 	let pollTimer = null;
+	let pollAttempts = 0;
+	const maxPollAttempts = 120; // ~4 minutes at 2s interval
+	let lastProductId = '';
+	let previousImageId = '';
 
 	function resolvePresetValue(selectEl, customEl){
 		const v = (selectEl?.value || '').trim();
@@ -174,7 +178,15 @@
 
 	function startPoll(jobId){
 		if (pollTimer) clearInterval(pollTimer);
+		pollAttempts = 0;
 		pollTimer = setInterval(async function(){
+			pollAttempts += 1;
+			if (pollAttempts > maxPollAttempts){
+				setStatus('Timed out waiting for generation. Please try again.', true);
+				clearInterval(pollTimer);
+				btn.disabled = false;
+				return;
+			}
 			try{
 				const r = await fetch(`/admin/ad-center/generate-status/${encodeURIComponent(jobId)}`);
 				const data = await r.json();
@@ -185,6 +197,7 @@
 				}
 				promptPre.textContent = data.prompt || '';
 				if (data.status === 'done' && data.url){
+					if (data.image_id) previousImageId = String(data.image_id);
 					preview.src = data.url;
 					preview.classList.remove('hidden');
 					empty.classList.add('hidden');
@@ -197,6 +210,10 @@
 					setStatus(data.error || 'Generation failed', true);
 					clearInterval(pollTimer);
 					btn.disabled = false;
+				} else if (data.status !== 'running'){
+					setStatus(`Unexpected job status: ${data.status || 'unknown'}`, true);
+					clearInterval(pollTimer);
+					btn.disabled = false;
 				} else {
 					setStatus('Generating…');
 				}
@@ -207,6 +224,13 @@
 			}
 		}, 2000);
 	}
+
+	productEl?.addEventListener('change', function(){
+		const selected = (productEl?.value || '').trim();
+		if (lastProductId && selected !== lastProductId){
+			previousImageId = '';
+		}
+	});
 
 	btn?.addEventListener('click', async function(){
 		const productId = (productEl?.value || '').trim();
@@ -221,34 +245,40 @@
 		links.classList.add('hidden');
 		promptPre.textContent = '';
 
-		try{
-			const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
-			const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
-			const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
-			const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
-			const res = await fetch('/admin/ad-center/generate-lifestyle', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					product_id: parseInt(productId, 10),
-					headline: (headlineEl?.value || '').trim(),
-					cta_text: (ctaEl?.value || '').trim(),
-					audience: audienceValue,
-					scene: sceneCombined,
-					shirt_colors: selectedColors,
-					include_overlay: !!includeOverlayEl?.checked,
-					size: (sizeEl?.value || '1536x1024').trim(),
-					quality: (qualityEl?.value || 'auto').trim(),
-					background: (backgroundEl?.value || 'auto').trim()
-				})
-			});
-			const data = await res.json();
-			if (!res.ok || !data.job_id){
-				setStatus(data.error || 'Failed to start generation', true);
-				btn.disabled = false;
-				return;
-			}
-			startPoll(data.job_id);
+			try{
+				const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
+				const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
+				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+				const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
+				const selectedProductId = (productEl?.value || '').trim();
+				if (lastProductId && selectedProductId !== lastProductId){
+					previousImageId = '';
+				}
+				const res = await fetch('/admin/ad-center/generate-lifestyle', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						product_id: parseInt(productId, 10),
+						headline: (headlineEl?.value || '').trim(),
+						cta_text: (ctaEl?.value || '').trim(),
+						audience: audienceValue,
+						scene: sceneCombined,
+						shirt_colors: selectedColors,
+						include_overlay: !!includeOverlayEl?.checked,
+						size: (sizeEl?.value || '1536x1024').trim(),
+						quality: (qualityEl?.value || 'auto').trim(),
+						background: (backgroundEl?.value || 'auto').trim(),
+						previous_image_id: previousImageId || ''
+					})
+				});
+				const data = await res.json();
+				if (!res.ok || !data.job_id){
+					setStatus(data.error || 'Failed to start generation', true);
+					btn.disabled = false;
+					return;
+				}
+				lastProductId = selectedProductId;
+				startPoll(data.job_id);
 		}catch(e){
 			setStatus('Network error starting generation', true);
 			btn.disabled = false;
