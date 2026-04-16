@@ -146,6 +146,8 @@
 	const promptPre = document.getElementById('ad-prompt');
 
 	let pollTimer = null;
+	let lastProductId = '';
+	let previousImageId = '';
 
 	function resolvePresetValue(selectEl, customEl){
 		const v = (selectEl?.value || '').trim();
@@ -183,9 +185,10 @@
 					clearInterval(pollTimer);
 					return;
 				}
-				promptPre.textContent = data.prompt || '';
-				if (data.status === 'done' && data.url){
-					preview.src = data.url;
+					promptPre.textContent = data.prompt || '';
+					if (data.status === 'done' && data.url){
+						if (data.image_id) previousImageId = String(data.image_id);
+						preview.src = data.url;
 					preview.classList.remove('hidden');
 					empty.classList.add('hidden');
 					openLink.href = data.url;
@@ -208,6 +211,13 @@
 		}, 2000);
 	}
 
+	productEl?.addEventListener('change', function(){
+		const current = (productEl?.value || '').trim();
+		if (lastProductId && current !== lastProductId){
+			previousImageId = '';
+		}
+	});
+
 	btn?.addEventListener('click', async function(){
 		const productId = (productEl?.value || '').trim();
 		if (!productId){
@@ -224,31 +234,37 @@
 		try{
 			const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
 			const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
-			const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
-			const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
-			const res = await fetch('/admin/ad-center/generate-lifestyle', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					product_id: parseInt(productId, 10),
-					headline: (headlineEl?.value || '').trim(),
-					cta_text: (ctaEl?.value || '').trim(),
-					audience: audienceValue,
-					scene: sceneCombined,
-					shirt_colors: selectedColors,
-					include_overlay: !!includeOverlayEl?.checked,
-					size: (sizeEl?.value || '1536x1024').trim(),
-					quality: (qualityEl?.value || 'auto').trim(),
-					background: (backgroundEl?.value || 'auto').trim()
-				})
-			});
-			const data = await res.json();
-			if (!res.ok || !data.job_id){
-				setStatus(data.error || 'Failed to start generation', true);
-				btn.disabled = false;
-				return;
-			}
-			startPoll(data.job_id);
+				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+				const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
+				const selectedProductId = (productEl?.value || '').trim();
+				if (lastProductId && selectedProductId !== lastProductId){
+					previousImageId = '';
+				}
+				const res = await fetch('/admin/ad-center/generate-lifestyle', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						product_id: parseInt(productId, 10),
+						headline: (headlineEl?.value || '').trim(),
+						cta_text: (ctaEl?.value || '').trim(),
+						audience: audienceValue,
+						scene: sceneCombined,
+						shirt_colors: selectedColors,
+						include_overlay: !!includeOverlayEl?.checked,
+						size: (sizeEl?.value || '1536x1024').trim(),
+						quality: (qualityEl?.value || 'auto').trim(),
+						background: (backgroundEl?.value || 'auto').trim(),
+						previous_image_id: previousImageId || ''
+					})
+				});
+				const data = await res.json();
+				if (!res.ok || !data.job_id){
+					setStatus(data.error || 'Failed to start generation', true);
+					btn.disabled = false;
+					return;
+				}
+				lastProductId = selectedProductId;
+				startPoll(data.job_id);
 		}catch(e){
 			setStatus('Network error starting generation', true);
 			btn.disabled = false;
