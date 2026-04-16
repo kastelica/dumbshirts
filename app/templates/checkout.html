@@ -212,7 +212,7 @@ function gtag_report_conversion(url){
                 items: items.map(it => ({
                     item_id: it.product_id,
                     item_name: it.title,
-                    item_brand: 'Dumbshirts.store',
+                    item_brand: 'Roast Cotton',
                     item_category: 't-shirt',
                     item_variant: (it.variant_id || ''),
                     price: it.price,
@@ -327,7 +327,7 @@ function gtag_report_conversion(url){
 						items: items.map(it => ({
 							item_id: it.product_id?.toString() || '',
 							item_name: it.title || '',
-							item_brand: 'Dumbshirts.store',
+							item_brand: 'Roast Cotton',
 							item_category: 't-shirt',
 							item_variant: (it.variant_id || '').toString(),
 							price: parseFloat(it.price || 0),
