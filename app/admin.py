@@ -293,6 +293,12 @@ def ad_center_generate_lifestyle():
 	cta_text = (data.get("cta_text") or "").strip() or "Shop Now"
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
+	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
+	if not isinstance(shirt_colors, list):
+		shirt_colors = ["black", "white", "heather gray"]
+	shirt_colors = [str(c).strip().lower() for c in shirt_colors if str(c).strip()]
+	if not shirt_colors:
+		shirt_colors = ["black", "white", "heather gray"]
 	aspect = (data.get("aspect") or "").strip() or "landscape"
 
 	try:
@@ -309,20 +315,24 @@ def ad_center_generate_lifestyle():
 		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
 
 	source_image = ""
+	mockup_image = ""
 	if getattr(product, "design", None):
-		source_image = (product.design.preview_url or product.design.image_url or "").strip()
+		source_image = (product.design.image_url or product.design.preview_url or "").strip()
+		mockup_image = (product.design.preview_url or "").strip()
 	if not source_image:
 		return jsonify({"error": "Product has no design image to base creative on"}), 400
 
 	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
 	if source_image.startswith("/"):
 		source_image = f"{base}{source_image}"
+	if mockup_image.startswith("/"):
+		mockup_image = f"{base}{mockup_image}"
 
 	import uuid
 	job_id = str(uuid.uuid4())
 	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
 
-	def _worker(app_ctx, jid: str, p: Product, src: str, h: str, cta: str, sc: str, aud: str, asp: str):
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], asp: str):
 		with app_ctx:
 			try:
 				import os as _os
@@ -334,9 +344,13 @@ def ad_center_generate_lifestyle():
 
 				size = "1536x1024" if asp == "landscape" else ("1024x1536" if asp == "portrait" else "1024x1024")
 				overlay_headline = h or p.title
+				color_text = ", ".join(colors)
 				prompt = (
-					f"Create a high-converting e-commerce lifestyle ad image featuring a model wearing a t-shirt design based on this reference image: {src}. "
+					f"Create a high-converting e-commerce lifestyle ad image featuring models wearing t-shirts that use the EXACT same artwork/logo from this reference design image: {src}. "
+					f"If available, use this product mockup as style reference for placement/scale: {mockup_src}. "
 					f"Target audience: {aud}. Scene/style: {sc}. "
+					f"Show this same design on regular shirt colors: {color_text}. "
+					f"Do not change, redraw, paraphrase, or replace the logo/artwork text. Keep the original design faithful. "
 					f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
 					f"Keep text legible with strong contrast and clean modern layout. "
 					f"Brand style: edgy, meme-culture streetwear. "
@@ -380,7 +394,7 @@ def ad_center_generate_lifestyle():
 
 	thr = threading.Thread(
 		target=_worker,
-		args=(current_app.app_context(), job_id, product, source_image, headline, cta_text, scene, audience, aspect),
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, aspect),
 		daemon=True
 	)
 	thr.start()
