@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Ad Center | Roast Cotton Admin{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+	<div class="mb-6">
+		<h1 class="text-3xl font-bold">Ad Center</h1>
+		<p class="text-gray-400 mt-2">Generate lifestyle ad creatives from catalog products. Next step: platform integrations (Meta/Google).</p>
+	</div>
+
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<div class="bg-gray-900 border border-gray-800 rounded p-5 space-y-4">
+			<h2 class="text-xl font-semibold">Creative Generator (OpenAI)</h2>
+			<div>
+				<label class="block text-sm mb-1">Catalog Product</label>
+				<select id="ad-product" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="">Select a product…</option>
+					{% for p in products %}
+					<option value="{{ p.id }}">#{{ p.id }} — {{ p.title }}</option>
+					{% endfor %}
+				</select>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Headline Overlay</label>
+				<input id="ad-headline" type="text" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Limited Drop: Internet Classics" />
+			</div>
+			<div>
+				<label class="block text-sm mb-1">CTA Overlay</label>
+				<input id="ad-cta" type="text" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" value="Shop Now" />
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Audience Preset</label>
+				<select id="ad-audience-preset" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="Gen Z and millennial meme culture shoppers" selected>Gen Z / Millennial Meme Shoppers</option>
+					<option value="college students and festival-goers">College + Festival Crowd</option>
+					<option value="streetwear and sneaker culture buyers">Streetwear / Sneaker Culture</option>
+					<option value="gift shoppers looking for funny t-shirts">Gift Buyers (Funny Tees)</option>
+					<option value="pop-culture and internet trend fans">Pop Culture / Internet Trend Fans</option>
+				</select>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Scene Preset</label>
+				<select id="ad-scene-preset" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="Streetwear lifestyle scene, modern city background, energetic mood, premium ad composition." selected>Urban Streetwear (City)</option>
+					<option value="Golden hour boardwalk shoot, candid motion blur, upbeat summer vibe.">Boardwalk / Summer</option>
+					<option value="Music festival crowd scene, colorful lighting, energetic editorial style.">Festival Crowd</option>
+					<option value="Studio lifestyle lookbook, clean backdrop, crisp product-forward lighting.">Studio Lookbook</option>
+					<option value="Coffee shop casual scene, natural daylight, everyday wearable styling.">Casual Everyday</option>
+				</select>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Extra Scene Direction (optional)</label>
+				<textarea id="ad-scene-extra" rows="2" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Any extra shot direction…"></textarea>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Shirt Colors to Include</label>
+				<div class="grid grid-cols-2 gap-2 text-sm">
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="black" checked> Black</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="white" checked> White</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="heather gray" checked> Heather Gray</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="navy"> Navy</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="red"> Red</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="blue"> Blue</label>
+				</div>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Aspect</label>
+				<select id="ad-aspect" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="landscape" selected>Landscape (1536x1024)</option>
+					<option value="portrait">Portrait (1024x1536)</option>
+					<option value="square">Square (1024x1024)</option>
+				</select>
+			</div>
+			<div class="flex items-center gap-3">
+				<button id="ad-generate-btn" class="bg-white text-black px-4 py-2 rounded font-semibold hover:bg-gray-100">Generate Creative</button>
+				<span id="ad-status" class="text-sm text-gray-400"></span>
+			</div>
+		</div>
+
+		<div class="bg-gray-900 border border-gray-800 rounded p-5">
+			<h2 class="text-xl font-semibold mb-3">Output</h2>
+			<div id="ad-preview-wrap" class="bg-gray-950 border border-gray-700 rounded min-h-[360px] flex items-center justify-center p-3">
+				<div id="ad-empty" class="text-gray-500 text-sm">Generated creative will appear here.</div>
+				<img id="ad-preview" src="" alt="Generated ad creative" class="hidden max-w-full h-auto rounded border border-gray-700" />
+			</div>
+			<div id="ad-links" class="hidden mt-3 space-y-1 text-sm">
+				<a id="ad-open-link" href="#" target="_blank" class="underline text-blue-400">Open image in new tab</a>
+			</div>
+			<details class="mt-4">
+				<summary class="cursor-pointer text-sm text-gray-300">Show generated prompt</summary>
+				<pre id="ad-prompt" class="mt-2 text-xs text-gray-400 whitespace-pre-wrap bg-gray-950 border border-gray-800 rounded p-3"></pre>
+			</details>
+		</div>
+	</div>
+</div>
+
+<script>
+(function(){
+	const productEl = document.getElementById('ad-product');
+	const headlineEl = document.getElementById('ad-headline');
+	const ctaEl = document.getElementById('ad-cta');
+	const audiencePresetEl = document.getElementById('ad-audience-preset');
+	const scenePresetEl = document.getElementById('ad-scene-preset');
+	const sceneExtraEl = document.getElementById('ad-scene-extra');
+	const aspectEl = document.getElementById('ad-aspect');
+	const btn = document.getElementById('ad-generate-btn');
+	const statusEl = document.getElementById('ad-status');
+	const preview = document.getElementById('ad-preview');
+	const empty = document.getElementById('ad-empty');
+	const links = document.getElementById('ad-links');
+	const openLink = document.getElementById('ad-open-link');
+	const promptPre = document.getElementById('ad-prompt');
+
+	let pollTimer = null;
+
+	function setStatus(msg, err){
+		if (!statusEl) return;
+		statusEl.textContent = msg || '';
+		statusEl.className = 'text-sm ' + (err ? 'text-red-400' : 'text-gray-400');
+	}
+
+	function startPoll(jobId){
+		if (pollTimer) clearInterval(pollTimer);
+		pollTimer = setInterval(async function(){
+			try{
+				const r = await fetch(`/admin/ad-center/generate-status/${encodeURIComponent(jobId)}`);
+				const data = await r.json();
+				if (!r.ok){
+					setStatus(data.error || 'Status check failed', true);
+					clearInterval(pollTimer);
+					return;
+				}
+				promptPre.textContent = data.prompt || '';
+				if (data.status === 'done' && data.url){
+					preview.src = data.url;
+					preview.classList.remove('hidden');
+					empty.classList.add('hidden');
+					openLink.href = data.url;
+					links.classList.remove('hidden');
+					setStatus('Done');
+					clearInterval(pollTimer);
+					btn.disabled = false;
+				} else if (data.status === 'error'){
+					setStatus(data.error || 'Generation failed', true);
+					clearInterval(pollTimer);
+					btn.disabled = false;
+				} else {
+					setStatus('Generating…');
+				}
+			}catch(e){
+				setStatus('Network error while polling status', true);
+				clearInterval(pollTimer);
+				btn.disabled = false;
+			}
+		}, 2000);
+	}
+
+	btn?.addEventListener('click', async function(){
+		const productId = (productEl?.value || '').trim();
+		if (!productId){
+			setStatus('Please choose a product first.', true);
+			return;
+		}
+		btn.disabled = true;
+		setStatus('Starting generation…');
+		preview.classList.add('hidden');
+		empty.classList.remove('hidden');
+		links.classList.add('hidden');
+		promptPre.textContent = '';
+
+		try{
+			const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
+			const sceneCombined = [(scenePresetEl?.value || '').trim(), (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+			const res = await fetch('/admin/ad-center/generate-lifestyle', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					product_id: parseInt(productId, 10),
+					headline: (headlineEl?.value || '').trim(),
+					cta_text: (ctaEl?.value || '').trim(),
+					audience: (audiencePresetEl?.value || '').trim(),
+					scene: sceneCombined,
+					shirt_colors: selectedColors,
+					aspect: (aspectEl?.value || 'landscape').trim()
+				})
+			});
+			const data = await res.json();
+			if (!res.ok || !data.job_id){
+				setStatus(data.error || 'Failed to start generation', true);
+				btn.disabled = false;
+				return;
+			}
+			startPoll(data.job_id);
+		}catch(e){
+			setStatus('Network error starting generation', true);
+			btn.disabled = false;
+		}
+	});
+})();
+</script>
+{% endblock %}
