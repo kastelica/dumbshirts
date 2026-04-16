@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import re
 import unicodedata
 import difflib
+from urllib.parse import urlparse
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 _AD_CENTER_JOBS_LOCK = threading.Lock()
@@ -331,7 +332,27 @@ def ad_center_generate_lifestyle():
 	mockup_image = ""
 	if getattr(product, "design", None):
 		source_image = (product.design.image_url or product.design.preview_url or "").strip()
-		mockup_image = (product.design.preview_url or "").strip()
+		candidate_mockup = (product.design.preview_url or "").strip()
+
+		def _core_name(u: str) -> str:
+			try:
+				name = os.path.basename(urlparse(u).path).lower()
+			except Exception:
+				name = (u or "").lower()
+			for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+				if name.endswith(ext):
+					name = name[: -len(ext)]
+			for suffix in ["_design", "-design", "_mockup", "-mockup", "_preview", "-preview"]:
+				if name.endswith(suffix):
+					name = name[: -len(suffix)]
+			return name
+
+		# Only use preview as secondary mockup reference if it appears to match the same source design.
+		if candidate_mockup and _core_name(candidate_mockup) == _core_name(source_image):
+			mockup_image = candidate_mockup
+		else:
+			# Fallback to the same exact design image to avoid cross-product mockup contamination.
+			mockup_image = source_image
 	if not source_image:
 		return jsonify({"error": "Product has no design image to base creative on"}), 400
 
