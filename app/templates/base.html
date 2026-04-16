@@ -226,12 +226,14 @@
 	</main>
 	{# 5% Off Floating Button and Modal - Only on index, shop, search, category, and product detail pages #}
 	{% set current_path = request.path %}
+	{% set is_admin_path = current_path.startswith('/admin') %}
 	{% set show_promo = current_path == '/' or current_path.startswith('/shop') or current_path.startswith('/search') or
 	current_path.startswith('/product/') or current_path.startswith('/funny-tshirts') or
 	current_path.startswith('/meme-tshirts') or current_path.startswith('/sarcastic-tshirts') or
 	current_path.startswith('/witty-shirts') or current_path.startswith('/funny-saying-tshirts') or
 	current_path.startswith('/pun-shirts') or current_path.startswith('/dad-joke-shirts') or
 	current_path.startswith('/black-friday') %}
+	{% set show_promo = show_promo and not is_admin_path %}
 
 	{% if show_promo %}
 	<style>
@@ -406,6 +408,7 @@
 			<div class="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500">&copy; {{ 2026 }} Roast Cotton</div>
 		</div>
 	</footer>
+	{% if not is_admin_path %}
 	{# Exit Intent - Free Shirt Offer Modal #}
 	<div id="exit-intent-modal" class="fixed inset-0 z-[100] hidden">
 		<div class="absolute inset-0 bg-black/80 z-[100]" data-exit-close></div>
@@ -435,6 +438,7 @@
 			</div>
 		</div>
 	</div>
+	{% endif %}
 
 	<script>
 		(function () {
@@ -597,6 +601,7 @@
 		})();
 	</script>
 
+	{% if not is_admin_path %}
 	{# Exit Intent Detection Script #}
 	<script>
 		(function () {
@@ -795,12 +800,9 @@
 				});
 			}
 
-			// Prevent showing on admin pages
-			if (window.location.pathname.startsWith('/admin')) {
-				lsSet('exit_intent_shown', '1');
-			}
 		})();
 	</script>
+	{% endif %}
 
 	{# 5% Off Floating Button Script - Only on allowed pages #}
 	{% if show_promo %}
