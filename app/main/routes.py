@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 from datetime import datetime
 from ..gelato_client import GelatoClient
 from datetime import timedelta
+from xml.sax.saxutils import escape as xml_escape
 from ..utils import send_email_via_sendgrid, render_simple_email, validate_google_jwt_token, extract_google_discount_info, is_google_discount_valid
 from ..extensions import db
 
@@ -867,6 +868,63 @@ def checkout():
 	cart = session.get("cart") or {"items": []}
 	# Support GET-based add-to-cart for Google checkout URLs
 	try:
+		def _add_product_to_cart(pid: int, qty: int, vid: str | None = None, color: str | None = None, size: str | None = None):
+			product = Product.query.get(pid)
+			if not product or product.status != "active":
+				return
+			variant = None
+			if vid:
+				try:
+					v = Variant.query.get(int(str(vid)))
+					if v and v.product_id == product.id:
+						variant = v
+				except Exception:
+					variant = None
+			if not variant and product.variants:
+				variant = product.variants[0]
+			# Price: honor Google discount if available, otherwise site-wide 15% sale
+			from decimal import Decimal as _D
+			if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
+				sale_price = _D(str(session["google_discount"].get("discounted_price", 0)))
+			else:
+				sale_price = (product.price * _D("85")) / _D("100")
+			found = False
+			for it in cart.get("items", []):
+				if variant and it.get("variant_id") == variant.id:
+					# only merge if same color/size as well
+					it_color = (it.get("color") or "").strip().lower()
+					it_size = (it.get("size") or "").strip().upper()
+					new_color = (str(color or (variant.color or "")).strip().lower())
+					new_size = (str(size or (variant.size or "")).strip().upper())
+					if it_color == new_color and it_size == new_size:
+						it["quantity"] += qty
+						found = True
+						break
+			if not found:
+				cart_item = {
+					"product_id": product.id,
+					"variant_id": (variant.id if variant else None),
+					"title": product.title,
+					"slug": product.slug,
+					"orig_price": float(product.price),
+					"price": float(sale_price),
+					"currency": product.currency,
+					"quantity": qty,
+					"image": ((product.design.image_url) if product.design else ""),
+					"product_uid": ((variant.gelato_sku) if variant else ""),
+					"color": ((str(color).lower()) if color else ((variant.color) if variant else "")),
+					"size": ((str(size).upper()) if size else ((variant.size) if variant else "")),
+				}
+				# Add Google discount data if available
+				if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
+					cart_item.update({
+						"google_discount_price": session["google_discount"].get("discounted_price"),
+						"google_discount_currency": session["google_discount"].get("currency"),
+						"google_offer_id": session["google_discount"].get("offer_id")
+					})
+				cart.setdefault("items", []).append(cart_item)
+
+		# Legacy Google-style params
 		pid_raw = request.args.get("product_id") or request.args.get("item_id")
 		qty_raw = request.args.get("quantity") or request.args.get("qty") or "1"
 		vid_raw = request.args.get("variant_id") or request.args.get("vid")
@@ -875,61 +933,33 @@ def checkout():
 		if pid_raw:
 			pid = int(str(pid_raw))
 			qty = max(1, min(10, int(str(qty_raw))))
-			product = Product.query.get(pid)
-			if product and product.status == "active":
-				variant = None
-				if vid_raw:
-					try:
-						v = Variant.query.get(int(str(vid_raw)))
-						if v and v.product_id == product.id:
-							variant = v
-					except Exception:
-						variant = None
-				if not variant and product.variants:
-					variant = product.variants[0]
-				# Price: honor Google discount if available, otherwise site-wide 15% sale
-				from decimal import Decimal as _D
-				if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
-					sale_price = _D(str(session["google_discount"].get("discounted_price", 0)))
-				else:
-					sale_price = (product.price * _D("85")) / _D("100")
-				found = False
-				for it in cart.get("items", []):
-					if variant and it.get("variant_id") == variant.id:
-						# only merge if same color/size as well
-						it_color = (it.get("color") or "").strip().lower()
-						it_size = (it.get("size") or "").strip().upper()
-						new_color = (str(color_raw or (variant.color or "")).strip().lower())
-						new_size = (str(size_raw or (variant.size or "")).strip().upper())
-						if it_color == new_color and it_size == new_size:
-							it["quantity"] += qty
-							found = True
-							break
-				if not found:
-					cart_item = {
-						"product_id": product.id,
-						"variant_id": (variant.id if variant else None),
-						"title": product.title,
-						"slug": product.slug,
-						"orig_price": float(product.price),
-						"price": float(sale_price),
-						"currency": product.currency,
-						"quantity": qty,
-						"image": ((product.design.image_url) if product.design else ""),
-						"product_uid": ((variant.gelato_sku) if variant else ""),
-						"color": ((str(color_raw).lower()) if color_raw else ((variant.color) if variant else "")),
-						"size": ((str(size_raw).upper()) if size_raw else ((variant.size) if variant else "")),
-					}
-					# Add Google discount data if available
-					if session.get("google_discount") and is_google_discount_valid(session["google_discount"], product.id):
-						cart_item.update({
-							"google_discount_price": session["google_discount"].get("discounted_price"),
-							"google_discount_currency": session["google_discount"].get("currency"),
-							"google_offer_id": session["google_discount"].get("offer_id")
-						})
-					cart.setdefault("items", []).append(cart_item)
-				session["cart"] = cart
-				session.modified = True
+			_add_product_to_cart(pid, qty, vid_raw, color_raw, size_raw)
+
+		# Meta checkout URL format: ?products=123:1,456:2&coupon=CODE
+		products_param = (request.args.get("products") or "").strip()
+		if products_param:
+			for entry in products_param.split(","):
+				entry = entry.strip()
+				if not entry or ":" not in entry:
+					continue
+				try:
+					product_id_raw, quantity_raw = entry.split(":", 1)
+					pid = int(product_id_raw.strip())
+					qty = max(1, min(10, int(quantity_raw.strip())))
+					_add_product_to_cart(pid, qty)
+				except Exception:
+					continue
+
+		# Optional coupon code from checkout URL
+		coupon_code = (request.args.get("coupon") or "").strip().lower()
+		if coupon_code:
+			if coupon_code == "5off":
+				cart["coupon"] = {"code": coupon_code, "percent": 5}
+			else:
+				cart.pop("coupon", None)
+
+		session["cart"] = cart
+		session.modified = True
 	except Exception:
 		pass
 	total = Decimal("0.00")
@@ -1409,15 +1439,15 @@ def sitemap_xml():
 	iso_today = datetime.utcnow().date().isoformat()
 
 	def add_url(loc: str, lastmod: str | None = None, changefreq: str | None = None, priority: str | None = None, image: str | None = None, image_title: str | None = None):
-		parts = [f"<loc>{loc}</loc>"]
+		parts = [f"<loc>{xml_escape(loc)}</loc>"]
 		if lastmod:
-			parts.append(f"<lastmod>{lastmod}</lastmod>")
+			parts.append(f"<lastmod>{xml_escape(lastmod)}</lastmod>")
 		if changefreq:
-			parts.append(f"<changefreq>{changefreq}</changefreq>")
+			parts.append(f"<changefreq>{xml_escape(changefreq)}</changefreq>")
 		if priority:
-			parts.append(f"<priority>{priority}</priority>")
+			parts.append(f"<priority>{xml_escape(priority)}</priority>")
 		if image:
-			img = f"<image:image><image:loc>{image}</image:loc>" + (f"<image:title>{image_title}</image:title>" if image_title else "") + "</image:image>"
+			img = f"<image:image><image:loc>{xml_escape(image)}</image:loc>" + (f"<image:title>{xml_escape(image_title)}</image:title>" if image_title else "") + "</image:image>"
 			parts.append(img)
 		items.append("<url>" + "".join(parts) + "</url>")
 

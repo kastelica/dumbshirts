@@ -157,7 +157,7 @@ def google_feed():
 			current_app.logger.warning(f"[feed] Product {p.id}: No design, skipping from feed")
 			continue
 
-		checkout_url = url_for('main.checkout', item_id=p.id, _external=True)
+		checkout_url = url_for('main.checkout', products=f"{p.id}:1", _external=True)
 		
 		# Optimize title for Google Shopping
 		optimized_title = _optimize_title(p.title, "Roast Cotton")
@@ -184,7 +184,12 @@ def google_feed():
 			# Google Shopping
 			"google_product_category": "Apparel & Accessories > Clothing > Shirts & Tops",
 			"product_type": "t-shirt",
-			"shipping": {"country": "US"},
+			"shipping": {
+				"country": "US",
+				"service": "Standard",
+				"price": "0.00",
+				"currency": "USD",
+			},
 		})
 		# Removed monthly subscription items from Shopping feed
 	return render_google_shopping_feed(items)
