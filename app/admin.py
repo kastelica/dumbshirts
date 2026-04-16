@@ -17,8 +17,10 @@ from datetime import datetime, timedelta
 import re
 import unicodedata
 import difflib
+from urllib.parse import urlparse
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+_AD_CENTER_JOBS_LOCK = threading.Lock()
 
 
 # --------------
@@ -44,6 +46,50 @@ def _progress_add(msg: str) -> None:
 				del msgs[:-100]
 	except Exception:
 		pass
+
+
+def _ad_jobs_path() -> str:
+	"""Path for cross-worker ad job state persistence."""
+	custom = (current_app.config.get("AD_CENTER_JOBS_PATH") or "").strip()
+	if custom:
+		return custom
+	return "/tmp/ad_center_jobs.json"
+
+
+def _ad_jobs_load() -> dict:
+	path = _ad_jobs_path()
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f) or {}
+			return data if isinstance(data, dict) else {}
+	except Exception:
+		return {}
+
+
+def _ad_jobs_save(data: dict) -> None:
+	path = _ad_jobs_path()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	tmp = f"{path}.tmp"
+	with open(tmp, "w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False)
+	os.replace(tmp, path)
+
+
+def _ad_job_set(job_id: str, payload: dict) -> None:
+	with _AD_CENTER_JOBS_LOCK:
+		jobs = _ad_jobs_load()
+		jobs[job_id] = payload
+		# Keep file bounded to latest 200 jobs
+		if len(jobs) > 200:
+			keys = list(jobs.keys())
+			for k in keys[:-200]:
+				jobs.pop(k, None)
+		_ad_jobs_save(jobs)
+
+
+def _ad_job_get(job_id: str) -> dict | None:
+	with _AD_CENTER_JOBS_LOCK:
+		return _ad_jobs_load().get(job_id)
 
 
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
@@ -229,6 +275,219 @@ def dashboard():
 	}
 	
 	return render_template("admin_dashboard_new.html", stats=stats, recent_products=recent_products)
+
+
+@admin_bp.get("/ad-center")
+@login_required
+def ad_center_page():
+	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(300).all()
+	return render_template("admin_ad_center.html", products=products)
+
+
+@admin_bp.post("/ad-center/generate-lifestyle")
+@login_required
+def ad_center_generate_lifestyle():
+	"""Generate lifestyle ad creative for a catalog product using OpenAI image API."""
+	data = request.get_json(silent=True) or {}
+	product_id = data.get("product_id")
+	headline = (data.get("headline") or "").strip()
+	cta_text = (data.get("cta_text") or "").strip() or "Shop Now"
+	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
+	audience = (data.get("audience") or "").strip() or "young adults"
+	include_overlay = bool(data.get("include_overlay", True))
+	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
+	if not isinstance(shirt_colors, list):
+		shirt_colors = ["black", "white", "heather gray"]
+	shirt_colors = [str(c).strip().lower() for c in shirt_colors if str(c).strip()]
+	if not shirt_colors:
+		shirt_colors = ["black", "white", "heather gray"]
+	# Output options
+	size = (data.get("size") or "").strip().lower()
+	aspect = (data.get("aspect") or "").strip().lower()  # backwards compatibility
+	if not size:
+		size = "1536x1024" if aspect == "landscape" else ("1024x1536" if aspect == "portrait" else "1024x1024")
+	if size not in {"1024x1024", "1536x1024", "1024x1536", "auto"}:
+		size = "1536x1024"
+	quality = (data.get("quality") or "auto").strip().lower()
+	if quality not in {"auto", "low", "medium", "high"}:
+		quality = "auto"
+	background = (data.get("background") or "auto").strip().lower()
+	if background not in {"auto", "transparent", "opaque"}:
+		background = "auto"
+
+	try:
+		product_id = int(product_id)
+	except Exception:
+		return jsonify({"error": "Invalid product_id"}), 400
+
+	product = Product.query.get(product_id)
+	if not product or product.status != "active":
+		return jsonify({"error": "Product not found or inactive"}), 404
+
+	api_key = current_app.config.get("OPENAI_API_KEY", "")
+	if not api_key:
+		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+
+	source_image = ""
+	mockup_image = ""
+	if getattr(product, "design", None):
+		source_image = (product.design.image_url or product.design.preview_url or "").strip()
+		candidate_mockup = (product.design.preview_url or "").strip()
+
+		def _core_name(u: str) -> str:
+			try:
+				name = os.path.basename(urlparse(u).path).lower()
+			except Exception:
+				name = (u or "").lower()
+			for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+				if name.endswith(ext):
+					name = name[: -len(ext)]
+			for suffix in ["_design", "-design", "_mockup", "-mockup", "_preview", "-preview"]:
+				if name.endswith(suffix):
+					name = name[: -len(suffix)]
+			return name
+
+		# Only use preview as secondary mockup reference if it appears to match the same source design.
+		if candidate_mockup and _core_name(candidate_mockup) == _core_name(source_image):
+			mockup_image = candidate_mockup
+		else:
+			# Fallback to the same exact design image to avoid cross-product mockup contamination.
+			mockup_image = source_image
+	if not source_image:
+		return jsonify({"error": "Product has no design image to base creative on"}), 400
+
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	if source_image.startswith("/"):
+		source_image = f"{base}{source_image}"
+	if mockup_image.startswith("/"):
+		mockup_image = f"{base}{mockup_image}"
+
+	import uuid
+	job_id = str(uuid.uuid4())
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
+
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str):
+		with app_ctx:
+			try:
+				import os as _os
+				import time as _time
+				from openai import OpenAI
+				from base64 import b64decode
+				_os.environ["OPENAI_API_KEY"] = api_key
+				client = OpenAI().with_options(timeout=120.0)
+
+				overlay_headline = h or p.title
+				color_text = ", ".join(colors)
+				audience_text = f"Target audience: {aud}. " if aud else ""
+				scene_text = f"Scene/style: {sc}. " if sc else ""
+				if include_text:
+					overlay_text = f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+				else:
+					overlay_text = "Do NOT add any text overlay, captions, CTA buttons, stickers, or typography anywhere in the image. "
+				prompt = (
+					f"Create a high-converting e-commerce lifestyle ad image featuring models wearing t-shirts that use the EXACT same artwork/logo from this reference design image: {src}. "
+					f"If available, use this product mockup as style reference for placement/scale: {mockup_src}. "
+					f"{audience_text}{scene_text}"
+					f"Show this same design on regular shirt colors: {color_text}. "
+					f"Do not change, redraw, paraphrase, or replace the logo/artwork text. Keep the original design faithful. "
+					f"{overlay_text}"
+					f"Keep text legible with strong contrast and clean modern layout. "
+					f"Brand style: edgy, meme-culture streetwear. "
+					f"Do not include any other logos or trademarks."
+				)
+
+				job_state = _ad_job_get(jid) or {"status": "running", "url": "", "error": "", "product_id": p.id}
+				job_state["prompt"] = prompt
+				_ad_job_set(jid, job_state)
+
+				# Prefer Responses API image edit with high input fidelity so artwork/logo details
+				# from the selected catalog image are preserved more accurately.
+				img_bytes = None
+				try:
+					content_parts = [
+						{"type": "input_text", "text": prompt},
+						{"type": "input_image", "image_url": src},
+					]
+					if mockup_src:
+						content_parts.append({"type": "input_image", "image_url": mockup_src})
+
+					resp = client.responses.create(
+						model="gpt-4.1",
+						input=[{"role": "user", "content": content_parts}],
+						tools=[{
+							"type": "image_generation",
+							"input_fidelity": "high",
+							"action": "edit",
+							"size": out_size,
+							"quality": out_quality,
+							"background": out_bg,
+						}],
+					)
+
+					b64 = None
+					for out in (getattr(resp, "output", None) or []):
+						otype = getattr(out, "type", None) or (out.get("type") if isinstance(out, dict) else None)
+						if otype == "image_generation_call":
+							b64 = getattr(out, "result", None) or (out.get("result") if isinstance(out, dict) else None)
+							if b64:
+								break
+					if b64:
+						img_bytes = b64decode(b64)
+				except Exception as e:
+					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
+
+				# Fallback: regular image generation
+				if not img_bytes:
+					res = client.images.generate(
+						model="gpt-image-1",
+						prompt=prompt,
+						size=out_size,
+						quality=out_quality,
+						background=out_bg,
+					)
+					b64 = res.data[0].b64_json
+					img_bytes = b64decode(b64)
+
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					public_id = f"ad_center_{p.id}_{int(_time.time())}"
+					res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
+					final_url = res_up.get("secure_url") or res_up.get("url")
+				else:
+					fname = f"ad_center_{p.id}_{int(_time.time())}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img_bytes)
+					final_url = f"/static/uploads/{fname}"
+
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "done", "url": final_url, "error": ""})
+				_ad_job_set(jid, job_state)
+			except Exception as e:
+				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "error", "error": str(e)})
+				_ad_job_set(jid, job_state)
+
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background),
+		daemon=True
+	)
+	thr.start()
+	return jsonify({"ok": True, "job_id": job_id})
+
+
+@admin_bp.get("/ad-center/generate-status/<string:job_id>")
+@login_required
+def ad_center_generate_status(job_id: str):
+	job = _ad_job_get(job_id)
+	if not job:
+		return jsonify({"error": "job not found"}), 404
+	return jsonify(job)
 
 
 @admin_bp.get("/trends")

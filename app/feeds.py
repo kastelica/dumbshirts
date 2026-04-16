@@ -81,6 +81,13 @@ def render_google_shopping_feed(items):
 		if country:
 			ship_el = SubElement(it, "g:shipping")
 			SubElement(ship_el, "g:country").text = country
+			service = ship.get("service")
+			if service:
+				SubElement(ship_el, "g:service").text = service
+			price = ship.get("price")
+			currency = ship.get("currency", "USD")
+			if price not in (None, ""):
+				SubElement(ship_el, "g:price").text = f"{price} {currency}"
 		brand = item.get("brand")
 		if brand:
 			SubElement(it, "g:brand").text = brand
