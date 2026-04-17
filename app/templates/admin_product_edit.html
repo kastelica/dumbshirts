@@ -19,19 +19,61 @@
 	</div>
 	<div>
 		<label class="block text-sm mb-1">Design image</label>
-		<div class="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
-			<div class="w-full aspect-square sm:w-32 sm:h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
-				{% if product.design and product.design.preview_url %}
-				<img id="design-preview" src="{{ product.design.preview_url }}" alt="Preview" class="w-full h-full object-contain" />
-				{% else %}
-				<img id="design-preview" src="" alt="Preview" class="w-full h-full object-contain hidden" />
-				<span id="design-empty" class="text-gray-600 text-xs">No image</span>
-				{% endif %}
+		<div class="flex flex-col gap-3">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+				<div class="bg-gray-900/40 border border-gray-800 rounded p-2">
+					<p class="text-xs text-gray-400 mb-2">Active DB design file (<code>image_url</code>)</p>
+					<div class="w-full aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+						{% if product.design and product.design.image_url %}
+						<img id="design-preview" src="{{ product.design.image_url }}" alt="Design file preview" class="w-full h-full object-contain" />
+						{% else %}
+						<img id="design-preview" src="" alt="Design file preview" class="w-full h-full object-contain hidden" />
+						<span id="design-empty" class="text-gray-600 text-xs">No design file</span>
+						{% endif %}
+					</div>
+				</div>
+				<div class="bg-gray-900/40 border border-gray-800 rounded p-2">
+					<p class="text-xs text-gray-400 mb-2">Active DB mockup file (<code>preview_url</code>)</p>
+					<div class="w-full aspect-square bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
+						{% if product.design and product.design.preview_url %}
+						<img src="{{ product.design.preview_url }}" alt="Mockup preview" class="w-full h-full object-contain" />
+						{% else %}
+						<span class="text-gray-600 text-xs">No mockup file</span>
+						{% endif %}
+					</div>
+				</div>
 			</div>
-			<div class="space-y-2">
-				<input type="file" name="image" accept="image/*" class="block text-sm" />
-				<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
-				<p class="text-xs text-gray-400">Upload an image or check "Generate placeholder" to auto-create a simple preview.</p>
+				<div class="space-y-2 sm:max-w-xl">
+					<input type="file" name="image" accept="image/*" class="block text-sm" />
+					<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="reprocess_image" value="1" /> Reprocess on save (remove BG + rebuild mockup)</label>
+					<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
+					<p class="text-xs text-gray-400">Upload a new source image (optional). If "Reprocess on save" is checked, we run background removal and regenerate the white-shirt mockup from the uploaded file, or from the current <code>image_url</code> when no new file is selected.</p>
+				<div class="text-xs text-gray-400 space-y-1 pt-1">
+					<p>
+						<span class="text-gray-500">Design ID (DB):</span>
+						{% if product.design %}
+							<span class="font-mono text-gray-300">{{ product.design.id }}</span>
+						{% else %}
+							<span class="text-gray-500">None</span>
+						{% endif %}
+					</p>
+					<p>
+						<span class="text-gray-500">Design file URL (image_url):</span>
+						{% if product.design and product.design.image_url %}
+							<a href="{{ product.design.image_url }}" target="_blank" rel="noopener" class="underline break-all text-gray-300">{{ product.design.image_url }}</a>
+						{% else %}
+							<span class="text-gray-500">None</span>
+						{% endif %}
+					</p>
+					<p>
+						<span class="text-gray-500">Preview/mockup URL (preview_url):</span>
+						{% if product.design and product.design.preview_url %}
+							<a href="{{ product.design.preview_url }}" target="_blank" rel="noopener" class="underline break-all text-gray-300">{{ product.design.preview_url }}</a>
+						{% else %}
+							<span class="text-gray-500">None</span>
+						{% endif %}
+					</p>
+				</div>
 			</div>
 		</div>
 	</div>
