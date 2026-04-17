@@ -250,22 +250,25 @@
             msg.textContent = 'Generating in background…';
             const statusUrl = "{{ url_for('admin.generate_status', product_id=product.id) }}";
             let attempts = 0;
-            const timer = setInterval(async ()=>{
-                attempts++;
-                try {
-                    const rs = await fetch(statusUrl, { cache: 'no-store' });
-                    const js = await rs.json();
-                    if(js.ready && js.url){
-                        clearInterval(timer);
-                        preview.src = js.url + '?t=' + Date.now();
-                        preview.classList.remove('hidden');
-                        if(empty){ empty.classList.add('hidden'); }
-                        msg.textContent = 'Image ready.';
-                    } else if(attempts > 45){
-                        clearInterval(timer);
-                        msg.textContent = 'Still processing… refresh in a moment.';
-                    }
-                } catch(e){
+	            const timer = setInterval(async ()=>{
+	                attempts++;
+	                try {
+	                    const rs = await fetch(statusUrl, { cache: 'no-store' });
+	                    const js = await rs.json();
+	                    if(js.ready && js.url){
+	                        clearInterval(timer);
+	                        preview.src = js.url + '?t=' + Date.now();
+	                        preview.classList.remove('hidden');
+	                        if(empty){ empty.classList.add('hidden'); }
+	                        msg.textContent = 'Image ready.';
+	                    } else if(js.status === 'error'){
+	                        clearInterval(timer);
+	                        msg.textContent = js.error || 'Generation failed';
+	                    } else if(attempts > 45){
+	                        clearInterval(timer);
+	                        msg.textContent = 'Still processing… refresh in a moment.';
+	                    }
+	                } catch(e){
                     clearInterval(timer);
                     msg.textContent = 'Failed to check status';
                 }
@@ -301,22 +304,25 @@
 				// Reuse existing polling flow
 				const statusUrl = "{{ url_for('admin.generate_status', product_id=product.id) }}";
 				let attempts = 0;
-				const timer = setInterval(async ()=>{
-					attempts++;
-					try{
-						const rs = await fetch(statusUrl, { cache: 'no-store' });
-						const st = await rs.json();
-						if(st.ready && st.url){
-							clearInterval(timer);
-							preview.src = st.url + '?t=' + Date.now();
-							preview.classList.remove('hidden');
-							if(empty){ empty.classList.add('hidden'); }
-							refMsg.textContent = 'Image ready.';
-						} else if(attempts > 45){
-							clearInterval(timer);
-							refMsg.textContent = 'Still processing… refresh in a moment.';
-						}
-					}catch(_e){
+					const timer = setInterval(async ()=>{
+						attempts++;
+						try{
+							const rs = await fetch(statusUrl, { cache: 'no-store' });
+							const st = await rs.json();
+							if(st.ready && st.url){
+								clearInterval(timer);
+								preview.src = st.url + '?t=' + Date.now();
+								preview.classList.remove('hidden');
+								if(empty){ empty.classList.add('hidden'); }
+								refMsg.textContent = 'Image ready.';
+							} else if(st.status === 'error'){
+								clearInterval(timer);
+								refMsg.textContent = st.error || 'Generation failed';
+							} else if(attempts > 45){
+								clearInterval(timer);
+								refMsg.textContent = 'Still processing… refresh in a moment.';
+							}
+						}catch(_e){
 						clearInterval(timer);
 						refMsg.textContent = 'Failed to check status';
 					}
