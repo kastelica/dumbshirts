@@ -20,10 +20,10 @@
 						style="width: {{ hero_images|length * 100 }}%; transform: translateX(0%);">
 						{% for img in hero_images %}
 						<a href="{{ url_for('main.product_detail', slug=img.slug) }}"
-							class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
+							class="flex-shrink-0 h-full block hover:opacity-90 transition-opacity overflow-hidden"
 							style="width: {{ 100 / hero_images|length }}%;">
 							{% if img.src %}
-							<img src="{{ img.src }}" alt="{{ img.title }}" class="max-w-full max-h-full object-contain"
+							<img src="{{ img.src }}" alt="{{ img.title }}" class="w-full h-full object-cover"
 								loading="lazy" />
 							{% else %}
 							<span class="text-gray-600 text-sm">No image</span>
@@ -198,10 +198,10 @@
 				style="width: {{ hero_images|length * 100 }}%; transform: translateX(0%);">
 				{% for img in hero_images %}
 				<a href="{{ url_for('main.product_detail', slug=img.slug) }}"
-					class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
+					class="flex-shrink-0 h-full block hover:opacity-90 transition-opacity overflow-hidden"
 					style="width: {{ 100 / hero_images|length }}%;">
 					{% if img.src %}
-					<img src="{{ img.src }}" alt="{{ img.title }}" class="max-w-full max-h-full object-contain"
+					<img src="{{ img.src }}" alt="{{ img.title }}" class="w-full h-full object-cover"
 						loading="lazy" />
 					{% else %}
 					<span class="text-gray-600 text-sm">No image</span>

@@ -54,19 +54,6 @@ def index():
 		if len(hero_images) >= 8:
 			break
 
-	# Fallback to design images if no additional images are available yet.
-	if not hero_images:
-		hero_products = random.sample(all_active, min(5, len(all_active))) if len(all_active) >= 5 else all_active
-		for p in hero_products:
-			design_img = (p.design.image_url or "").strip() if getattr(p, "design", None) else ""
-			if design_img:
-				hero_images.append({
-					"src": design_img,
-					"title": p.title,
-					"product_id": p.id,
-					"slug": p.slug,
-				})
-	
 	return render_template("index.html", 
 		products=products_pagination.items,
 		pagination=products_pagination,
