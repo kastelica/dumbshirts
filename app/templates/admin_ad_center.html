@@ -10,15 +10,22 @@
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 		<div class="bg-gray-900 border border-gray-800 rounded p-5 space-y-4">
 			<h2 class="text-xl font-semibold">Creative Generator (OpenAI)</h2>
-			<div>
-				<label class="block text-sm mb-1">Catalog Product</label>
-				<select id="ad-product" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+				<div>
+					<label class="block text-sm mb-1">Catalog Product</label>
+					<select id="ad-product" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
 					<option value="">Select a product…</option>
 					{% for p in products %}
-					<option value="{{ p.id }}">#{{ p.id }} — {{ p.title }}</option>
-					{% endfor %}
-				</select>
-			</div>
+						<option value="{{ p.id }}">#{{ p.id }} — {{ p.title }}</option>
+						{% endfor %}
+					</select>
+					<div id="ad-source-info" class="mt-2 text-xs text-gray-400 hidden">
+						<div>Using design for generation: <span id="ad-source-text" class="text-gray-300"></span></div>
+						<div class="mt-2 w-24 h-24 bg-gray-950 border border-gray-700 rounded overflow-hidden">
+							<img id="ad-source-preview" src="" alt="Selected product design source" class="w-full h-full object-cover hidden" />
+							<div id="ad-source-empty" class="w-full h-full flex items-center justify-center text-[10px] text-gray-500">No source</div>
+						</div>
+					</div>
+				</div>
 			<div>
 				<label class="block text-sm mb-1">Headline Overlay</label>
 				<input id="ad-headline" type="text" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Limited Drop: Internet Classics" />
@@ -100,11 +107,22 @@
 						</select>
 					</div>
 				</div>
-			<div class="flex items-center gap-3">
-				<button id="ad-generate-btn" class="bg-white text-black px-4 py-2 rounded font-semibold hover:bg-gray-100">Generate Creative</button>
-				<span id="ad-status" class="text-sm text-gray-400"></span>
+				<div class="flex items-center gap-3">
+					<button id="ad-generate-btn" class="bg-white text-black px-4 py-2 rounded font-semibold hover:bg-gray-100">Generate Creative</button>
+					<span id="ad-status" class="text-sm text-gray-400"></span>
+				</div>
+				<div class="flex flex-wrap items-center gap-3 text-sm">
+					<label class="inline-flex items-center gap-2">
+						<input id="ad-save-to-product" type="checkbox" checked class="h-4 w-4">
+						<span>Save output to product as additional image</span>
+					</label>
+					<select id="ad-save-slot" class="bg-gray-950 border border-gray-700 rounded px-2 py-1">
+						<option value="next" selected>Auto slot (extra1 then extra2)</option>
+						<option value="extra1">Force extra image 1</option>
+						<option value="extra2">Force extra image 2</option>
+					</select>
+				</div>
 			</div>
-		</div>
 
 		<div class="bg-gray-900 border border-gray-800 rounded p-5">
 			<h2 class="text-xl font-semibold mb-3">Output</h2>
@@ -112,9 +130,11 @@
 				<div id="ad-empty" class="text-gray-500 text-sm">Generated creative will appear here.</div>
 				<img id="ad-preview" src="" alt="Generated ad creative" class="hidden max-w-full h-auto rounded border border-gray-700" />
 			</div>
-			<div id="ad-links" class="hidden mt-3 space-y-1 text-sm">
-				<a id="ad-open-link" href="#" target="_blank" class="underline text-blue-400">Open image in new tab</a>
-			</div>
+				<div id="ad-links" class="hidden mt-3 space-y-1 text-sm">
+					<a id="ad-open-link" href="#" target="_blank" class="underline text-blue-400">Open image in new tab</a>
+					<button id="ad-save-btn" class="block mt-2 bg-gray-100 text-black px-3 py-1 rounded text-sm">Save as Additional Image</button>
+					<a id="ad-edit-product-link" href="#" class="hidden underline text-blue-400">Open product edit page</a>
+				</div>
 			<details class="mt-4">
 				<summary class="cursor-pointer text-sm text-gray-300">Show generated prompt</summary>
 				<pre id="ad-prompt" class="mt-2 text-xs text-gray-400 whitespace-pre-wrap bg-gray-950 border border-gray-800 rounded p-3"></pre>
@@ -126,6 +146,10 @@
 <script>
 (function(){
 	const productEl = document.getElementById('ad-product');
+	const sourceInfoEl = document.getElementById('ad-source-info');
+	const sourceTextEl = document.getElementById('ad-source-text');
+	const sourcePreviewEl = document.getElementById('ad-source-preview');
+	const sourceEmptyEl = document.getElementById('ad-source-empty');
 	const headlineEl = document.getElementById('ad-headline');
 	const ctaEl = document.getElementById('ad-cta');
 	const audiencePresetEl = document.getElementById('ad-audience-preset');
@@ -143,11 +167,20 @@
 	const empty = document.getElementById('ad-empty');
 	const links = document.getElementById('ad-links');
 	const openLink = document.getElementById('ad-open-link');
+	const saveBtn = document.getElementById('ad-save-btn');
+	const editProductLink = document.getElementById('ad-edit-product-link');
+	const saveToProductEl = document.getElementById('ad-save-to-product');
+	const saveSlotEl = document.getElementById('ad-save-slot');
 	const promptPre = document.getElementById('ad-prompt');
 
 	let pollTimer = null;
 	let pollAttempts = 0;
 	const maxPollAttempts = 120; // ~4 minutes at 2s interval
+	let currentJobId = '';
+	let currentProductId = '';
+	let selectedSourceDesignUrl = '';
+	let selectedSourceMockupUrl = '';
+	let selectedDesignId = '';
 
 	function resolvePresetValue(selectEl, customEl){
 		const v = (selectEl?.value || '').trim();
@@ -174,8 +207,78 @@
 		statusEl.className = 'text-sm ' + (err ? 'text-red-400' : 'text-gray-400');
 	}
 
+	async function refreshSelectedProductSource(){
+		const productId = (productEl?.value || '').trim();
+		selectedSourceDesignUrl = '';
+		selectedSourceMockupUrl = '';
+		selectedDesignId = '';
+		if (!productId){
+			sourceInfoEl?.classList.add('hidden');
+			return;
+		}
+		try{
+			const r = await fetch(`/admin/ad-center/product-source/${encodeURIComponent(productId)}`);
+			const data = await r.json();
+			if (!r.ok || !data.ok){
+				sourceInfoEl?.classList.add('hidden');
+				setStatus(data.error || 'Failed to load selected product source image', true);
+				return;
+			}
+			selectedSourceDesignUrl = data.source_design_url || '';
+			selectedSourceMockupUrl = data.source_mockup_url || '';
+			selectedDesignId = String(data.design_id || '');
+			if (sourceTextEl){
+				sourceTextEl.textContent = `Product #${data.product_id} · Design #${selectedDesignId || 'N/A'}`;
+			}
+			if (sourcePreviewEl){
+				sourcePreviewEl.src = selectedSourceDesignUrl || selectedSourceMockupUrl || '';
+				sourcePreviewEl.classList.toggle('hidden', !sourcePreviewEl.src);
+			}
+			if (sourceEmptyEl){
+				sourceEmptyEl.classList.toggle('hidden', !!(sourcePreviewEl && sourcePreviewEl.src));
+			}
+			sourceInfoEl?.classList.remove('hidden');
+		}catch(_e){
+			sourceInfoEl?.classList.add('hidden');
+			setStatus('Failed to verify selected product source image', true);
+		}
+	}
+
+	async function saveGeneratedToAdditional(autoTriggered){
+		if (!currentJobId){
+			setStatus('No generated creative to save yet.', true);
+			return;
+		}
+		const slot = (saveSlotEl?.value || 'next').trim();
+		if (saveBtn) saveBtn.disabled = true;
+		setStatus(autoTriggered ? 'Saving to product additional image…' : 'Saving…');
+		try{
+			const r = await fetch('/admin/ad-center/save-additional-image', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ job_id: currentJobId, slot })
+			});
+			const data = await r.json();
+			if (!r.ok || !data.ok){
+				setStatus(data.error || 'Failed to save additional image', true);
+				return;
+			}
+			setStatus(`Saved to ${data.slot}.`);
+			if (editProductLink){
+				editProductLink.href = data.edit_url || `/admin/products/${data.product_id}/edit`;
+				editProductLink.classList.remove('hidden');
+			}
+		}catch(e){
+			setStatus('Network error while saving additional image', true);
+		} finally {
+			if (saveBtn) saveBtn.disabled = false;
+		}
+	}
+
 	function startPoll(jobId, productId){
 		if (pollTimer) clearInterval(pollTimer);
+		currentJobId = jobId;
+		currentProductId = String(productId || '');
 		pollAttempts = 0;
 		pollTimer = setInterval(async function(){
 			pollAttempts += 1;
@@ -199,11 +302,15 @@
 					preview.classList.remove('hidden');
 					empty.classList.add('hidden');
 					openLink.href = data.url;
-					links.classList.remove('hidden');
-					setStatus('Done');
-					clearInterval(pollTimer);
-					btn.disabled = false;
-				} else if (data.status === 'error'){
+						links.classList.remove('hidden');
+						setStatus('Done');
+						clearInterval(pollTimer);
+						btn.disabled = false;
+						if (saveBtn) saveBtn.disabled = false;
+						if (saveToProductEl?.checked){
+							await saveGeneratedToAdditional(true);
+						}
+					} else if (data.status === 'error'){
 					setStatus(data.error || 'Generation failed', true);
 					clearInterval(pollTimer);
 					btn.disabled = false;
@@ -230,12 +337,21 @@
 		}
 		btn.disabled = true;
 		setStatus('Starting generation…');
-		preview.classList.add('hidden');
-		empty.classList.remove('hidden');
-		links.classList.add('hidden');
-		promptPre.textContent = '';
+			preview.classList.add('hidden');
+			empty.classList.remove('hidden');
+			links.classList.add('hidden');
+			editProductLink?.classList.add('hidden');
+			promptPre.textContent = '';
+			currentJobId = '';
+			currentProductId = String(productId || '');
+			await refreshSelectedProductSource();
+			if (!selectedSourceDesignUrl){
+				setStatus('No valid source image found for selected product.', true);
+				btn.disabled = false;
+				return;
+			}
 
-			try{
+				try{
 				const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
 				const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
 				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
@@ -251,24 +367,46 @@
 						scene: sceneCombined,
 						shirt_colors: selectedColors,
 						include_overlay: !!includeOverlayEl?.checked,
-						size: (sizeEl?.value || '1536x1024').trim(),
-						quality: (qualityEl?.value || 'auto').trim(),
-						background: (backgroundEl?.value || 'auto').trim(),
-						previous_image_id: ''
-					})
-				});
+							size: (sizeEl?.value || '1536x1024').trim(),
+							quality: (qualityEl?.value || 'auto').trim(),
+							background: (backgroundEl?.value || 'auto').trim(),
+							previous_image_id: '',
+							source_design_url: selectedSourceDesignUrl,
+							source_mockup_url: selectedSourceMockupUrl
+						})
+					});
 				const data = await res.json();
 				if (!res.ok || !data.job_id){
 					setStatus(data.error || 'Failed to start generation', true);
 					btn.disabled = false;
 					return;
 				}
-				startPoll(data.job_id);
-		}catch(e){
-			setStatus('Network error starting generation', true);
-			btn.disabled = false;
-		}
-	});
-})();
+				startPoll(data.job_id, productId);
+			}catch(e){
+				setStatus('Network error starting generation', true);
+				btn.disabled = false;
+			}
+		});
+
+		saveBtn?.addEventListener('click', async function(e){
+			e.preventDefault();
+			await saveGeneratedToAdditional(false);
+		});
+
+		productEl?.addEventListener('change', async function(){
+			currentJobId = '';
+			preview.src = '';
+			preview.classList.add('hidden');
+			empty.classList.remove('hidden');
+			links.classList.add('hidden');
+			editProductLink?.classList.add('hidden');
+			promptPre.textContent = '';
+			setStatus('');
+			await refreshSelectedProductSource();
+		});
+
+		// Initial source preview on load if a product is preselected.
+		refreshSelectedProductSource();
+	})();
 </script>
 {% endblock %}
