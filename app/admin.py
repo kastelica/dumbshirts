@@ -1801,16 +1801,25 @@ def edit_product_submit(product_id: int):
 @admin_bp.post("/products/<int:product_id>/generate-image")
 @login_required
 def generate_openai_image(product_id: int):
-	from base64 import b64decode
+	from base64 import b64decode, b64encode
 	import time
-	prompt = (request.json or {}).get("prompt", "").strip()
+	if request.is_json:
+		payload = request.get_json(silent=True) or {}
+		prompt = (payload.get("prompt") or "").strip()
+		reference_image_bytes = None
+		reference_image_content_type = ""
+	else:
+		prompt = (request.form.get("prompt") or "").strip()
+		reference_file = request.files.get("reference_image")
+		reference_image_bytes = reference_file.read() if (reference_file and reference_file.filename) else None
+		reference_image_content_type = (getattr(reference_file, "mimetype", "") or "image/png").strip().lower() if reference_file else ""
 	if not prompt:
 		return jsonify({"error": "Missing prompt"}), 400
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
 		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
 	# Run in background to avoid 30s Heroku router timeout
-	def _worker(app_ctx, pid: int, prm: str):
+	def _worker(app_ctx, pid: int, prm: str, ref_bytes: bytes | None, ref_content_type: str):
 		with app_ctx:
 			try:
 				import os as _os
@@ -1818,11 +1827,33 @@ def generate_openai_image(product_id: int):
 				from openai import OpenAI
 				client = OpenAI().with_options(timeout=60.0)
 				import time as _time
-				last_err = None
-				# Single attempt only; no retries, no Pillow fallback
-				res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
-				b64 = res.data[0].b64_json
-				img = b64decode(b64)
+				img = None
+				# If a reference image is provided, perform an edit-style generation using that image as basis.
+				if ref_bytes:
+					try:
+						ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
+						data_uri = f"data:{ctype};base64,{b64encode(ref_bytes).decode('utf-8')}"
+						resp = client.responses.create(
+							model="gpt-5",
+							input=[{
+								"role": "user",
+								"content": [
+									{"type": "input_text", "text": prm},
+									{"type": "input_image", "image_url": data_uri},
+								],
+							}],
+							tools=[{"type": "image_generation", "action": "edit", "size": "1024x1024"}],
+						)
+						b64_resp, _image_id = _extract_response_image_data(resp)
+						if b64_resp:
+							img = b64decode(b64_resp)
+					except Exception as e_ref:
+						current_app.logger.warning(f"[generate-image] reference edit failed, falling back to text generation: {e_ref}")
+				# Fallback to text-only generation if needed
+				if not img:
+					res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
+					b64 = res.data[0].b64_json
+					img = b64decode(b64)
 				current_app.logger.info(f"[generate-image] OpenAI image generated, size: {len(img)} bytes")
 				
 				# Try background removal
@@ -1910,7 +1941,11 @@ def generate_openai_image(product_id: int):
 			except Exception as e_all:
 				current_app.logger.warning(f"generate-image failed: {e_all}")
 
-	thr = threading.Thread(target=_worker, args=(current_app.app_context(), product_id, prompt), daemon=True)
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), product_id, prompt, reference_image_bytes, reference_image_content_type),
+		daemon=True,
+	)
 	thr.start()
 	return jsonify({"ok": True, "started": True})
 
