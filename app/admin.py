@@ -262,6 +262,33 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 	
 	Note: Requires 'transformers' package. If not available, returns None gracefully.
 	"""
+	def _remove_white_bg_simple(image_bytes: bytes) -> bytes | None:
+		"""Fallback remover: make near-white pixels transparent."""
+		try:
+			from PIL import Image
+			from io import BytesIO
+			im = Image.open(BytesIO(image_bytes)).convert("RGBA")
+			pixels = im.getdata()
+			new_pixels = []
+			transparent_count = 0
+			for r, g, b, a in pixels:
+				# Remove white/near-white background aggressively
+				if r >= 245 and g >= 245 and b >= 245:
+					new_pixels.append((r, g, b, 0))
+					transparent_count += 1
+				else:
+					new_pixels.append((r, g, b, a))
+			if transparent_count == 0:
+				return None
+			im.putdata(new_pixels)
+			out = BytesIO()
+			im.save(out, format="PNG")
+			current_app.logger.info(f"[bg-remove] Simple white-bg fallback removed ~{transparent_count} pixels")
+			return out.getvalue()
+		except Exception as e:
+			current_app.logger.warning(f"[bg-remove] Simple white-bg fallback failed: {e}")
+			return None
+
 	try:
 		# Check if transformers is available
 		try:
