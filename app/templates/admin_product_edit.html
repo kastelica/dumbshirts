@@ -11,6 +11,13 @@
 		<textarea name="description" rows="6" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100">{{ product.description }}</textarea>
 	</div>
 	<div>
+		<label class="inline-flex items-center gap-2 text-sm">
+			<input type="checkbox" name="status_active" value="1" {% if product.status == 'active' %}checked{% endif %} />
+			Visible / Active
+		</label>
+		<p class="text-xs text-gray-400 mt-1">Toggle this to control whether the product is shown live after saving.</p>
+	</div>
+	<div>
 		<label class="block text-sm mb-1">Design image</label>
 		<div class="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
 			<div class="w-full aspect-square sm:w-32 sm:h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
@@ -86,9 +93,24 @@
 	</div>
 </div>
 
+<div class="max-w-2xl mt-6 space-y-2">
+	<label class="block text-sm">Reference-based logo generation</label>
+	<p class="text-xs text-gray-400">Upload a source image and add instructions. The uploaded image is used as the basis for generating the new logo/design.</p>
+	<input id="ref-image" type="file" accept="image/*" class="block text-sm" />
+	<textarea id="ref-prompt" rows="3" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Use the uploaded image as the basis. Preserve key visual identity while creating a print-ready shirt logo.">Use the uploaded image as the basis. Preserve key visual identity while creating a print-ready shirt logo.</textarea>
+	<div class="flex items-center gap-2">
+		<button id="ref-generate" class="bg-gray-800 text-white px-4 py-2 rounded">Generate from image + prompt</button>
+		<span id="ref-msg" class="text-sm text-gray-400"></span>
+	</div>
+</div>
+
 <script>
 (function(){
 	const btn = document.getElementById('ai-generate');
+	const refBtn = document.getElementById('ref-generate');
+	const refFile = document.getElementById('ref-image');
+	const refPrompt = document.getElementById('ref-prompt');
+	const refMsg = document.getElementById('ref-msg');
 	const soraBtn = document.createElement('button');
 	const soraStatus = document.createElement('span');
 	const soraLink = document.createElement('a');
@@ -189,9 +211,10 @@
 				throw new Error(j.error || 'Failed to start');
 			}
 			soraStatus.textContent = 'Processing…';
-			let attempts = 0;
-			const timer = setInterval(async ()=>{
-				attempts++;
+	            let attempts = 0;
+	            const maxAttempts = 180; // ~6 minutes at 2s interval for slower background jobs
+		            const timer = setInterval(async ()=>{
+		                attempts++;
 				const js = await pollSoraStatus();
 				if(js && js.ready && js.url){
 					clearInterval(timer);
@@ -235,22 +258,25 @@
             msg.textContent = 'Generating in background…';
             const statusUrl = "{{ url_for('admin.generate_status', product_id=product.id) }}";
             let attempts = 0;
-            const timer = setInterval(async ()=>{
-                attempts++;
-                try {
-                    const rs = await fetch(statusUrl, { cache: 'no-store' });
-                    const js = await rs.json();
-                    if(js.ready && js.url){
-                        clearInterval(timer);
-                        preview.src = js.url + '?t=' + Date.now();
-                        preview.classList.remove('hidden');
-                        if(empty){ empty.classList.add('hidden'); }
-                        msg.textContent = 'Image ready.';
-                    } else if(attempts > 45){
-                        clearInterval(timer);
-                        msg.textContent = 'Still processing… refresh in a moment.';
-                    }
-                } catch(e){
+	            const timer = setInterval(async ()=>{
+	                attempts++;
+	                try {
+	                    const rs = await fetch(statusUrl, { cache: 'no-store' });
+	                    const js = await rs.json();
+	                    if(js.ready && js.url){
+	                        clearInterval(timer);
+	                        preview.src = js.url + '?t=' + Date.now();
+	                        preview.classList.remove('hidden');
+	                        if(empty){ empty.classList.add('hidden'); }
+	                        msg.textContent = 'Image ready.';
+	                    } else if(js.status === 'error'){
+	                        clearInterval(timer);
+	                        msg.textContent = js.error || 'Generation failed';
+	                    } else if(attempts > maxAttempts){
+	                        clearInterval(timer);
+	                        msg.textContent = 'Still processing… this can take a few minutes. Please refresh shortly.';
+	                    }
+	                } catch(e){
                     clearInterval(timer);
                     msg.textContent = 'Failed to check status';
                 }
@@ -262,6 +288,61 @@
 			btn.disabled = false;
 		}
 	});
+
+	if(refBtn){
+		refBtn.addEventListener('click', async (e) => {
+			e.preventDefault();
+			const prompt = (refPrompt?.value || '').trim();
+			const file = refFile?.files?.[0];
+			if(!file){ refMsg.textContent = 'Please upload a reference image.'; return; }
+			if(!prompt){ refMsg.textContent = 'Please enter a prompt.'; return; }
+			refBtn.disabled = true;
+			refMsg.textContent = 'Generating…';
+			try{
+				const fd = new FormData();
+				fd.append('prompt', prompt);
+				fd.append('reference_image', file);
+				const resp = await fetch("{{ url_for('admin.generate_openai_image', product_id=product.id) }}", {
+					method: 'POST',
+					body: fd
+				});
+				const js = await resp.json();
+				if(!resp.ok){ throw new Error(js.error || 'Failed to start generation'); }
+				refMsg.textContent = 'Generating in background…';
+				// Reuse existing polling flow
+				const statusUrl = "{{ url_for('admin.generate_status', product_id=product.id) }}";
+					let attempts = 0;
+					const maxAttempts = 180; // ~6 minutes at 2s interval for slower background jobs
+						const timer = setInterval(async ()=>{
+							attempts++;
+						try{
+							const rs = await fetch(statusUrl, { cache: 'no-store' });
+							const st = await rs.json();
+							if(st.ready && st.url){
+								clearInterval(timer);
+								preview.src = st.url + '?t=' + Date.now();
+								preview.classList.remove('hidden');
+								if(empty){ empty.classList.add('hidden'); }
+								refMsg.textContent = 'Image ready.';
+							} else if(st.status === 'error'){
+								clearInterval(timer);
+								refMsg.textContent = st.error || 'Generation failed';
+								} else if(attempts > maxAttempts){
+									clearInterval(timer);
+									refMsg.textContent = 'Still processing… this can take a few minutes. Please refresh shortly.';
+								}
+						}catch(_e){
+						clearInterval(timer);
+						refMsg.textContent = 'Failed to check status';
+					}
+				}, 2000);
+			}catch(err){
+				refMsg.textContent = err.message || 'Generation failed';
+			}finally{
+				refBtn.disabled = false;
+			}
+		});
+	}
 })();
 </script>
 {% endblock %}
