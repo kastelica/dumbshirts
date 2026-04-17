@@ -13,36 +13,35 @@
 				<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
 			</div>
 		</div>
-		<div class="mt-6 md:mt-0 md:col-span-2">
-			{% if hero_products and hero_products|length > 0 %}
-			<div class="relative w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden">
-				<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out"
-					style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
-					{% for p in hero_products %}
-					<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
-						class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
-						style="width: {{ 100 / hero_products|length }}%;">
-						{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
-						{% if design_img %}
-						<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
-							loading="lazy" />
-						{% else %}
-						<span class="text-gray-600 text-sm">No image</span>
+			<div class="mt-6 md:mt-0 md:col-span-2">
+				{% if hero_images and hero_images|length > 0 %}
+				<div class="relative w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden">
+					<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out"
+						style="width: {{ hero_images|length * 100 }}%; transform: translateX(0%);">
+						{% for img in hero_images %}
+						<a href="{{ url_for('main.product_detail', slug=img.slug) }}"
+							class="flex-shrink-0 h-full block hover:opacity-90 transition-opacity overflow-hidden"
+							style="width: {{ 100 / hero_images|length }}%;">
+							{% if img.src %}
+							<img src="{{ img.src }}" alt="{{ img.title }}" class="w-full h-full object-cover"
+								loading="lazy" />
+							{% else %}
+							<span class="text-gray-600 text-sm">No image</span>
 						{% endif %}
 					</a>
 					{% endfor %}
 				</div>
-				{% if hero_products|length > 1 %}
-				<button id="hero-slide-prev"
+					{% if hero_images|length > 1 %}
+					<button id="hero-slide-prev"
 					class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 					aria-label="Previous slide">‹</button>
-				<button id="hero-slide-next"
+					<button id="hero-slide-next"
 					class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 					aria-label="Next slide">›</button>
-				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-					{% for p in hero_products %}
-					<button
-						class="hero-slide-dot w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
+					<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+						{% for img in hero_images %}
+						<button
+							class="hero-slide-dot w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
 						data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
 					{% endfor %}
 				</div>
@@ -193,35 +192,34 @@
 			<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
 		</div>
 	</div>
-	{% if hero_products and hero_products|length > 0 %}
-	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
-		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
-			style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
-			{% for p in hero_products %}
-			<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
-				class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
-				style="width: {{ 100 / hero_products|length }}%;">
-				{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
-				{% if design_img %}
-				<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
-					loading="lazy" />
-				{% else %}
-				<span class="text-gray-600 text-sm">No image</span>
+		{% if hero_images and hero_images|length > 0 %}
+		<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
+			<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
+				style="width: {{ hero_images|length * 100 }}%; transform: translateX(0%);">
+				{% for img in hero_images %}
+				<a href="{{ url_for('main.product_detail', slug=img.slug) }}"
+					class="flex-shrink-0 h-full block hover:opacity-90 transition-opacity overflow-hidden"
+					style="width: {{ 100 / hero_images|length }}%;">
+					{% if img.src %}
+					<img src="{{ img.src }}" alt="{{ img.title }}" class="w-full h-full object-cover"
+						loading="lazy" />
+					{% else %}
+					<span class="text-gray-600 text-sm">No image</span>
 				{% endif %}
 			</a>
 			{% endfor %}
 		</div>
-		{% if hero_products|length > 1 %}
+			{% if hero_images|length > 1 %}
 		<button id="hero-slide-prev-mobile"
 			class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 			aria-label="Previous slide">‹</button>
 		<button id="hero-slide-next-mobile"
 			class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 			aria-label="Next slide">›</button>
-		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-			{% for p in hero_products %}
-			<button
-				class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
+			<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+				{% for img in hero_images %}
+				<button
+					class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
 				data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
 			{% endfor %}
 		</div>
