@@ -13,6 +13,7 @@ import os
 from werkzeug.utils import secure_filename
 import threading
 import json
+import time
 from datetime import datetime, timedelta
 import re
 import unicodedata
@@ -225,6 +226,34 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		return None
 
 
+def _remove_white_bg_simple(image_bytes: bytes) -> bytes | None:
+	"""Fallback remover: make near-white pixels transparent."""
+	try:
+		from PIL import Image
+		from io import BytesIO
+		im = Image.open(BytesIO(image_bytes)).convert("RGBA")
+		pixels = im.getdata()
+		new_pixels = []
+		transparent_count = 0
+		for r, g, b, a in pixels:
+			# Remove white/near-white background aggressively
+			if r >= 245 and g >= 245 and b >= 245:
+				new_pixels.append((r, g, b, 0))
+				transparent_count += 1
+			else:
+				new_pixels.append((r, g, b, a))
+		if transparent_count == 0:
+			return None
+		im.putdata(new_pixels)
+		out = BytesIO()
+		im.save(out, format="PNG")
+		current_app.logger.info(f"[bg-remove] Simple white-bg fallback removed ~{transparent_count} pixels")
+		return out.getvalue()
+	except Exception as e:
+		current_app.logger.warning(f"[bg-remove] Simple white-bg fallback failed: {e}")
+		return None
+
+
 def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 	"""Attempt to remove background via Hugging Face Pipeline (briaai/RMBG-1.4).
 
@@ -239,7 +268,7 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 			from transformers import pipeline
 		except ImportError:
 			current_app.logger.debug("[bg-remove] transformers module not available, skipping background removal")
-			return None
+			return _remove_white_bg_simple(png_bytes)
 		
 		from PIL import Image
 		from io import BytesIO
@@ -265,18 +294,30 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 		pillow_image.save(output, format='PNG')
 		result_bytes = output.getvalue()
 		
+		# Validate that output actually contains transparency; otherwise fallback to simple white remover.
+		try:
+			check = Image.open(BytesIO(result_bytes)).convert("RGBA")
+			alpha = check.getchannel("A")
+			alpha_min, _ = alpha.getextrema()
+			if alpha_min == 255:
+				current_app.logger.warning("[bg-remove] HF result has no transparency; applying white-bg fallback")
+				fallback = _remove_white_bg_simple(png_bytes)
+				return fallback or result_bytes
+		except Exception:
+			pass
+
 		current_app.logger.info(f"[bg-remove] Successfully removed background via HF pipeline, output size: {len(result_bytes)} bytes")
 		return result_bytes
 		
 	except ImportError as import_err:
 		# Specifically handle missing transformers module gracefully
 		current_app.logger.debug(f"[bg-remove] transformers module not installed: {import_err}")
-		return None
+		return _remove_white_bg_simple(png_bytes)
 	except Exception as _e:
 		current_app.logger.warning(f"[bg-remove] HF pipeline failed: {_e}")
 		import traceback
 		current_app.logger.warning(f"[bg-remove] Full traceback: {traceback.format_exc()}")
-		return None
+		return _remove_white_bg_simple(png_bytes)
 
 
 @admin_bp.get("/login")
@@ -341,7 +382,10 @@ def ad_center_generate_lifestyle():
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
 	include_overlay = bool(data.get("include_overlay", True))
-	previous_image_id = (data.get("previous_image_id") or "").strip()
+	# Force each generation to start fresh to prevent cross-run contamination.
+	previous_image_id = ""
+	client_source_image = (data.get("source_design_url") or "").strip()
+	client_mockup_image = (data.get("source_mockup_url") or "").strip()
 	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
 	if not isinstance(shirt_colors, list):
 		shirt_colors = ["black", "white", "heather gray"]
@@ -411,6 +455,11 @@ def ad_center_generate_lifestyle():
 		source_image = f"{base}{source_image}"
 	if mockup_image.startswith("/"):
 		mockup_image = f"{base}{mockup_image}"
+	# Optional client/server consistency guard: reject generation if selected product source changed.
+	if client_source_image and client_source_image != source_image:
+		return jsonify({"error": "Selected product design source changed. Re-select product and try again."}), 409
+	if client_mockup_image and client_mockup_image != mockup_image:
+		return jsonify({"error": "Selected product mockup source changed. Re-select product and try again."}), 409
 
 	import uuid
 	job_id = str(uuid.uuid4())
@@ -540,6 +589,51 @@ def ad_center_generate_lifestyle():
 	return jsonify({"ok": True, "job_id": job_id})
 
 
+@admin_bp.get("/ad-center/product-source/<int:product_id>")
+@login_required
+def ad_center_product_source(product_id: int):
+	"""Return the exact source/mockup URLs ad-center generation will use for a product."""
+	product = Product.query.get_or_404(product_id)
+	if product.status != "active":
+		return jsonify({"error": "Product is not active"}), 400
+	if not getattr(product, "design", None):
+		return jsonify({"error": "Product has no design"}), 400
+
+	source_image = (product.design.image_url or product.design.preview_url or "").strip()
+	candidate_mockup = (product.design.preview_url or "").strip()
+	if not source_image:
+		return jsonify({"error": "Product has no design image"}), 400
+
+	def _core_name(u: str) -> str:
+		try:
+			name = os.path.basename(urlparse(u).path).lower()
+		except Exception:
+			name = (u or "").lower()
+		for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+			if name.endswith(ext):
+				name = name[: -len(ext)]
+		for suffix in ["_design", "-design", "_mockup", "-mockup", "_preview", "-preview"]:
+			if name.endswith(suffix):
+				name = name[: -len(suffix)]
+		return name
+
+	mockup_image = candidate_mockup if (candidate_mockup and _core_name(candidate_mockup) == _core_name(source_image)) else source_image
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	if source_image.startswith("/"):
+		source_image = f"{base}{source_image}"
+	if mockup_image.startswith("/"):
+		mockup_image = f"{base}{mockup_image}"
+
+	return jsonify({
+		"ok": True,
+		"product_id": product.id,
+		"title": product.title,
+		"design_id": product.design.id if product.design else None,
+		"source_design_url": source_image,
+		"source_mockup_url": mockup_image,
+	})
+
+
 @admin_bp.get("/ad-center/generate-status/<string:job_id>")
 @login_required
 def ad_center_generate_status(job_id: str):
@@ -547,6 +641,63 @@ def ad_center_generate_status(job_id: str):
 	if not job:
 		return jsonify({"error": "job not found"}), 404
 	return jsonify(job)
+
+
+@admin_bp.post("/ad-center/save-additional-image")
+@login_required
+def ad_center_save_additional_image():
+	"""Save a generated ad-center image URL into product design extra image slots."""
+	data = request.get_json(silent=True) or {}
+	job_id = str(data.get("job_id") or "").strip()
+	slot = str(data.get("slot") or "next").strip().lower()  # next|extra1|extra2
+	if slot not in {"next", "extra1", "extra2"}:
+		slot = "next"
+	if not job_id:
+		return jsonify({"error": "Missing job_id"}), 400
+
+	job = _ad_job_get(job_id) or {}
+	if (job.get("status") or "") != "done":
+		return jsonify({"error": "Job is not complete yet"}), 400
+	image_url = (job.get("url") or "").strip()
+	product_id = int(job.get("product_id") or 0)
+	if not image_url or not product_id:
+		return jsonify({"error": "Job does not contain a valid product image result"}), 400
+
+	p = Product.query.get(product_id)
+	if not p:
+		return jsonify({"error": "Product not found"}), 404
+	if not p.design:
+		d = Design(type="image", text=p.title, approved=True)
+		db.session.add(d)
+		db.session.flush()
+		p.design = d
+
+	if slot == "extra1":
+		p.design.extra_image1_url = image_url
+		saved_slot = "extra1"
+	elif slot == "extra2":
+		p.design.extra_image2_url = image_url
+		saved_slot = "extra2"
+	else:
+		# Fill first empty slot; overwrite extra2 if both already occupied.
+		if not (p.design.extra_image1_url or "").strip():
+			p.design.extra_image1_url = image_url
+			saved_slot = "extra1"
+		elif not (p.design.extra_image2_url or "").strip():
+			p.design.extra_image2_url = image_url
+			saved_slot = "extra2"
+		else:
+			p.design.extra_image2_url = image_url
+			saved_slot = "extra2"
+
+	db.session.commit()
+	return jsonify({
+		"ok": True,
+		"slot": saved_slot,
+		"url": image_url,
+		"product_id": p.id,
+		"edit_url": url_for("admin.edit_product_page", product_id=p.id),
+	})
 
 
 @admin_bp.get("/trends")
@@ -1673,6 +1824,7 @@ def edit_product_submit(product_id: int):
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
 	use_formula = request.form.get("use_formula") == "1"
+	reprocess_image = request.form.get("reprocess_image") == "1"
 	base_cost_in = (request.form.get("base_cost") or "").strip()
 	price_in = (request.form.get("price") or "").strip()
 	image_file = request.files.get("image")
@@ -1722,69 +1874,96 @@ def edit_product_submit(product_id: int):
 		pass
 
 	uploaded = False
-	# Handle image upload
-	if image_file and image_file.filename:
-		# Read bytes once to compose mockup and upload
-		file_bytes = image_file.read()
-		# Try removing background for uploaded images
+	def _apply_processed_design(file_bytes: bytes, source_name: str = "upload") -> bool:
+		"""Process design bytes (bg removal + mockup) and persist URLs on current product design."""
+		if not file_bytes:
+			current_app.logger.warning(f"[admin-upload] Empty bytes for {source_name} on product {p.id}")
+			return False
+		processed_bytes = file_bytes
+		# Try removing background for source image
 		try:
-			clean = _remove_bg_hf(file_bytes)
+			clean = _remove_bg_hf(processed_bytes)
 			if clean:
-				file_bytes = clean
-				current_app.logger.info("[bg-remove] Applied on admin upload")
-		except Exception:
-			pass
-		try:
-			image_file.stream.seek(0)
-		except Exception:
-			pass
-		mock_bytes = _compose_design_on_blank_tee(file_bytes) if file_bytes else None
+				processed_bytes = clean
+				current_app.logger.info(f"[bg-remove] Applied on admin {source_name}")
+		except Exception as e:
+			current_app.logger.warning(f"[bg-remove] Failed on admin {source_name}: {e}")
+
+		mock_bytes = _compose_design_on_blank_tee(processed_bytes) if processed_bytes else None
 		if mock_bytes:
-			current_app.logger.info(f"[admin-upload] Mockup created successfully, size: {len(mock_bytes)} bytes")
+			current_app.logger.info(f"[admin-upload] Mockup created successfully from {source_name}, size: {len(mock_bytes)} bytes")
 		else:
-			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None for product {p.id}")
-		
+			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None from {source_name} for product {p.id}")
+
 		# Upload to Cloudinary if configured; fallback to local
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		title_slug = slugify(p.title or "design") or "design"
+		design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+		run_id = str(int(time.time()))
+		public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_{source_name}_{run_id}"
 		if cloud_url:
 			import cloudinary.uploader as cu
-			public_id = slugify(p.title or "design") or "design"
 			# Upload raw design
-			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+			res_design = cu.upload(processed_bytes, folder="products", public_id=public_id + "_design", overwrite=False, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
-			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary: {design_url}")
+			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary from {source_name}: {design_url}")
 			# Upload mockup if composed; otherwise reuse design
 			if mock_bytes:
-				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=False, resource_type="image")
 				mock_url = res_mock.get("secure_url") or res_mock.get("url")
-				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary: {mock_url}")
+				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary from {source_name}: {mock_url}")
 			else:
-				current_app.logger.warning(f"[admin-upload] No mockup bytes, using design URL as fallback")
+				current_app.logger.warning(f"[admin-upload] No mockup bytes from {source_name}, using design URL as fallback")
 				mock_url = design_url
 			p.design.image_url = design_url
 			p.design.preview_url = mock_url
-			# extra_image1_url is only for manually uploaded extra images, not the design
+			return True
+
+		fname_base = secure_filename(f"{public_id}_{source_name}") or f"product_{p.id}_design_{design_id_part}"
+		fname = f"{fname_base}.png"
+		upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+		os.makedirs(upload_dir, exist_ok=True)
+		path_design = os.path.join(upload_dir, fname)
+		with open(path_design, "wb") as f:
+			f.write(processed_bytes)
+		design_url = f"/static/uploads/{fname}"
+		if mock_bytes:
+			fname2 = f"{fname_base}_mockup.png"
+			path_mock = os.path.join(upload_dir, fname2)
+			with open(path_mock, "wb") as f2:
+				f2.write(mock_bytes)
+			mock_url = f"/static/uploads/{fname2}"
 		else:
-			fname = secure_filename(image_file.filename)
-			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-			os.makedirs(upload_dir, exist_ok=True)
-			path_design = os.path.join(upload_dir, fname)
-			with open(path_design, "wb") as f:
-				f.write(file_bytes)
-			design_url = f"/static/uploads/{fname}"
-			# Save mockup if composed
-			if mock_bytes:
-				fname2 = f"mockup_{secure_filename(os.path.splitext(fname)[0])}.png"
-				path_mock = os.path.join(upload_dir, fname2)
-				with open(path_mock, "wb") as f2:
-					f2.write(mock_bytes)
-				mock_url = f"/static/uploads/{fname2}"
+			mock_url = design_url
+		p.design.image_url = design_url
+		p.design.preview_url = mock_url
+		return True
+
+	# Handle image upload
+	if image_file and image_file.filename:
+		file_bytes = image_file.read()
+		uploaded = _apply_processed_design(file_bytes, source_name="upload")
+		if not uploaded:
+			flash("Uploaded image could not be processed.", "error")
+
+	# Reprocess current design (or newly uploaded design) on demand.
+	if reprocess_image and not uploaded:
+		try:
+			import requests as _requests
+			current_design_url = (p.design.image_url or "").strip() if p.design else ""
+			if current_design_url:
+				if current_design_url.startswith("/"):
+					current_design_url = request.host_url.rstrip("/") + current_design_url
+				resp = _requests.get(current_design_url, timeout=20)
+				resp.raise_for_status()
+				uploaded = _apply_processed_design(resp.content, source_name="reprocess")
+				if not uploaded:
+					flash("Reprocess did not produce a new image.", "error")
 			else:
-				mock_url = design_url
-			p.design.image_url = design_url
-			p.design.preview_url = mock_url
-			# extra_image1_url is only for manually uploaded extra images, not the design
-		uploaded = True
+				flash("No existing design file to reprocess. Upload a design file first.", "error")
+		except Exception as e:
+			current_app.logger.warning(f"[admin-upload] Reprocess failed for product {p.id}: {e}")
+			flash("Failed to reprocess current design file", "error")
 
 	# Handle extra images upload
 	if (extra1 and extra1.filename) or (extra2 and extra2.filename):
@@ -1800,7 +1979,9 @@ def edit_product_submit(product_id: int):
 				return None
 			if cloud_url:
 				import cloudinary.uploader as cu
-				public_id = slugify(p.title or "design") + "_extra"
+				title_slug = slugify(p.title or "design") or "design"
+				design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+				public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_extra"
 				res = cu.upload(file_obj, folder="products", public_id=public_id + '_' + (file_obj.filename or 'x'), overwrite=True, resource_type="image")
 				return res.get("secure_url") or res.get("url")
 			else:
@@ -1922,6 +2103,15 @@ def generate_openai_image(product_id: int):
 						current_app.logger.info(f"[bg-remove] Successfully applied background removal, new size: {len(img)} bytes")
 					else:
 						current_app.logger.warning("[bg-remove] Background removal returned None or empty, using original image")
+						# For reference-based generations, force white-bg fallback as a second pass.
+						if ref_bytes:
+							white_clean = _remove_white_bg_simple(img)
+							if white_clean and len(white_clean) > 0:
+								img = white_clean
+								img_for_mockup = white_clean
+								current_app.logger.info(f"[bg-remove] Applied white-bg fallback for reference output, new size: {len(img)} bytes")
+							else:
+								current_app.logger.warning("[bg-remove] White-bg fallback did not change reference output")
 						# Try to convert to RGBA for better mockup composition even without bg removal
 						try:
 							from PIL import Image
@@ -1938,59 +2128,62 @@ def generate_openai_image(product_id: int):
 					import traceback
 					current_app.logger.warning(f"[bg-remove] Traceback: {traceback.format_exc()}")
 				
-				p2 = Product.query.get(pid)
-				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
-				# Upload to Cloudinary if configured; otherwise save locally
-				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
-				if cloud_url:
-					import cloudinary.uploader as cu
-					# Upload bytes directly (design - should be transparent if bg removal worked)
-					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
-					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
-					current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
-
-					# Compose mockup using image (with transparency if bg removal worked)
-					current_app.logger.info("[generate-image] Starting mockup composition...")
-					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
-					if mock_bytes and len(mock_bytes) > 0:
-						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
-						final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
-						current_app.logger.info(f"[generate-image] Mockup uploaded to Cloudinary: {final_url}")
-					else:
-						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
-						final_url = design_url
-				else:
-					fname = f"{slug_base}_{int(_time.time())}.png"
-					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-					os.makedirs(upload_dir, exist_ok=True)
-					path_design = os.path.join(upload_dir, fname)
-					with open(path_design, "wb") as f:
-						f.write(img)
-					design_url = f"/static/uploads/{fname}"
-					current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
-
-					# Compose mockup using image (with transparency if bg removal worked)
-					current_app.logger.info("[generate-image] Starting mockup composition...")
-					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
-					if mock_bytes and len(mock_bytes) > 0:
-						fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
-						path_m = os.path.join(upload_dir, fname_m)
-						with open(path_m, "wb") as fm:
-							fm.write(mock_bytes)
-						final_url = f"/static/uploads/{fname_m}"
-						current_app.logger.info(f"[generate-image] Mockup saved locally: {final_url}")
-					else:
-						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
-						final_url = design_url
-
-				if p2:
-					if not p2.design:
+					p2 = Product.query.get(pid)
+					if p2 and not p2.design:
 						d = Design(type="image", text=p2.title, approved=True)
 						db.session.add(d)
 						db.session.flush()
 						p2.design = d
-					p2.design.preview_url = final_url
-					p2.design.image_url = design_url
+					title_slug = slugify((p2.title if p2 else prm) or "design") or "design"
+					design_id_part = str(p2.design.id) if (p2 and p2.design and p2.design.id) else "x"
+					run_id = int(_time.time())
+					asset_base = f"product_{pid}_design_{design_id_part}_{title_slug}_gen_{run_id}"
+					# Upload to Cloudinary if configured; otherwise save locally
+					cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+					if cloud_url:
+						import cloudinary.uploader as cu
+						# Upload bytes directly (design - should be transparent if bg removal worked)
+						res_up_design = cu.upload(img, folder="products", public_id=asset_base + "_design", overwrite=False, resource_type="image")
+						design_url = res_up_design.get("secure_url") or res_up_design.get("url")
+						current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
+
+						# Compose mockup using image (with transparency if bg removal worked)
+						current_app.logger.info("[generate-image] Starting mockup composition...")
+						mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
+						if mock_bytes and len(mock_bytes) > 0:
+							res_up_mock = cu.upload(mock_bytes, folder="products", public_id=asset_base + "_mockup", overwrite=False, resource_type="image")
+							final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
+							current_app.logger.info(f"[generate-image] Mockup uploaded to Cloudinary: {final_url}")
+						else:
+							current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
+							final_url = design_url
+					else:
+						fname = f"{asset_base}_design.png"
+						upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+						os.makedirs(upload_dir, exist_ok=True)
+						path_design = os.path.join(upload_dir, fname)
+						with open(path_design, "wb") as f:
+							f.write(img)
+						design_url = f"/static/uploads/{fname}"
+						current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
+
+						# Compose mockup using image (with transparency if bg removal worked)
+						current_app.logger.info("[generate-image] Starting mockup composition...")
+						mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
+						if mock_bytes and len(mock_bytes) > 0:
+							fname_m = f"{asset_base}_mockup.png"
+							path_m = os.path.join(upload_dir, fname_m)
+							with open(path_m, "wb") as fm:
+								fm.write(mock_bytes)
+							final_url = f"/static/uploads/{fname_m}"
+							current_app.logger.info(f"[generate-image] Mockup saved locally: {final_url}")
+						else:
+							current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
+							final_url = design_url
+
+					if p2:
+						p2.design.preview_url = final_url
+						p2.design.image_url = design_url
 					# extra_image1_url is only for manually uploaded extra images, not the design
 					db.session.commit()
 				_image_gen_job_set(pid, {"status": "done", "url": final_url, "error": ""})
