@@ -93,6 +93,20 @@ def _ad_job_get(job_id: str) -> dict | None:
 		return _ad_jobs_load().get(job_id)
 
 
+def _ad_image_id_belongs_to_product(image_id: str, product_id: int) -> bool:
+	"""Return True only if image_id was previously produced by Ad Center for this product."""
+	if not image_id:
+		return False
+	with _AD_CENTER_JOBS_LOCK:
+		for _jid, payload in (_ad_jobs_load() or {}).items():
+			try:
+				if str((payload or {}).get("image_id") or "").strip() == str(image_id).strip() and int((payload or {}).get("product_id") or 0) == int(product_id):
+					return True
+			except Exception:
+				continue
+	return False
+
+
 def _image_gen_job_set(product_id: int, payload: dict) -> None:
 	with _IMAGE_GEN_JOBS_LOCK:
 		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
@@ -356,6 +370,9 @@ def ad_center_generate_lifestyle():
 	product = Product.query.get(product_id)
 	if not product or product.status != "active":
 		return jsonify({"error": "Product not found or inactive"}), 404
+	if previous_image_id and not _ad_image_id_belongs_to_product(previous_image_id, product.id):
+		current_app.logger.warning(f"[ad-center] ignoring cross-product previous_image_id for product {product.id}")
+		previous_image_id = ""
 
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
