@@ -43,10 +43,11 @@
 					</div>
 				</div>
 			</div>
-			<div class="space-y-2 sm:max-w-xl">
-				<input type="file" name="image" accept="image/*" class="block text-sm" />
-				<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
-				<p class="text-xs text-gray-400">Upload an image or check "Generate placeholder" to auto-create a simple preview.</p>
+				<div class="space-y-2 sm:max-w-xl">
+					<input type="file" name="image" accept="image/*" class="block text-sm" />
+					<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="reprocess_image" value="1" /> Reprocess on save (remove BG + rebuild mockup)</label>
+					<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
+					<p class="text-xs text-gray-400">Upload a new source image (optional). If "Reprocess on save" is checked, we run background removal and regenerate the white-shirt mockup from the uploaded file, or from the current <code>image_url</code> when no new file is selected.</p>
 				<div class="text-xs text-gray-400 space-y-1 pt-1">
 					<p>
 						<span class="text-gray-500">Design ID (DB):</span>
