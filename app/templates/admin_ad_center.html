@@ -148,8 +148,6 @@
 	let pollTimer = null;
 	let pollAttempts = 0;
 	const maxPollAttempts = 120; // ~4 minutes at 2s interval
-	let activePollProductId = '';
-	const previousImageIdsByProduct = {};
 
 	function resolvePresetValue(selectEl, customEl){
 		const v = (selectEl?.value || '').trim();
@@ -178,7 +176,6 @@
 
 	function startPoll(jobId, productId){
 		if (pollTimer) clearInterval(pollTimer);
-		activePollProductId = String(productId || '').trim();
 		pollAttempts = 0;
 		pollTimer = setInterval(async function(){
 			pollAttempts += 1;
@@ -198,9 +195,6 @@
 				}
 				promptPre.textContent = data.prompt || '';
 					if (data.status === 'done' && data.url){
-						if (data.image_id && activePollProductId){
-							previousImageIdsByProduct[activePollProductId] = String(data.image_id);
-						}
 						preview.src = data.url;
 					preview.classList.remove('hidden');
 					empty.classList.add('hidden');
@@ -246,8 +240,6 @@
 				const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
 				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
 				const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
-				const selectedProductId = (productEl?.value || '').trim();
-				const previousImageIdForSelected = previousImageIdsByProduct[selectedProductId] || '';
 				const res = await fetch('/admin/ad-center/generate-lifestyle', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -262,7 +254,7 @@
 						size: (sizeEl?.value || '1536x1024').trim(),
 						quality: (qualityEl?.value || 'auto').trim(),
 						background: (backgroundEl?.value || 'auto').trim(),
-						previous_image_id: previousImageIdForSelected
+						previous_image_id: ''
 					})
 				});
 				const data = await res.json();
@@ -271,7 +263,7 @@
 					btn.disabled = false;
 					return;
 				}
-				startPoll(data.job_id, selectedProductId);
+				startPoll(data.job_id);
 		}catch(e){
 			setStatus('Network error starting generation', true);
 			btn.disabled = false;
