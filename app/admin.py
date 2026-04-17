@@ -13,6 +13,7 @@ import os
 from werkzeug.utils import secure_filename
 import threading
 import json
+import time
 from datetime import datetime, timedelta
 import re
 import unicodedata
@@ -233,13 +234,40 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 	
 	Note: Requires 'transformers' package. If not available, returns None gracefully.
 	"""
+	def _remove_white_bg_simple(image_bytes: bytes) -> bytes | None:
+		"""Fallback remover: make near-white pixels transparent."""
+		try:
+			from PIL import Image
+			from io import BytesIO
+			im = Image.open(BytesIO(image_bytes)).convert("RGBA")
+			pixels = im.getdata()
+			new_pixels = []
+			transparent_count = 0
+			for r, g, b, a in pixels:
+				# Remove white/near-white background aggressively
+				if r >= 245 and g >= 245 and b >= 245:
+					new_pixels.append((r, g, b, 0))
+					transparent_count += 1
+				else:
+					new_pixels.append((r, g, b, a))
+			if transparent_count == 0:
+				return None
+			im.putdata(new_pixels)
+			out = BytesIO()
+			im.save(out, format="PNG")
+			current_app.logger.info(f"[bg-remove] Simple white-bg fallback removed ~{transparent_count} pixels")
+			return out.getvalue()
+		except Exception as e:
+			current_app.logger.warning(f"[bg-remove] Simple white-bg fallback failed: {e}")
+			return None
+
 	try:
 		# Check if transformers is available
 		try:
 			from transformers import pipeline
 		except ImportError:
 			current_app.logger.debug("[bg-remove] transformers module not available, skipping background removal")
-			return None
+			return _remove_white_bg_simple(png_bytes)
 		
 		from PIL import Image
 		from io import BytesIO
@@ -265,18 +293,30 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 		pillow_image.save(output, format='PNG')
 		result_bytes = output.getvalue()
 		
+		# Validate that output actually contains transparency; otherwise fallback to simple white remover.
+		try:
+			check = Image.open(BytesIO(result_bytes)).convert("RGBA")
+			alpha = check.getchannel("A")
+			alpha_min, _ = alpha.getextrema()
+			if alpha_min == 255:
+				current_app.logger.warning("[bg-remove] HF result has no transparency; applying white-bg fallback")
+				fallback = _remove_white_bg_simple(png_bytes)
+				return fallback or result_bytes
+		except Exception:
+			pass
+
 		current_app.logger.info(f"[bg-remove] Successfully removed background via HF pipeline, output size: {len(result_bytes)} bytes")
 		return result_bytes
 		
 	except ImportError as import_err:
 		# Specifically handle missing transformers module gracefully
 		current_app.logger.debug(f"[bg-remove] transformers module not installed: {import_err}")
-		return None
+		return _remove_white_bg_simple(png_bytes)
 	except Exception as _e:
 		current_app.logger.warning(f"[bg-remove] HF pipeline failed: {_e}")
 		import traceback
 		current_app.logger.warning(f"[bg-remove] Full traceback: {traceback.format_exc()}")
-		return None
+		return _remove_white_bg_simple(png_bytes)
 
 
 @admin_bp.get("/login")
@@ -1673,6 +1713,7 @@ def edit_product_submit(product_id: int):
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
 	use_formula = request.form.get("use_formula") == "1"
+	reprocess_image = request.form.get("reprocess_image") == "1"
 	base_cost_in = (request.form.get("base_cost") or "").strip()
 	price_in = (request.form.get("price") or "").strip()
 	image_file = request.files.get("image")
@@ -1722,69 +1763,96 @@ def edit_product_submit(product_id: int):
 		pass
 
 	uploaded = False
-	# Handle image upload
-	if image_file and image_file.filename:
-		# Read bytes once to compose mockup and upload
-		file_bytes = image_file.read()
-		# Try removing background for uploaded images
+	def _apply_processed_design(file_bytes: bytes, source_name: str = "upload") -> bool:
+		"""Process design bytes (bg removal + mockup) and persist URLs on current product design."""
+		if not file_bytes:
+			current_app.logger.warning(f"[admin-upload] Empty bytes for {source_name} on product {p.id}")
+			return False
+		processed_bytes = file_bytes
+		# Try removing background for source image
 		try:
-			clean = _remove_bg_hf(file_bytes)
+			clean = _remove_bg_hf(processed_bytes)
 			if clean:
-				file_bytes = clean
-				current_app.logger.info("[bg-remove] Applied on admin upload")
-		except Exception:
-			pass
-		try:
-			image_file.stream.seek(0)
-		except Exception:
-			pass
-		mock_bytes = _compose_design_on_blank_tee(file_bytes) if file_bytes else None
+				processed_bytes = clean
+				current_app.logger.info(f"[bg-remove] Applied on admin {source_name}")
+		except Exception as e:
+			current_app.logger.warning(f"[bg-remove] Failed on admin {source_name}: {e}")
+
+		mock_bytes = _compose_design_on_blank_tee(processed_bytes) if processed_bytes else None
 		if mock_bytes:
-			current_app.logger.info(f"[admin-upload] Mockup created successfully, size: {len(mock_bytes)} bytes")
+			current_app.logger.info(f"[admin-upload] Mockup created successfully from {source_name}, size: {len(mock_bytes)} bytes")
 		else:
-			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None for product {p.id}")
-		
+			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None from {source_name} for product {p.id}")
+
 		# Upload to Cloudinary if configured; fallback to local
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		title_slug = slugify(p.title or "design") or "design"
+		design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+		run_id = str(int(time.time()))
+		public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_{source_name}_{run_id}"
 		if cloud_url:
 			import cloudinary.uploader as cu
-			public_id = slugify(p.title or "design") or "design"
 			# Upload raw design
-			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+			res_design = cu.upload(processed_bytes, folder="products", public_id=public_id + "_design", overwrite=False, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
-			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary: {design_url}")
+			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary from {source_name}: {design_url}")
 			# Upload mockup if composed; otherwise reuse design
 			if mock_bytes:
-				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=False, resource_type="image")
 				mock_url = res_mock.get("secure_url") or res_mock.get("url")
-				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary: {mock_url}")
+				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary from {source_name}: {mock_url}")
 			else:
-				current_app.logger.warning(f"[admin-upload] No mockup bytes, using design URL as fallback")
+				current_app.logger.warning(f"[admin-upload] No mockup bytes from {source_name}, using design URL as fallback")
 				mock_url = design_url
 			p.design.image_url = design_url
 			p.design.preview_url = mock_url
-			# extra_image1_url is only for manually uploaded extra images, not the design
+			return True
+
+		fname_base = secure_filename(f"{public_id}_{source_name}") or f"product_{p.id}_design_{design_id_part}"
+		fname = f"{fname_base}.png"
+		upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+		os.makedirs(upload_dir, exist_ok=True)
+		path_design = os.path.join(upload_dir, fname)
+		with open(path_design, "wb") as f:
+			f.write(processed_bytes)
+		design_url = f"/static/uploads/{fname}"
+		if mock_bytes:
+			fname2 = f"{fname_base}_mockup.png"
+			path_mock = os.path.join(upload_dir, fname2)
+			with open(path_mock, "wb") as f2:
+				f2.write(mock_bytes)
+			mock_url = f"/static/uploads/{fname2}"
 		else:
-			fname = secure_filename(image_file.filename)
-			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-			os.makedirs(upload_dir, exist_ok=True)
-			path_design = os.path.join(upload_dir, fname)
-			with open(path_design, "wb") as f:
-				f.write(file_bytes)
-			design_url = f"/static/uploads/{fname}"
-			# Save mockup if composed
-			if mock_bytes:
-				fname2 = f"mockup_{secure_filename(os.path.splitext(fname)[0])}.png"
-				path_mock = os.path.join(upload_dir, fname2)
-				with open(path_mock, "wb") as f2:
-					f2.write(mock_bytes)
-				mock_url = f"/static/uploads/{fname2}"
+			mock_url = design_url
+		p.design.image_url = design_url
+		p.design.preview_url = mock_url
+		return True
+
+	# Handle image upload
+	if image_file and image_file.filename:
+		file_bytes = image_file.read()
+		uploaded = _apply_processed_design(file_bytes, source_name="upload")
+		if not uploaded:
+			flash("Uploaded image could not be processed.", "error")
+
+	# Reprocess current design (or newly uploaded design) on demand.
+	if reprocess_image and not uploaded:
+		try:
+			import requests as _requests
+			current_design_url = (p.design.image_url or "").strip() if p.design else ""
+			if current_design_url:
+				if current_design_url.startswith("/"):
+					current_design_url = request.host_url.rstrip("/") + current_design_url
+				resp = _requests.get(current_design_url, timeout=20)
+				resp.raise_for_status()
+				uploaded = _apply_processed_design(resp.content, source_name="reprocess")
+				if not uploaded:
+					flash("Reprocess did not produce a new image.", "error")
 			else:
-				mock_url = design_url
-			p.design.image_url = design_url
-			p.design.preview_url = mock_url
-			# extra_image1_url is only for manually uploaded extra images, not the design
-		uploaded = True
+				flash("No existing design file to reprocess. Upload a design file first.", "error")
+		except Exception as e:
+			current_app.logger.warning(f"[admin-upload] Reprocess failed for product {p.id}: {e}")
+			flash("Failed to reprocess current design file", "error")
 
 	# Handle extra images upload
 	if (extra1 and extra1.filename) or (extra2 and extra2.filename):
@@ -1800,7 +1868,9 @@ def edit_product_submit(product_id: int):
 				return None
 			if cloud_url:
 				import cloudinary.uploader as cu
-				public_id = slugify(p.title or "design") + "_extra"
+				title_slug = slugify(p.title or "design") or "design"
+				design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+				public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_extra"
 				res = cu.upload(file_obj, folder="products", public_id=public_id + '_' + (file_obj.filename or 'x'), overwrite=True, resource_type="image")
 				return res.get("secure_url") or res.get("url")
 			else:
