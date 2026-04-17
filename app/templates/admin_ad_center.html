@@ -146,6 +146,10 @@
 	const promptPre = document.getElementById('ad-prompt');
 
 	let pollTimer = null;
+	let pollAttempts = 0;
+	const maxPollAttempts = 120; // ~4 minutes at 2s interval
+	let activePollProductId = '';
+	const previousImageIdsByProduct = {};
 
 	function resolvePresetValue(selectEl, customEl){
 		const v = (selectEl?.value || '').trim();
@@ -172,9 +176,18 @@
 		statusEl.className = 'text-sm ' + (err ? 'text-red-400' : 'text-gray-400');
 	}
 
-	function startPoll(jobId){
+	function startPoll(jobId, productId){
 		if (pollTimer) clearInterval(pollTimer);
+		activePollProductId = String(productId || '').trim();
+		pollAttempts = 0;
 		pollTimer = setInterval(async function(){
+			pollAttempts += 1;
+			if (pollAttempts > maxPollAttempts){
+				setStatus('Timed out waiting for generation. Please try again.', true);
+				clearInterval(pollTimer);
+				btn.disabled = false;
+				return;
+			}
 			try{
 				const r = await fetch(`/admin/ad-center/generate-status/${encodeURIComponent(jobId)}`);
 				const data = await r.json();
@@ -184,8 +197,11 @@
 					return;
 				}
 				promptPre.textContent = data.prompt || '';
-				if (data.status === 'done' && data.url){
-					preview.src = data.url;
+					if (data.status === 'done' && data.url){
+						if (data.image_id && activePollProductId){
+							previousImageIdsByProduct[activePollProductId] = String(data.image_id);
+						}
+						preview.src = data.url;
 					preview.classList.remove('hidden');
 					empty.classList.add('hidden');
 					openLink.href = data.url;
@@ -195,6 +211,10 @@
 					btn.disabled = false;
 				} else if (data.status === 'error'){
 					setStatus(data.error || 'Generation failed', true);
+					clearInterval(pollTimer);
+					btn.disabled = false;
+				} else if (data.status !== 'running'){
+					setStatus(`Unexpected job status: ${data.status || 'unknown'}`, true);
 					clearInterval(pollTimer);
 					btn.disabled = false;
 				} else {
@@ -208,7 +228,7 @@
 		}, 2000);
 	}
 
-	btn?.addEventListener('click', async function(){
+		btn?.addEventListener('click', async function(){
 		const productId = (productEl?.value || '').trim();
 		if (!productId){
 			setStatus('Please choose a product first.', true);
@@ -221,34 +241,37 @@
 		links.classList.add('hidden');
 		promptPre.textContent = '';
 
-		try{
-			const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
-			const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
-			const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
-			const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
-			const res = await fetch('/admin/ad-center/generate-lifestyle', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					product_id: parseInt(productId, 10),
-					headline: (headlineEl?.value || '').trim(),
-					cta_text: (ctaEl?.value || '').trim(),
-					audience: audienceValue,
-					scene: sceneCombined,
-					shirt_colors: selectedColors,
-					include_overlay: !!includeOverlayEl?.checked,
-					size: (sizeEl?.value || '1536x1024').trim(),
-					quality: (qualityEl?.value || 'auto').trim(),
-					background: (backgroundEl?.value || 'auto').trim()
-				})
-			});
-			const data = await res.json();
-			if (!res.ok || !data.job_id){
-				setStatus(data.error || 'Failed to start generation', true);
-				btn.disabled = false;
-				return;
-			}
-			startPoll(data.job_id);
+			try{
+				const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
+				const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
+				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+				const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
+				const selectedProductId = (productEl?.value || '').trim();
+				const previousImageIdForSelected = previousImageIdsByProduct[selectedProductId] || '';
+				const res = await fetch('/admin/ad-center/generate-lifestyle', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						product_id: parseInt(productId, 10),
+						headline: (headlineEl?.value || '').trim(),
+						cta_text: (ctaEl?.value || '').trim(),
+						audience: audienceValue,
+						scene: sceneCombined,
+						shirt_colors: selectedColors,
+						include_overlay: !!includeOverlayEl?.checked,
+						size: (sizeEl?.value || '1536x1024').trim(),
+						quality: (qualityEl?.value || 'auto').trim(),
+						background: (backgroundEl?.value || 'auto').trim(),
+						previous_image_id: previousImageIdForSelected
+					})
+				});
+				const data = await res.json();
+				if (!res.ok || !data.job_id){
+					setStatus(data.error || 'Failed to start generation', true);
+					btn.disabled = false;
+					return;
+				}
+				startPoll(data.job_id, selectedProductId);
 		}catch(e){
 			setStatus('Network error starting generation', true);
 			btn.disabled = false;
