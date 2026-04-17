@@ -409,7 +409,10 @@ def ad_center_generate_lifestyle():
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
 	include_overlay = bool(data.get("include_overlay", True))
-	previous_image_id = (data.get("previous_image_id") or "").strip()
+	# Force each generation to start fresh to prevent cross-run contamination.
+	previous_image_id = ""
+	client_source_image = (data.get("source_design_url") or "").strip()
+	client_mockup_image = (data.get("source_mockup_url") or "").strip()
 	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
 	if not isinstance(shirt_colors, list):
 		shirt_colors = ["black", "white", "heather gray"]
@@ -479,6 +482,11 @@ def ad_center_generate_lifestyle():
 		source_image = f"{base}{source_image}"
 	if mockup_image.startswith("/"):
 		mockup_image = f"{base}{mockup_image}"
+	# Optional client/server consistency guard: reject generation if selected product source changed.
+	if client_source_image and client_source_image != source_image:
+		return jsonify({"error": "Selected product design source changed. Re-select product and try again."}), 409
+	if client_mockup_image and client_mockup_image != mockup_image:
+		return jsonify({"error": "Selected product mockup source changed. Re-select product and try again."}), 409
 
 	import uuid
 	job_id = str(uuid.uuid4())
@@ -606,6 +614,51 @@ def ad_center_generate_lifestyle():
 	)
 	thr.start()
 	return jsonify({"ok": True, "job_id": job_id})
+
+
+@admin_bp.get("/ad-center/product-source/<int:product_id>")
+@login_required
+def ad_center_product_source(product_id: int):
+	"""Return the exact source/mockup URLs ad-center generation will use for a product."""
+	product = Product.query.get_or_404(product_id)
+	if product.status != "active":
+		return jsonify({"error": "Product is not active"}), 400
+	if not getattr(product, "design", None):
+		return jsonify({"error": "Product has no design"}), 400
+
+	source_image = (product.design.image_url or product.design.preview_url or "").strip()
+	candidate_mockup = (product.design.preview_url or "").strip()
+	if not source_image:
+		return jsonify({"error": "Product has no design image"}), 400
+
+	def _core_name(u: str) -> str:
+		try:
+			name = os.path.basename(urlparse(u).path).lower()
+		except Exception:
+			name = (u or "").lower()
+		for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+			if name.endswith(ext):
+				name = name[: -len(ext)]
+		for suffix in ["_design", "-design", "_mockup", "-mockup", "_preview", "-preview"]:
+			if name.endswith(suffix):
+				name = name[: -len(suffix)]
+		return name
+
+	mockup_image = candidate_mockup if (candidate_mockup and _core_name(candidate_mockup) == _core_name(source_image)) else source_image
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	if source_image.startswith("/"):
+		source_image = f"{base}{source_image}"
+	if mockup_image.startswith("/"):
+		mockup_image = f"{base}{mockup_image}"
+
+	return jsonify({
+		"ok": True,
+		"product_id": product.id,
+		"title": product.title,
+		"design_id": product.design.id if product.design else None,
+		"source_design_url": source_image,
+		"source_mockup_url": mockup_image,
+	})
 
 
 @admin_bp.get("/ad-center/generate-status/<string:job_id>")
