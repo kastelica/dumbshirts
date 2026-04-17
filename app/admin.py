@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 _AD_CENTER_JOBS_LOCK = threading.Lock()
+_IMAGE_GEN_JOBS_LOCK = threading.Lock()
 
 
 # --------------
@@ -90,6 +91,51 @@ def _ad_job_set(job_id: str, payload: dict) -> None:
 def _ad_job_get(job_id: str) -> dict | None:
 	with _AD_CENTER_JOBS_LOCK:
 		return _ad_jobs_load().get(job_id)
+
+
+def _ad_image_id_belongs_to_product(image_id: str, product_id: int) -> bool:
+	"""Return True only if image_id was previously produced by Ad Center for this product."""
+	if not image_id:
+		return False
+	with _AD_CENTER_JOBS_LOCK:
+		for _jid, payload in (_ad_jobs_load() or {}).items():
+			try:
+				if str((payload or {}).get("image_id") or "").strip() == str(image_id).strip() and int((payload or {}).get("product_id") or 0) == int(product_id):
+					return True
+			except Exception:
+				continue
+	return False
+
+
+def _image_gen_job_set(product_id: int, payload: dict) -> None:
+	with _IMAGE_GEN_JOBS_LOCK:
+		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
+		jobs[str(product_id)] = payload
+
+
+def _image_gen_job_get(product_id: int) -> dict | None:
+	with _IMAGE_GEN_JOBS_LOCK:
+		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
+		return jobs.get(str(product_id))
+
+
+def _resp_val(obj, key, default=None):
+	"""Read a property from an SDK object or plain dict."""
+	if isinstance(obj, dict):
+		return obj.get(key, default)
+	return getattr(obj, key, default)
+
+
+def _extract_response_image_data(resp) -> tuple[str | None, str | None]:
+	"""Extract (base64_result, image_id) from Responses output."""
+	for out in (_resp_val(resp, "output", []) or []):
+		if _resp_val(out, "type") != "image_generation_call":
+			continue
+		result = _resp_val(out, "result")
+		image_id = _resp_val(out, "image_id")
+		if result or image_id:
+			return result, image_id
+	return None, None
 
 
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
@@ -295,6 +341,7 @@ def ad_center_generate_lifestyle():
 	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
 	audience = (data.get("audience") or "").strip() or "young adults"
 	include_overlay = bool(data.get("include_overlay", True))
+	previous_image_id = (data.get("previous_image_id") or "").strip()
 	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
 	if not isinstance(shirt_colors, list):
 		shirt_colors = ["black", "white", "heather gray"]
@@ -323,6 +370,9 @@ def ad_center_generate_lifestyle():
 	product = Product.query.get(product_id)
 	if not product or product.status != "active":
 		return jsonify({"error": "Product not found or inactive"}), 404
+	if previous_image_id and not _ad_image_id_belongs_to_product(previous_image_id, product.id):
+		current_app.logger.warning(f"[ad-center] ignoring cross-product previous_image_id for product {product.id}")
+		previous_image_id = ""
 
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
@@ -364,9 +414,9 @@ def ad_center_generate_lifestyle():
 
 	import uuid
 	job_id = str(uuid.uuid4())
-	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id})
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id, "image_id": previous_image_id})
 
-	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str):
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str, prev_img_id: str):
 		with app_ctx:
 			try:
 				import os as _os
@@ -381,18 +431,25 @@ def ad_center_generate_lifestyle():
 				audience_text = f"Target audience: {aud}. " if aud else ""
 				scene_text = f"Scene/style: {sc}. " if sc else ""
 				if include_text:
-					overlay_text = f"Add ad-ready text overlay with headline '{overlay_headline}' and CTA button text '{cta}'. "
+					overlay_text = (
+						f"Include visible ad text overlay. Headline must be exactly '{overlay_headline}'. "
+						f"CTA button text must be exactly '{cta}'. "
+					)
 				else:
-					overlay_text = "Do NOT add any text overlay, captions, CTA buttons, stickers, or typography anywhere in the image. "
+						overlay_text = (
+							"Do NOT include any text overlay, captions, CTA buttons, stickers, labels, or typography anywhere in the image. "
+							"This is a hard requirement."
+						)
 				prompt = (
-					f"Create a high-converting e-commerce lifestyle ad image featuring models wearing t-shirts that use the EXACT same artwork/logo from this reference design image: {src}. "
-					f"If available, use this product mockup as style reference for placement/scale: {mockup_src}. "
+					f"Create a realistic e-commerce lifestyle photo with human models wearing this exact t-shirt mockup design. "
+					f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
+					f"Reference image URL (must preserve logo/art exactly): {mockup_src or src}. "
+					f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
 					f"{audience_text}{scene_text}"
 					f"Show this same design on regular shirt colors: {color_text}. "
-					f"Do not change, redraw, paraphrase, or replace the logo/artwork text. Keep the original design faithful. "
 					f"{overlay_text}"
-					f"Keep text legible with strong contrast and clean modern layout. "
-					f"Brand style: edgy, meme-culture streetwear. "
+					f"Keep composition clean and ad-ready with realistic lighting. "
+					f"Brand style: edgy, meme-culture streetwear vibe. "
 					f"Do not include any other logos or trademarks."
 				)
 
@@ -400,39 +457,36 @@ def ad_center_generate_lifestyle():
 				job_state["prompt"] = prompt
 				_ad_job_set(jid, job_state)
 
-				# Prefer Responses API image edit with high input fidelity so artwork/logo details
-				# from the selected catalog image are preserved more accurately.
+				# Use Responses image edit with a single image input (product mockup URL).
 				img_bytes = None
+				final_image_id = prev_img_id or ""
 				try:
 					content_parts = [
 						{"type": "input_text", "text": prompt},
-						{"type": "input_image", "image_url": src},
+						{"type": "input_image", "image_url": mockup_src or src},
 					]
-					if mockup_src:
-						content_parts.append({"type": "input_image", "image_url": mockup_src})
+
+					tool_payload = {
+						"type": "image_generation",
+						"action": "edit",
+						"size": out_size,
+						"quality": out_quality,
+						"background": out_bg,
+					}
+					if prev_img_id:
+						tool_payload["image"] = prev_img_id
 
 					resp = client.responses.create(
-						model="gpt-4.1",
+						model="gpt-5",
 						input=[{"role": "user", "content": content_parts}],
-						tools=[{
-							"type": "image_generation",
-							"input_fidelity": "high",
-							"action": "edit",
-							"size": out_size,
-							"quality": out_quality,
-							"background": out_bg,
-						}],
+						tools=[tool_payload],
 					)
 
-					b64 = None
-					for out in (getattr(resp, "output", None) or []):
-						otype = getattr(out, "type", None) or (out.get("type") if isinstance(out, dict) else None)
-						if otype == "image_generation_call":
-							b64 = getattr(out, "result", None) or (out.get("result") if isinstance(out, dict) else None)
-							if b64:
-								break
+					b64, image_id = _extract_response_image_data(resp)
 					if b64:
 						img_bytes = b64decode(b64)
+					if image_id:
+						final_image_id = image_id
 				except Exception as e:
 					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
 
@@ -448,6 +502,7 @@ def ad_center_generate_lifestyle():
 					b64 = res.data[0].b64_json
 					img_bytes = b64decode(b64)
 
+				final_url = ""
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
@@ -462,9 +517,11 @@ def ad_center_generate_lifestyle():
 					with open(path, "wb") as f:
 						f.write(img_bytes)
 					final_url = f"/static/uploads/{fname}"
+				if not final_url:
+					raise RuntimeError("ad-center: generated image upload did not return a URL")
 
 				job_state = _ad_job_get(jid) or {"product_id": p.id}
-				job_state.update({"status": "done", "url": final_url, "error": ""})
+				job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
 				_ad_job_set(jid, job_state)
 			except Exception as e:
 				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
@@ -474,7 +531,7 @@ def ad_center_generate_lifestyle():
 
 	thr = threading.Thread(
 		target=_worker,
-		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background),
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background, previous_image_id),
 		daemon=True
 	)
 	thr.start()
@@ -1610,6 +1667,7 @@ def edit_product_submit(product_id: int):
 	p = Product.query.get_or_404(product_id)
 	title = request.form.get("title", "").strip()
 	description = request.form.get("description", "").strip()
+	status_active = request.form.get("status_active") == "1"
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
 	use_formula = request.form.get("use_formula") == "1"
@@ -1632,6 +1690,7 @@ def edit_product_submit(product_id: int):
 				idx += 1
 			p.slug = slug
 	p.description = description
+	p.status = "active" if status_active else "draft"
 
 	# Update category (tshirt/hoodie/mug)
 	if cat_slug:
@@ -1772,28 +1831,82 @@ def edit_product_submit(product_id: int):
 @admin_bp.post("/products/<int:product_id>/generate-image")
 @login_required
 def generate_openai_image(product_id: int):
-	from base64 import b64decode
+	from base64 import b64decode, b64encode
 	import time
-	prompt = (request.json or {}).get("prompt", "").strip()
+	if request.is_json:
+		payload = request.get_json(silent=True) or {}
+		prompt = (payload.get("prompt") or "").strip()
+		reference_image_bytes = None
+		reference_image_content_type = ""
+	else:
+		prompt = (request.form.get("prompt") or "").strip()
+		reference_file = request.files.get("reference_image")
+		reference_image_bytes = reference_file.read() if (reference_file and reference_file.filename) else None
+		reference_image_content_type = (getattr(reference_file, "mimetype", "") or "image/png").strip().lower() if reference_file else ""
 	if not prompt:
 		return jsonify({"error": "Missing prompt"}), 400
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
 		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+	_image_gen_job_set(product_id, {"status": "running", "url": "", "error": ""})
 	# Run in background to avoid 30s Heroku router timeout
-	def _worker(app_ctx, pid: int, prm: str):
+	def _worker(app_ctx, pid: int, prm: str, ref_bytes: bytes | None, ref_content_type: str):
 		with app_ctx:
 			try:
 				import os as _os
 				_os.environ["OPENAI_API_KEY"] = api_key
 				from openai import OpenAI
-				client = OpenAI().with_options(timeout=60.0)
+				client = OpenAI().with_options(timeout=180.0)
 				import time as _time
-				last_err = None
-				# Single attempt only; no retries, no Pillow fallback
-				res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
-				b64 = res.data[0].b64_json
-				img = b64decode(b64)
+				img = None
+				# If a reference image is provided, perform reference-based edit generation only.
+				# Do not fall back to unrelated text-only generation when a reference is supplied.
+				if ref_bytes:
+					last_ref_err = None
+					try:
+						ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
+						data_uri = f"data:{ctype};base64,{b64encode(ref_bytes).decode('utf-8')}"
+						resp = client.responses.create(
+							model="gpt-5",
+							input=[{
+								"role": "user",
+								"content": [
+									{"type": "input_text", "text": prm},
+									{"type": "input_image", "image_url": data_uri},
+								],
+							}],
+							tools=[{"type": "image_generation", "action": "edit", "size": "1024x1024"}],
+						)
+						b64_resp, _image_id = _extract_response_image_data(resp)
+						if b64_resp:
+							img = b64decode(b64_resp)
+						else:
+							last_ref_err = RuntimeError("Responses edit returned no image result")
+					except Exception as e_ref:
+						last_ref_err = e_ref
+						current_app.logger.warning(f"[generate-image] reference edit via Responses failed: {e_ref}")
+					# Secondary reference-based fallback: images.edit with uploaded image bytes.
+					if not img:
+						try:
+							ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
+							res_edit = client.images.edit(
+								model="gpt-image-1.5",
+								image=[("reference.png", ref_bytes, ctype)],
+								prompt=prm,
+								size="1024x1024",
+							)
+							b64_edit = res_edit.data[0].b64_json
+							img = b64decode(b64_edit)
+						except Exception as e_edit:
+							last_ref_err = e_edit
+							current_app.logger.warning(f"[generate-image] reference edit via images.edit failed: {e_edit}")
+						if not img:
+							raise RuntimeError(f"Reference-based generation failed: {last_ref_err}")
+					# Text-only generation is allowed only when no reference image was provided.
+					if not img and not ref_bytes:
+						res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
+						b64 = res.data[0].b64_json
+						img = b64decode(b64)
 				current_app.logger.info(f"[generate-image] OpenAI image generated, size: {len(img)} bytes")
 				
 				# Try background removal
@@ -1833,7 +1946,7 @@ def generate_openai_image(product_id: int):
 					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
 					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
 					current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
-					
+
 					# Compose mockup using image (with transparency if bg removal worked)
 					current_app.logger.info("[generate-image] Starting mockup composition...")
 					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
@@ -1853,7 +1966,7 @@ def generate_openai_image(product_id: int):
 						f.write(img)
 					design_url = f"/static/uploads/{fname}"
 					current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
-					
+
 					# Compose mockup using image (with transparency if bg removal worked)
 					current_app.logger.info("[generate-image] Starting mockup composition...")
 					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
@@ -1867,6 +1980,7 @@ def generate_openai_image(product_id: int):
 					else:
 						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
 						final_url = design_url
+
 				if p2:
 					if not p2.design:
 						d = Design(type="image", text=p2.title, approved=True)
@@ -1877,11 +1991,17 @@ def generate_openai_image(product_id: int):
 					p2.design.image_url = design_url
 					# extra_image1_url is only for manually uploaded extra images, not the design
 					db.session.commit()
+				_image_gen_job_set(pid, {"status": "done", "url": final_url, "error": ""})
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
 				current_app.logger.warning(f"generate-image failed: {e_all}")
+				_image_gen_job_set(pid, {"status": "error", "url": "", "error": str(e_all)})
 
-	thr = threading.Thread(target=_worker, args=(current_app.app_context(), product_id, prompt), daemon=True)
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), product_id, prompt, reference_image_bytes, reference_image_content_type),
+		daemon=True,
+	)
 	thr.start()
 	return jsonify({"ok": True, "started": True})
 
@@ -1890,8 +2010,19 @@ def generate_openai_image(product_id: int):
 @login_required
 def generate_status(product_id: int):
 	p = Product.query.get_or_404(product_id)
+	job = _image_gen_job_get(product_id)
+	if job and job.get("status") == "running":
+		# Safety: if model output already persisted on the product, treat as done.
+		url_live = (p.design.preview_url if p.design else "") or ""
+		if url_live:
+			return jsonify({"ready": True, "status": "done", "url": url_live, "error": ""})
+		return jsonify({"ready": False, "status": "running", "url": "", "error": ""})
+	if job and job.get("status") == "error":
+		return jsonify({"ready": False, "status": "error", "url": "", "error": job.get("error") or "generation failed"})
+	if job and job.get("status") == "done":
+		return jsonify({"ready": True, "status": "done", "url": job.get("url") or "", "error": ""})
 	url = p.design.preview_url if p.design else ""
-	return jsonify({"ready": bool(url), "url": url or ""})
+	return jsonify({"ready": bool(url), "status": "done" if url else "idle", "url": url or "", "error": ""})
 
 
 @admin_bp.get("/gelato")
