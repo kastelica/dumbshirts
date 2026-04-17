@@ -174,7 +174,7 @@
 		statusEl.className = 'text-sm ' + (err ? 'text-red-400' : 'text-gray-400');
 	}
 
-	function startPoll(jobId){
+	function startPoll(jobId, productId){
 		if (pollTimer) clearInterval(pollTimer);
 		pollAttempts = 0;
 		pollTimer = setInterval(async function(){
