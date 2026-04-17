@@ -408,20 +408,20 @@ def ad_center_generate_lifestyle():
 						f"CTA button text must be exactly '{cta}'. "
 					)
 				else:
-					overlay_text = (
-						"Do NOT include any text overlay, captions, CTA buttons, stickers, labels, or typography anywhere in the image. "
-						"This is a hard requirement."
-					)
-					prompt = (
-						f"Create a realistic lifestyle photo with human models wearing this exact t-shirt mockup design. "
-						f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
-						f"Reference image URL (must preserve logo/art exactly): {mockup_src or src}. "
-						f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
-						f"{audience_text}{scene_text}"
-						f"Show this same design on regular shirt colors: {color_text}. "
+						overlay_text = (
+							"Do NOT include any text overlay, captions, CTA buttons, stickers, labels, or typography anywhere in the image. "
+							"This is a hard requirement."
+						)
+				prompt = (
+					f"Create a realistic e-commerce lifestyle photo with human models wearing this exact t-shirt mockup design. "
+					f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
+					f"Reference image URL (must preserve logo/art exactly): {mockup_src or src}. "
+					f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
+					f"{audience_text}{scene_text}"
+					f"Show this same design on regular shirt colors: {color_text}. "
 					f"{overlay_text}"
 					f"Keep composition clean and ad-ready with realistic lighting. "
-					f"Brand style: nuetral "
+					f"Brand style: edgy, meme-culture streetwear vibe. "
 					f"Do not include any other logos or trademarks."
 				)
 
