@@ -32,6 +32,32 @@
 				<input type="file" name="image" accept="image/*" class="block text-sm" />
 				<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="generate_ai" value="1" /> Generate placeholder</label>
 				<p class="text-xs text-gray-400">Upload an image or check "Generate placeholder" to auto-create a simple preview.</p>
+				<div class="text-xs text-gray-400 space-y-1 pt-1">
+					<p>
+						<span class="text-gray-500">Design ID (DB):</span>
+						{% if product.design %}
+							<span class="font-mono text-gray-300">{{ product.design.id }}</span>
+						{% else %}
+							<span class="text-gray-500">None</span>
+						{% endif %}
+					</p>
+					<p>
+						<span class="text-gray-500">Design file URL (image_url):</span>
+						{% if product.design and product.design.image_url %}
+							<a href="{{ product.design.image_url }}" target="_blank" rel="noopener" class="underline break-all text-gray-300">{{ product.design.image_url }}</a>
+						{% else %}
+							<span class="text-gray-500">None</span>
+						{% endif %}
+					</p>
+					<p>
+						<span class="text-gray-500">Preview/mockup URL (preview_url):</span>
+						{% if product.design and product.design.preview_url %}
+							<a href="{{ product.design.preview_url }}" target="_blank" rel="noopener" class="underline break-all text-gray-300">{{ product.design.preview_url }}</a>
+						{% else %}
+							<span class="text-gray-500">None</span>
+						{% endif %}
+					</p>
+				</div>
 			</div>
 		</div>
 	</div>
