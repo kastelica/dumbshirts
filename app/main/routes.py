@@ -38,19 +38,24 @@ def index():
 	for p in all_active:
 		if not getattr(p, "design", None):
 			continue
+		design_url = (p.design.image_url or "").strip()
+		preview_url = (p.design.preview_url or "").strip()
+		picked = ""
 		for candidate in [p.design.extra_image1_url, p.design.extra_image2_url]:
 			url = (candidate or "").strip()
-			if not url or url in seen_urls:
+			# Only use true extra images, never the product design/mockup URLs.
+			if not url or url in seen_urls or url == design_url or url == preview_url:
 				continue
+			picked = url
+			break
+		if picked:
 			hero_images.append({
-				"src": url,
+				"src": picked,
 				"title": p.title,
 				"product_id": p.id,
 				"slug": p.slug,
 			})
-			seen_urls.add(url)
-			if len(hero_images) >= 8:
-				break
+			seen_urls.add(picked)
 		if len(hero_images) >= 8:
 			break
 
