@@ -1748,7 +1748,9 @@ def edit_product_submit(product_id: int):
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 		if cloud_url:
 			import cloudinary.uploader as cu
-			public_id = slugify(p.title or "design") or "design"
+			title_slug = slugify(p.title or "design") or "design"
+			design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+			public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}"
 			# Upload raw design
 			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
@@ -1800,7 +1802,9 @@ def edit_product_submit(product_id: int):
 				return None
 			if cloud_url:
 				import cloudinary.uploader as cu
-				public_id = slugify(p.title or "design") + "_extra"
+				title_slug = slugify(p.title or "design") or "design"
+				design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+				public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_extra"
 				res = cu.upload(file_obj, folder="products", public_id=public_id + '_' + (file_obj.filename or 'x'), overwrite=True, resource_type="image")
 				return res.get("secure_url") or res.get("url")
 			else:
