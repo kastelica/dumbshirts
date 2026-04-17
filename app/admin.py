@@ -1839,11 +1839,13 @@ def generate_openai_image(product_id: int):
 				import os as _os
 				_os.environ["OPENAI_API_KEY"] = api_key
 				from openai import OpenAI
-				client = OpenAI().with_options(timeout=60.0)
+				client = OpenAI().with_options(timeout=180.0)
 				import time as _time
 				img = None
-				# If a reference image is provided, perform an edit-style generation using that image as basis.
+				# If a reference image is provided, perform reference-based edit generation only.
+				# Do not fall back to unrelated text-only generation when a reference is supplied.
 				if ref_bytes:
+					last_ref_err = None
 					try:
 						ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
 						data_uri = f"data:{ctype};base64,{b64encode(ref_bytes).decode('utf-8')}"
@@ -1861,13 +1863,33 @@ def generate_openai_image(product_id: int):
 						b64_resp, _image_id = _extract_response_image_data(resp)
 						if b64_resp:
 							img = b64decode(b64_resp)
+						else:
+							last_ref_err = RuntimeError("Responses edit returned no image result")
 					except Exception as e_ref:
-						current_app.logger.warning(f"[generate-image] reference edit failed, falling back to text generation: {e_ref}")
-				# Fallback to text-only generation if needed
-				if not img:
-					res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
-					b64 = res.data[0].b64_json
-					img = b64decode(b64)
+						last_ref_err = e_ref
+						current_app.logger.warning(f"[generate-image] reference edit via Responses failed: {e_ref}")
+					# Secondary reference-based fallback: images.edit with uploaded image bytes.
+					if not img:
+						try:
+							ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
+							res_edit = client.images.edit(
+								model="gpt-image-1.5",
+								image=[("reference.png", ref_bytes, ctype)],
+								prompt=prm,
+								size="1024x1024",
+							)
+							b64_edit = res_edit.data[0].b64_json
+							img = b64decode(b64_edit)
+						except Exception as e_edit:
+							last_ref_err = e_edit
+							current_app.logger.warning(f"[generate-image] reference edit via images.edit failed: {e_edit}")
+						if not img:
+							raise RuntimeError(f"Reference-based generation failed: {last_ref_err}")
+					# Text-only generation is allowed only when no reference image was provided.
+					if not img and not ref_bytes:
+						res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
+						b64 = res.data[0].b64_json
+						img = b64decode(b64)
 				current_app.logger.info(f"[generate-image] OpenAI image generated, size: {len(img)} bytes")
 				
 				# Try background removal
@@ -1973,6 +1995,10 @@ def generate_status(product_id: int):
 	p = Product.query.get_or_404(product_id)
 	job = _image_gen_job_get(product_id)
 	if job and job.get("status") == "running":
+		# Safety: if model output already persisted on the product, treat as done.
+		url_live = (p.design.preview_url if p.design else "") or ""
+		if url_live:
+			return jsonify({"ready": True, "status": "done", "url": url_live, "error": ""})
 		return jsonify({"ready": False, "status": "running", "url": "", "error": ""})
 	if job and job.get("status") == "error":
 		return jsonify({"ready": False, "status": "error", "url": "", "error": job.get("error") or "generation failed"})

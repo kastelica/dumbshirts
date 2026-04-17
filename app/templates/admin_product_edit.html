@@ -204,9 +204,10 @@
 				throw new Error(j.error || 'Failed to start');
 			}
 			soraStatus.textContent = 'Processing…';
-			let attempts = 0;
-			const timer = setInterval(async ()=>{
-				attempts++;
+	            let attempts = 0;
+	            const maxAttempts = 180; // ~6 minutes at 2s interval for slower background jobs
+		            const timer = setInterval(async ()=>{
+		                attempts++;
 				const js = await pollSoraStatus();
 				if(js && js.ready && js.url){
 					clearInterval(timer);
@@ -264,9 +265,9 @@
 	                    } else if(js.status === 'error'){
 	                        clearInterval(timer);
 	                        msg.textContent = js.error || 'Generation failed';
-	                    } else if(attempts > 45){
+	                    } else if(attempts > maxAttempts){
 	                        clearInterval(timer);
-	                        msg.textContent = 'Still processing… refresh in a moment.';
+	                        msg.textContent = 'Still processing… this can take a few minutes. Please refresh shortly.';
 	                    }
 	                } catch(e){
                     clearInterval(timer);
@@ -303,9 +304,10 @@
 				refMsg.textContent = 'Generating in background…';
 				// Reuse existing polling flow
 				const statusUrl = "{{ url_for('admin.generate_status', product_id=product.id) }}";
-				let attempts = 0;
-					const timer = setInterval(async ()=>{
-						attempts++;
+					let attempts = 0;
+					const maxAttempts = 180; // ~6 minutes at 2s interval for slower background jobs
+						const timer = setInterval(async ()=>{
+							attempts++;
 						try{
 							const rs = await fetch(statusUrl, { cache: 'no-store' });
 							const st = await rs.json();
@@ -318,10 +320,10 @@
 							} else if(st.status === 'error'){
 								clearInterval(timer);
 								refMsg.textContent = st.error || 'Generation failed';
-							} else if(attempts > 45){
-								clearInterval(timer);
-								refMsg.textContent = 'Still processing… refresh in a moment.';
-							}
+								} else if(attempts > maxAttempts){
+									clearInterval(timer);
+									refMsg.textContent = 'Still processing… this can take a few minutes. Please refresh shortly.';
+								}
 						}catch(_e){
 						clearInterval(timer);
 						refMsg.textContent = 'Failed to check status';
