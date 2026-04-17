@@ -29,16 +29,36 @@ def index():
 		page=page, per_page=per_page, error_out=False
 	)
 	
-	# Fetch 5 random active products for hero slideshow
+	# Build hero banner slides from product additional images (extra_image1/2) first.
 	import random
 	all_active = Product.query.filter_by(status="active").all()
-	hero_products = random.sample(all_active, min(5, len(all_active))) if len(all_active) >= 5 else all_active
-	
+	random.shuffle(all_active)
+	hero_images = []
+	seen_urls = set()
+	for p in all_active:
+		if not getattr(p, "design", None):
+			continue
+		for candidate in [p.design.extra_image1_url, p.design.extra_image2_url]:
+			url = (candidate or "").strip()
+			if not url or url in seen_urls:
+				continue
+			hero_images.append({
+				"src": url,
+				"title": p.title,
+				"product_id": p.id,
+				"slug": p.slug,
+			})
+			seen_urls.add(url)
+			if len(hero_images) >= 8:
+				break
+		if len(hero_images) >= 8:
+			break
+
 	return render_template("index.html", 
 		products=products_pagination.items,
 		pagination=products_pagination,
 		current_page=page,
-		hero_products=hero_products
+		hero_images=hero_images
 	)
 
 
