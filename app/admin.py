@@ -13,6 +13,7 @@ import os
 from werkzeug.utils import secure_filename
 import threading
 import json
+import time
 from datetime import datetime, timedelta
 import re
 import unicodedata
@@ -1726,6 +1727,7 @@ def edit_product_submit(product_id: int):
 	def _apply_processed_design(file_bytes: bytes, source_name: str = "upload") -> bool:
 		"""Process design bytes (bg removal + mockup) and persist URLs on current product design."""
 		if not file_bytes:
+			current_app.logger.warning(f"[admin-upload] Empty bytes for {source_name} on product {p.id}")
 			return False
 		processed_bytes = file_bytes
 		# Try removing background for source image
@@ -1747,16 +1749,17 @@ def edit_product_submit(product_id: int):
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 		title_slug = slugify(p.title or "design") or "design"
 		design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
-		public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}"
+		run_id = str(int(time.time()))
+		public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_{source_name}_{run_id}"
 		if cloud_url:
 			import cloudinary.uploader as cu
 			# Upload raw design
-			res_design = cu.upload(processed_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+			res_design = cu.upload(processed_bytes, folder="products", public_id=public_id + "_design", overwrite=False, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
 			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary from {source_name}: {design_url}")
 			# Upload mockup if composed; otherwise reuse design
 			if mock_bytes:
-				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=False, resource_type="image")
 				mock_url = res_mock.get("secure_url") or res_mock.get("url")
 				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary from {source_name}: {mock_url}")
 			else:
@@ -1790,6 +1793,8 @@ def edit_product_submit(product_id: int):
 	if image_file and image_file.filename:
 		file_bytes = image_file.read()
 		uploaded = _apply_processed_design(file_bytes, source_name="upload")
+		if not uploaded:
+			flash("Uploaded image could not be processed.", "error")
 
 	# Reprocess current design (or newly uploaded design) on demand.
 	if reprocess_image and not uploaded:
@@ -1797,9 +1802,13 @@ def edit_product_submit(product_id: int):
 			import requests as _requests
 			current_design_url = (p.design.image_url or "").strip() if p.design else ""
 			if current_design_url:
+				if current_design_url.startswith("/"):
+					current_design_url = request.host_url.rstrip("/") + current_design_url
 				resp = _requests.get(current_design_url, timeout=20)
 				resp.raise_for_status()
 				uploaded = _apply_processed_design(resp.content, source_name="reprocess")
+				if not uploaded:
+					flash("Reprocess did not produce a new image.", "error")
 			else:
 				flash("No existing design file to reprocess. Upload a design file first.", "error")
 		except Exception as e:
