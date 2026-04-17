@@ -226,6 +226,34 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		return None
 
 
+def _remove_white_bg_simple(image_bytes: bytes) -> bytes | None:
+	"""Fallback remover: make near-white pixels transparent."""
+	try:
+		from PIL import Image
+		from io import BytesIO
+		im = Image.open(BytesIO(image_bytes)).convert("RGBA")
+		pixels = im.getdata()
+		new_pixels = []
+		transparent_count = 0
+		for r, g, b, a in pixels:
+			# Remove white/near-white background aggressively
+			if r >= 245 and g >= 245 and b >= 245:
+				new_pixels.append((r, g, b, 0))
+				transparent_count += 1
+			else:
+				new_pixels.append((r, g, b, a))
+		if transparent_count == 0:
+			return None
+		im.putdata(new_pixels)
+		out = BytesIO()
+		im.save(out, format="PNG")
+		current_app.logger.info(f"[bg-remove] Simple white-bg fallback removed ~{transparent_count} pixels")
+		return out.getvalue()
+	except Exception as e:
+		current_app.logger.warning(f"[bg-remove] Simple white-bg fallback failed: {e}")
+		return None
+
+
 def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 	"""Attempt to remove background via Hugging Face Pipeline (briaai/RMBG-1.4).
 
@@ -587,6 +615,63 @@ def ad_center_generate_status(job_id: str):
 	if not job:
 		return jsonify({"error": "job not found"}), 404
 	return jsonify(job)
+
+
+@admin_bp.post("/ad-center/save-additional-image")
+@login_required
+def ad_center_save_additional_image():
+	"""Save a generated ad-center image URL into product design extra image slots."""
+	data = request.get_json(silent=True) or {}
+	job_id = str(data.get("job_id") or "").strip()
+	slot = str(data.get("slot") or "next").strip().lower()  # next|extra1|extra2
+	if slot not in {"next", "extra1", "extra2"}:
+		slot = "next"
+	if not job_id:
+		return jsonify({"error": "Missing job_id"}), 400
+
+	job = _ad_job_get(job_id) or {}
+	if (job.get("status") or "") != "done":
+		return jsonify({"error": "Job is not complete yet"}), 400
+	image_url = (job.get("url") or "").strip()
+	product_id = int(job.get("product_id") or 0)
+	if not image_url or not product_id:
+		return jsonify({"error": "Job does not contain a valid product image result"}), 400
+
+	p = Product.query.get(product_id)
+	if not p:
+		return jsonify({"error": "Product not found"}), 404
+	if not p.design:
+		d = Design(type="image", text=p.title, approved=True)
+		db.session.add(d)
+		db.session.flush()
+		p.design = d
+
+	if slot == "extra1":
+		p.design.extra_image1_url = image_url
+		saved_slot = "extra1"
+	elif slot == "extra2":
+		p.design.extra_image2_url = image_url
+		saved_slot = "extra2"
+	else:
+		# Fill first empty slot; overwrite extra2 if both already occupied.
+		if not (p.design.extra_image1_url or "").strip():
+			p.design.extra_image1_url = image_url
+			saved_slot = "extra1"
+		elif not (p.design.extra_image2_url or "").strip():
+			p.design.extra_image2_url = image_url
+			saved_slot = "extra2"
+		else:
+			p.design.extra_image2_url = image_url
+			saved_slot = "extra2"
+
+	db.session.commit()
+	return jsonify({
+		"ok": True,
+		"slot": saved_slot,
+		"url": image_url,
+		"product_id": p.id,
+		"edit_url": url_for("admin.edit_product_page", product_id=p.id),
+	})
 
 
 @admin_bp.get("/trends")
@@ -1992,6 +2077,15 @@ def generate_openai_image(product_id: int):
 						current_app.logger.info(f"[bg-remove] Successfully applied background removal, new size: {len(img)} bytes")
 					else:
 						current_app.logger.warning("[bg-remove] Background removal returned None or empty, using original image")
+						# For reference-based generations, force white-bg fallback as a second pass.
+						if ref_bytes:
+							white_clean = _remove_white_bg_simple(img)
+							if white_clean and len(white_clean) > 0:
+								img = white_clean
+								img_for_mockup = white_clean
+								current_app.logger.info(f"[bg-remove] Applied white-bg fallback for reference output, new size: {len(img)} bytes")
+							else:
+								current_app.logger.warning("[bg-remove] White-bg fallback did not change reference output")
 						# Try to convert to RGBA for better mockup composition even without bg removal
 						try:
 							from PIL import Image
