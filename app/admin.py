@@ -2155,59 +2155,62 @@ def generate_openai_image(product_id: int):
 					import traceback
 					current_app.logger.warning(f"[bg-remove] Traceback: {traceback.format_exc()}")
 				
-				p2 = Product.query.get(pid)
-				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
-				# Upload to Cloudinary if configured; otherwise save locally
-				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
-				if cloud_url:
-					import cloudinary.uploader as cu
-					# Upload bytes directly (design - should be transparent if bg removal worked)
-					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
-					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
-					current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
-
-					# Compose mockup using image (with transparency if bg removal worked)
-					current_app.logger.info("[generate-image] Starting mockup composition...")
-					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
-					if mock_bytes and len(mock_bytes) > 0:
-						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
-						final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
-						current_app.logger.info(f"[generate-image] Mockup uploaded to Cloudinary: {final_url}")
-					else:
-						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
-						final_url = design_url
-				else:
-					fname = f"{slug_base}_{int(_time.time())}.png"
-					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-					os.makedirs(upload_dir, exist_ok=True)
-					path_design = os.path.join(upload_dir, fname)
-					with open(path_design, "wb") as f:
-						f.write(img)
-					design_url = f"/static/uploads/{fname}"
-					current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
-
-					# Compose mockup using image (with transparency if bg removal worked)
-					current_app.logger.info("[generate-image] Starting mockup composition...")
-					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
-					if mock_bytes and len(mock_bytes) > 0:
-						fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
-						path_m = os.path.join(upload_dir, fname_m)
-						with open(path_m, "wb") as fm:
-							fm.write(mock_bytes)
-						final_url = f"/static/uploads/{fname_m}"
-						current_app.logger.info(f"[generate-image] Mockup saved locally: {final_url}")
-					else:
-						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
-						final_url = design_url
-
-				if p2:
-					if not p2.design:
+					p2 = Product.query.get(pid)
+					if p2 and not p2.design:
 						d = Design(type="image", text=p2.title, approved=True)
 						db.session.add(d)
 						db.session.flush()
 						p2.design = d
-					p2.design.preview_url = final_url
-					p2.design.image_url = design_url
+					title_slug = slugify((p2.title if p2 else prm) or "design") or "design"
+					design_id_part = str(p2.design.id) if (p2 and p2.design and p2.design.id) else "x"
+					run_id = int(_time.time())
+					asset_base = f"product_{pid}_design_{design_id_part}_{title_slug}_gen_{run_id}"
+					# Upload to Cloudinary if configured; otherwise save locally
+					cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+					if cloud_url:
+						import cloudinary.uploader as cu
+						# Upload bytes directly (design - should be transparent if bg removal worked)
+						res_up_design = cu.upload(img, folder="products", public_id=asset_base + "_design", overwrite=False, resource_type="image")
+						design_url = res_up_design.get("secure_url") or res_up_design.get("url")
+						current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
+
+						# Compose mockup using image (with transparency if bg removal worked)
+						current_app.logger.info("[generate-image] Starting mockup composition...")
+						mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
+						if mock_bytes and len(mock_bytes) > 0:
+							res_up_mock = cu.upload(mock_bytes, folder="products", public_id=asset_base + "_mockup", overwrite=False, resource_type="image")
+							final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
+							current_app.logger.info(f"[generate-image] Mockup uploaded to Cloudinary: {final_url}")
+						else:
+							current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
+							final_url = design_url
+					else:
+						fname = f"{asset_base}_design.png"
+						upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+						os.makedirs(upload_dir, exist_ok=True)
+						path_design = os.path.join(upload_dir, fname)
+						with open(path_design, "wb") as f:
+							f.write(img)
+						design_url = f"/static/uploads/{fname}"
+						current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
+
+						# Compose mockup using image (with transparency if bg removal worked)
+						current_app.logger.info("[generate-image] Starting mockup composition...")
+						mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
+						if mock_bytes and len(mock_bytes) > 0:
+							fname_m = f"{asset_base}_mockup.png"
+							path_m = os.path.join(upload_dir, fname_m)
+							with open(path_m, "wb") as fm:
+								fm.write(mock_bytes)
+							final_url = f"/static/uploads/{fname_m}"
+							current_app.logger.info(f"[generate-image] Mockup saved locally: {final_url}")
+						else:
+							current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
+							final_url = design_url
+
+					if p2:
+						p2.design.preview_url = final_url
+						p2.design.image_url = design_url
 					# extra_image1_url is only for manually uploaded extra images, not the design
 					db.session.commit()
 				_image_gen_job_set(pid, {"status": "done", "url": final_url, "error": ""})
