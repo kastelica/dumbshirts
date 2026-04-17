@@ -1652,6 +1652,7 @@ def edit_product_submit(product_id: int):
 	p = Product.query.get_or_404(product_id)
 	title = request.form.get("title", "").strip()
 	description = request.form.get("description", "").strip()
+	status_active = request.form.get("status_active") == "1"
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
 	use_formula = request.form.get("use_formula") == "1"
@@ -1674,6 +1675,7 @@ def edit_product_submit(product_id: int):
 				idx += 1
 			p.slug = slug
 	p.description = description
+	p.status = "active" if status_active else "draft"
 
 	# Update category (tshirt/hoodie/mug)
 	if cat_slug:

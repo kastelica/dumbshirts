@@ -11,6 +11,13 @@
 		<textarea name="description" rows="6" class="bg-gray-900 border border-gray-800 rounded px-3 py-2 w-full text-gray-100">{{ product.description }}</textarea>
 	</div>
 	<div>
+		<label class="inline-flex items-center gap-2 text-sm">
+			<input type="checkbox" name="status_active" value="1" {% if product.status == 'active' %}checked{% endif %} />
+			Visible / Active
+		</label>
+		<p class="text-xs text-gray-400 mt-1">Toggle this to control whether the product is shown live after saving.</p>
+	</div>
+	<div>
 		<label class="block text-sm mb-1">Design image</label>
 		<div class="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
 			<div class="w-full aspect-square sm:w-32 sm:h-32 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center">
@@ -90,7 +97,7 @@
 	<label class="block text-sm">Reference-based logo generation</label>
 	<p class="text-xs text-gray-400">Upload a source image and add instructions. The uploaded image is used as the basis for generating the new logo/design.</p>
 	<input id="ref-image" type="file" accept="image/*" class="block text-sm" />
-	<textarea id="ref-prompt" rows="3" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Use the uploaded image as the basis. Preserve key visual identity while creating a print-ready shirt logo."></textarea>
+	<textarea id="ref-prompt" rows="3" class="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-gray-100" placeholder="Use the uploaded image as the basis. Preserve key visual identity while creating a print-ready shirt logo.">Use the uploaded image as the basis. Preserve key visual identity while creating a print-ready shirt logo.</textarea>
 	<div class="flex items-center gap-2">
 		<button id="ref-generate" class="bg-gray-800 text-white px-4 py-2 rounded">Generate from image + prompt</button>
 		<span id="ref-msg" class="text-sm text-gray-400"></span>
