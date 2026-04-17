@@ -423,6 +423,8 @@ def ad_center_generate_lifestyle():
 				import time as _time
 				from openai import OpenAI
 				from base64 import b64decode
+				from io import BytesIO as _BytesIO
+				import requests as _req
 				_os.environ["OPENAI_API_KEY"] = api_key
 				client = OpenAI().with_options(timeout=120.0)
 
