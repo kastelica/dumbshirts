@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 _AD_CENTER_JOBS_LOCK = threading.Lock()
+_IMAGE_GEN_JOBS_LOCK = threading.Lock()
 
 
 # --------------
@@ -90,6 +91,18 @@ def _ad_job_set(job_id: str, payload: dict) -> None:
 def _ad_job_get(job_id: str) -> dict | None:
 	with _AD_CENTER_JOBS_LOCK:
 		return _ad_jobs_load().get(job_id)
+
+
+def _image_gen_job_set(product_id: int, payload: dict) -> None:
+	with _IMAGE_GEN_JOBS_LOCK:
+		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
+		jobs[str(product_id)] = payload
+
+
+def _image_gen_job_get(product_id: int) -> dict | None:
+	with _IMAGE_GEN_JOBS_LOCK:
+		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
+		return jobs.get(str(product_id))
 
 
 def _resp_val(obj, key, default=None):
@@ -1818,6 +1831,7 @@ def generate_openai_image(product_id: int):
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
 		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+	_image_gen_job_set(product_id, {"status": "running", "url": "", "error": ""})
 	# Run in background to avoid 30s Heroku router timeout
 	def _worker(app_ctx, pid: int, prm: str, ref_bytes: bytes | None, ref_content_type: str):
 		with app_ctx:
@@ -1893,7 +1907,7 @@ def generate_openai_image(product_id: int):
 					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
 					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
 					current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
-					
+
 					# Compose mockup using image (with transparency if bg removal worked)
 					current_app.logger.info("[generate-image] Starting mockup composition...")
 					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
@@ -1913,7 +1927,7 @@ def generate_openai_image(product_id: int):
 						f.write(img)
 					design_url = f"/static/uploads/{fname}"
 					current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
-					
+
 					# Compose mockup using image (with transparency if bg removal worked)
 					current_app.logger.info("[generate-image] Starting mockup composition...")
 					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
@@ -1927,6 +1941,7 @@ def generate_openai_image(product_id: int):
 					else:
 						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
 						final_url = design_url
+
 				if p2:
 					if not p2.design:
 						d = Design(type="image", text=p2.title, approved=True)
@@ -1937,9 +1952,11 @@ def generate_openai_image(product_id: int):
 					p2.design.image_url = design_url
 					# extra_image1_url is only for manually uploaded extra images, not the design
 					db.session.commit()
+				_image_gen_job_set(pid, {"status": "done", "url": final_url, "error": ""})
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
 				current_app.logger.warning(f"generate-image failed: {e_all}")
+				_image_gen_job_set(pid, {"status": "error", "url": "", "error": str(e_all)})
 
 	thr = threading.Thread(
 		target=_worker,
@@ -1954,8 +1971,15 @@ def generate_openai_image(product_id: int):
 @login_required
 def generate_status(product_id: int):
 	p = Product.query.get_or_404(product_id)
+	job = _image_gen_job_get(product_id)
+	if job and job.get("status") == "running":
+		return jsonify({"ready": False, "status": "running", "url": "", "error": ""})
+	if job and job.get("status") == "error":
+		return jsonify({"ready": False, "status": "error", "url": "", "error": job.get("error") or "generation failed"})
+	if job and job.get("status") == "done":
+		return jsonify({"ready": True, "status": "done", "url": job.get("url") or "", "error": ""})
 	url = p.design.preview_url if p.design else ""
-	return jsonify({"ready": bool(url), "url": url or ""})
+	return jsonify({"ready": bool(url), "status": "done" if url else "idle", "url": url or "", "error": ""})
 
 
 @admin_bp.get("/gelato")
