@@ -777,6 +777,38 @@ def reddit_page():
 	return render_template("admin_reddit.html", settings=settings, has_env_creds=has_env_creds, monitor_state=monitor_state)
 
 
+@admin_bp.get("/reddit/state")
+@login_required
+def reddit_state():
+	with _REDDIT_MONITOR_LOCK:
+		state = dict(_get_reddit_monitor_state())
+		state["events"] = list(state.get("events", []))
+		state["matches"] = list(state.get("matches", []))
+		state["backfill_matches"] = list(state.get("backfill_matches", []))
+	return jsonify(state)
+
+
+@admin_bp.post("/reddit/monitor-control")
+@login_required
+def reddit_monitor_control():
+	action = (request.form.get("action") or "").strip().lower()
+	enable = action == "start"
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+		settings["enabled"] = enable
+		_reddit_settings_save(settings)
+	with _REDDIT_MONITOR_LOCK:
+		state = _get_reddit_monitor_state()
+		state["should_run"] = enable
+		if enable:
+			_reddit_state_add_event(state, "Incoming monitor enabled from live controls.")
+		else:
+			_reddit_state_add_event(state, "Incoming monitor disabled from live controls.")
+	if enable:
+		_ensure_reddit_monitor_thread()
+	return jsonify({"ok": True, "enabled": enable})
+
+
 @admin_bp.post("/reddit/settings")
 @login_required
 def reddit_save_settings():
