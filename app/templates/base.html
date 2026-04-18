@@ -152,24 +152,14 @@
 	<link rel="stylesheet" href="/static/css/tailwind.css">
 	{% if not request.path.startswith('/admin') %}
 	<script id="merchantWidgetScript" src="https://www.gstatic.com/shopping/merchant/merchantwidget.js" defer></script>
-	<script type="text/javascript">
-		(function () {
-			const scriptEl = document.getElementById('merchantWidgetScript');
-			if (!scriptEl) return;
-			scriptEl.addEventListener('load', function () {
-				try {
-					if (!window.merchantwidget || typeof window.merchantwidget.start !== 'function') return;
-					window.merchantwidget.start({
-						merchant_id: 5766825042,
-						position: 'RIGHT_BOTTOM',
-						sideMargin: 20,
-						bottomMargin: 20,
-						mobileSideMargin: 12,
-						mobileBottomMargin: 72
-					});
-				} catch (_e) { }
+	<script>
+		merchantWidgetScript.addEventListener('load', function () {
+			merchantwidget.start({
+				merchant_id: 5766825042,
+				position: 'RIGHT_BOTTOM',
+				region: 'US'
 			});
-		})();
+		});
 	</script>
 	{% endif %}
 	{% block head %}{% endblock %}
