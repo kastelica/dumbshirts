@@ -107,6 +107,11 @@ def _default_reddit_settings() -> dict:
 		"enabled": False,
 		"poll_seconds": 180,
 		"subreddits": "funny,memes,designporn",
+		"reddit_client_id": "",
+		"reddit_client_secret": "",
+		"reddit_user_agent": "roastcotton-bot/0.1 by admin",
+		"reddit_username": "",
+		"reddit_password": "",
 		"target_phrases": "\n".join([
 			"put it on a shirt",
 			"i'd buy a shirt with that",
@@ -151,6 +156,16 @@ def _reddit_comment_matches(comment_text: str, phrases: list[str]) -> bool:
 		if p and p in comment_text:
 			return True
 	return False
+
+
+def _reddit_credentials_from_env() -> dict:
+	return {
+		"reddit_client_id": (current_app.config.get("REDDIT_CLIENT_ID") or os.getenv("REDDIT_CLIENT_ID") or "").strip(),
+		"reddit_client_secret": (current_app.config.get("REDDIT_CLIENT_SECRET") or os.getenv("REDDIT_CLIENT_SECRET") or "").strip(),
+		"reddit_user_agent": (current_app.config.get("REDDIT_USER_AGENT") or os.getenv("REDDIT_USER_AGENT") or "").strip(),
+		"reddit_username": (current_app.config.get("REDDIT_USERNAME") or os.getenv("REDDIT_USERNAME") or "").strip(),
+		"reddit_password": (current_app.config.get("REDDIT_PASSWORD") or os.getenv("REDDIT_PASSWORD") or "").strip(),
+	}
 
 
 def _ad_image_id_belongs_to_product(image_id: str, product_id: int) -> bool:
@@ -462,7 +477,9 @@ def ad_center_page():
 def reddit_page():
 	with _REDDIT_SETTINGS_LOCK:
 		settings = _reddit_settings_load()
-	return render_template("admin_reddit.html", settings=settings)
+	env_creds = _reddit_credentials_from_env()
+	has_env_creds = bool(env_creds["reddit_client_id"] and env_creds["reddit_client_secret"] and env_creds["reddit_user_agent"])
+	return render_template("admin_reddit.html", settings=settings, has_env_creds=has_env_creds)
 
 
 @admin_bp.post("/reddit/settings")
@@ -475,16 +492,28 @@ def reddit_save_settings():
 		poll_seconds = 180
 	poll_seconds = max(30, min(poll_seconds, 3600))
 	subreddits = (request.form.get("subreddits") or "").strip()
+	reddit_client_id = (request.form.get("reddit_client_id") or "").strip()
+	reddit_client_secret = (request.form.get("reddit_client_secret") or "").strip()
+	reddit_user_agent = (request.form.get("reddit_user_agent") or "").strip()
+	reddit_username = (request.form.get("reddit_username") or "").strip()
+	reddit_password = (request.form.get("reddit_password") or "").strip()
 	target_phrases = (request.form.get("target_phrases") or "").strip()
 	if not target_phrases:
 		target_phrases = _default_reddit_settings()["target_phrases"]
 
 	with _REDDIT_SETTINGS_LOCK:
 		settings = _reddit_settings_load()
+		existing_secret = settings.get("reddit_client_secret") or ""
+		existing_password = settings.get("reddit_password") or ""
 		settings.update({
 			"enabled": enabled,
 			"poll_seconds": poll_seconds,
 			"subreddits": subreddits,
+			"reddit_client_id": reddit_client_id,
+			"reddit_client_secret": reddit_client_secret or existing_secret,
+			"reddit_user_agent": reddit_user_agent,
+			"reddit_username": reddit_username,
+			"reddit_password": reddit_password or existing_password,
 			"target_phrases": target_phrases,
 		})
 		_reddit_settings_save(settings)

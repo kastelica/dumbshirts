@@ -11,6 +11,37 @@
 	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
 		<h2 class="text-lg font-semibold mb-4">Polling Configuration</h2>
 		<form method="post" action="{{ url_for('admin.reddit_save_settings') }}" class="space-y-4">
+			<div class="rounded border border-gray-700 bg-gray-950 p-3 text-xs text-gray-300">
+				<div class="font-semibold text-gray-100 mb-1">Where to enter your Reddit/PRAW app info</div>
+				<div>Enter credentials below in this admin page, or set environment variables (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT`, optional `REDDIT_USERNAME`, `REDDIT_PASSWORD`). Environment variables are recommended for production secrets.</div>
+				{% if has_env_creds %}
+				<div class="mt-2 text-green-400">Environment credentials detected.</div>
+				{% endif %}
+			</div>
+
+			<div class="grid md:grid-cols-2 gap-3">
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">Reddit Client ID</label>
+					<input type="text" name="reddit_client_id" value="{{ settings.reddit_client_id }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="your app client id">
+				</div>
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">Reddit Client Secret</label>
+					<input type="password" name="reddit_client_secret" value="{{ settings.reddit_client_secret }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="your app client secret">
+				</div>
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">User Agent</label>
+					<input type="text" name="reddit_user_agent" value="{{ settings.reddit_user_agent }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="roastcotton-bot/0.1 by yourusername">
+				</div>
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">Reddit Username (optional)</label>
+					<input type="text" name="reddit_username" value="{{ settings.reddit_username }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="reddit username">
+				</div>
+				<div class="md:col-span-2">
+					<label class="block text-sm text-gray-300 mb-1">Reddit Password (optional)</label>
+					<input type="password" name="reddit_password" value="{{ settings.reddit_password }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="reddit password">
+				</div>
+			</div>
+
 			<label class="flex items-center gap-2 text-sm">
 				<input type="checkbox" name="enabled" {% if settings.enabled %}checked{% endif %}>
 				<span>Enable Reddit polling worker</span>
