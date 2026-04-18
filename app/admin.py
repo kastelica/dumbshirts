@@ -3751,6 +3751,162 @@ def generate_sora_video_status(product_id: int):
 	return jsonify(resp)
 
 
+def _cleanup_product_description(text: str) -> str:
+	"""Remove known placeholder/template copy from a product description."""
+	value = (text or "").strip()
+	if not value:
+		return ""
+	patterns = [
+		r"^free shipping!\s*shirt inspired by (the )?.*?grab it before it'?s gone\.?\s*",
+		r"^free shipping!\s*shirt inspired by the meme .*?\.?\s*",
+		r"^free shipping!\s*",
+	]
+	cleaned = value
+	for pat in patterns:
+		cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
+	return cleaned.strip()
+
+
+@admin_bp.get("/products/content-manager")
+@login_required
+def product_content_manager_page():
+	products = Product.query.order_by(Product.updated_at.desc()).limit(500).all()
+	return render_template("admin_product_content_bulk.html", products=products)
+
+
+@admin_bp.post("/products/content-manager/save")
+@login_required
+def product_content_manager_save():
+	payload = request.get_json(silent=True) or {}
+	updates = payload.get("updates", [])
+	if not isinstance(updates, list):
+		return jsonify({"error": "Invalid updates payload"}), 400
+	updated = 0
+	try:
+		for item in updates:
+			if not isinstance(item, dict):
+				continue
+			pid = item.get("id")
+			if not pid:
+				continue
+			p = Product.query.get(int(pid))
+			if not p:
+				continue
+			title = (item.get("title") or "").strip()
+			description = (item.get("description") or "").strip()
+			if title:
+				p.title = title[:255]
+			p.description = description
+			updated += 1
+		db.session.commit()
+		return jsonify({"ok": True, "updated": updated})
+	except Exception as e:
+		db.session.rollback()
+		current_app.logger.exception(f"[content-manager/save] Failed: {e}")
+		return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.post("/products/content-manager/cleanup")
+@login_required
+def product_content_manager_cleanup():
+	payload = request.get_json(silent=True) or {}
+	product_ids = payload.get("product_ids") or []
+	if not isinstance(product_ids, list) or not product_ids:
+		return jsonify({"error": "No products selected"}), 400
+	updated = 0
+	try:
+		ids = [int(x) for x in product_ids]
+		rows = Product.query.filter(Product.id.in_(ids)).all()
+		for p in rows:
+			before_title = (p.title or "").strip()
+			before_desc = (p.description or "").strip()
+			after_title = re.sub(r"\s*\b(?:t[\s-]?shirt)\b\s*$", "", before_title, flags=re.IGNORECASE).strip()
+			after_desc = _cleanup_product_description(before_desc)
+			if after_title != before_title:
+				p.title = after_title[:255]
+				updated += 1
+			if after_desc != before_desc:
+				p.description = after_desc
+				updated += 1
+		db.session.commit()
+		return jsonify({"ok": True, "updated_fields": updated})
+	except Exception as e:
+		db.session.rollback()
+		current_app.logger.exception(f"[content-manager/cleanup] Failed: {e}")
+		return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.post("/products/content-manager/generate")
+@login_required
+def product_content_manager_generate():
+	payload = request.get_json(silent=True) or {}
+	product_ids = payload.get("product_ids") or []
+	only_missing = bool(payload.get("only_missing", True))
+	if not isinstance(product_ids, list) or not product_ids:
+		return jsonify({"error": "No products selected"}), 400
+	api_key = (
+		current_app.config.get("OPENAI_API_KEY")
+		or os.getenv("OPENAI_API_KEY")
+		or ""
+	).strip()
+	if not api_key:
+		return jsonify({"error": "OPENAI_API_KEY not configured"}), 400
+	try:
+		from openai import OpenAI as _OpenAI
+		client = _OpenAI(api_key=api_key).with_options(timeout=60.0)
+	except Exception as e:
+		return jsonify({"error": f"OpenAI client init failed: {e}"}), 500
+	updated = 0
+	skipped = 0
+	errors = []
+	ids = [int(x) for x in product_ids]
+	rows = Product.query.filter(Product.id.in_(ids)).all()
+	for p in rows:
+		try:
+			existing_title = (p.title or "").strip()
+			existing_desc = (p.description or "").strip()
+			is_title_missing = (not existing_title) or (len(existing_title) < 10)
+			is_desc_missing = (not existing_desc) or (len(existing_desc) < 25) or ("free shipping!" in existing_desc.lower())
+			if only_missing and not (is_title_missing or is_desc_missing):
+				skipped += 1
+				continue
+			seed = (p.design.text if p.design and p.design.text else existing_title or f"Product {p.id}").strip()
+			prompt = (
+				"Write e-commerce copy for a meme-inspired unisex t-shirt.\n"
+				f"Seed phrase: {seed}\n"
+				"Return strict JSON with keys title and description.\n"
+				"Title: 45-70 chars, clear and specific.\n"
+				"Description: 2-3 short sentences, no emojis, no hashtags, no markdown, no fake claims."
+			)
+			resp = client.chat.completions.create(
+				model="gpt-4o-mini",
+				messages=[
+					{"role": "system", "content": "You are a precise ecommerce copywriter. Return valid JSON only."},
+					{"role": "user", "content": prompt},
+				],
+				temperature=0.7,
+				response_format={"type": "json_object"},
+			)
+			raw = (resp.choices[0].message.content or "{}").strip()
+			obj = json.loads(raw)
+			new_title = (obj.get("title") or "").strip()[:255]
+			new_desc = (obj.get("description") or "").strip()
+			changed = False
+			if new_title and (not only_missing or is_title_missing):
+				p.title = new_title
+				changed = True
+			if new_desc and (not only_missing or is_desc_missing):
+				p.description = new_desc
+				changed = True
+			if changed:
+				updated += 1
+		except Exception as e:
+			errors.append(f"{p.id}: {e}")
+	if updated:
+		db.session.commit()
+	return jsonify({"ok": True, "updated": updated, "skipped": skipped, "errors": errors[:20]})
+
+
 @admin_bp.post("/products/append-tshirt")
 @login_required
 def append_tshirt_to_titles():

@@ -351,6 +351,27 @@
 		</div>
 	</div>
 </div>
+{% set lifestyle_images = [] %}
+{% if product.design and product.design.extra_image1_url %}
+	{% set _ = lifestyle_images.append(product.design.extra_image1_url) %}
+{% endif %}
+{% if product.design and product.design.extra_image2_url and product.design.extra_image2_url != product.design.extra_image1_url %}
+	{% set _ = lifestyle_images.append(product.design.extra_image2_url) %}
+{% endif %}
+{% if lifestyle_images %}
+<div class="mt-8 space-y-4">
+	{% for lifestyle_image in lifestyle_images %}
+	<div class="w-full bg-gray-900 border border-gray-800 rounded overflow-hidden">
+		<img
+			src="{{ lifestyle_image }}"
+			alt="{{ product.title }} lifestyle image {{ loop.index }}"
+			loading="lazy"
+			class="w-full h-auto object-cover"
+		>
+	</div>
+	{% endfor %}
+</div>
+{% endif %}
 <div class="mt-6 flex items-center justify-between gap-4">
 	{% if prev_slug %}
 	<a id="edge-prev" href="{{ url_for('main.product_detail', slug=prev_slug) }}" class="flex items-center justify-center w-12 h-12 text-2xl font-bold text-gray-200 rounded-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:text-white flex-shrink-0" aria-label="Previous product">‹</a>
