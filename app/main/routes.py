@@ -1536,7 +1536,14 @@ def sitemap_xml():
 @main_bp.get("/robots.txt")
 def robots_txt():
 	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
-	body = f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
+	body = (
+		"User-agent: *\n"
+		"Allow: /\n"
+		"Disallow: /admin\n"
+		"Disallow: /api\n"
+		"Disallow: /scripts\n"
+		f"Sitemap: {base}/sitemap.xml\n"
+	)
 	return Response(body, content_type="text/plain")
 
 

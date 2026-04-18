@@ -56,7 +56,11 @@
 	<meta name="facebook-domain-verification" content="7k3rex944txfu0jje8vkc55pj8ygr2" />
 	<meta name="google-site-verification" content="7Y-yw2HGcqKDkyEjAib1dqLKQTaIcNedK4c1RKqudDs" />
 	<link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+	{% if request.path.startswith('/admin') %}
+	<meta name="robots" content="noindex,nofollow,noarchive" />
+	{% else %}
 	<meta name="robots" content="index,follow,max-image-preview:large" />
+	{% endif %}
 	<meta name="theme-color" content="#0b0b0b" />
 	<link rel="icon" type="image/png" href="/static/uploads/favicon.png">
 	<link rel="shortcut icon" type="image/png" href="/static/uploads/favicon.png">
@@ -565,56 +569,61 @@
 				if (form && result) { form.classList.add('hidden'); result.classList.remove('hidden'); }
 			}
 
-			// Auto-popup after 3 seconds of inactivity
-			function resetInactivityTimer() {
-				// Clear existing timer
-				if (inactivityTimer) {
-					clearTimeout(inactivityTimer);
-				}
+			// Auto-popup disabled: modal should only open from explicit user action (promo bar/button).
+			const AUTO_POPUP_ENABLED = false;
 
-				// Don't show if already captured, already auto-shown, or closed this session
-				if (lsGet('promo_5off_captured') === '1' || hasAutoShown || ssGet(SESSION_CLOSED_KEY) === '1' || !modal) {
-					return;
-				}
+			if (AUTO_POPUP_ENABLED) {
+				// Auto-popup after 3 seconds of inactivity
+				function resetInactivityTimer() {
+					// Clear existing timer
+					if (inactivityTimer) {
+						clearTimeout(inactivityTimer);
+					}
 
-				// Don't show if modal is already visible
-				if (modal && !modal.classList.contains('hidden')) {
-					return;
-				}
-
-				// Set new timer
-				inactivityTimer = setTimeout(function () {
-					// Double-check session state before showing
-					if (ssGet(SESSION_CLOSED_KEY) === '1') {
+					// Don't show if already captured, already auto-shown, or closed this session
+					if (lsGet('promo_5off_captured') === '1' || hasAutoShown || ssGet(SESSION_CLOSED_KEY) === '1' || !modal) {
 						return;
 					}
-					if (modal && modal.classList.contains('hidden')) {
-						open();
-						hasAutoShown = true;
 
-						// GA4: Auto-popup shown
-						if (typeof gtag === 'function') {
-							gtag('event', 'promo_5off_auto_shown', {
-								event_category: 'Engagement',
-								event_label: '5% Off Auto Popup',
-								value: 0
-							});
-							console.log('[base] GA4 promo_5off_auto_shown event sent');
-						}
+					// Don't show if modal is already visible
+					if (modal && !modal.classList.contains('hidden')) {
+						return;
 					}
-				}, inactivityDelay);
+
+					// Set new timer
+					inactivityTimer = setTimeout(function () {
+						// Double-check session state before showing
+						if (ssGet(SESSION_CLOSED_KEY) === '1') {
+							return;
+						}
+						if (modal && modal.classList.contains('hidden')) {
+							open();
+							hasAutoShown = true;
+
+							// GA4: Auto-popup shown
+							if (typeof gtag === 'function') {
+								gtag('event', 'promo_5off_auto_shown', {
+									event_category: 'Engagement',
+									event_label: '5% Off Auto Popup',
+									value: 0
+								});
+								console.log('[base] GA4 promo_5off_auto_shown event sent');
+							}
+						}
+					}, inactivityDelay);
+				}
+
+				// Track user activity
+				const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+				activityEvents.forEach(function (eventName) {
+					document.addEventListener(eventName, function () {
+						resetInactivityTimer();
+					}, { passive: true });
+				});
+
+				// Start the timer on page load
+				resetInactivityTimer();
 			}
-
-			// Track user activity
-			const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-			activityEvents.forEach(function (eventName) {
-				document.addEventListener(eventName, function () {
-					resetInactivityTimer();
-				}, { passive: true });
-			});
-
-			// Start the timer on page load
-			resetInactivityTimer();
 		})();
 	</script>
 
