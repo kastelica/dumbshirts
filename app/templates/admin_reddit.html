@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Admin Reddit - Roast Cotton{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+	<div>
+		<h1 class="text-2xl font-bold">Reddit</h1>
+		<p class="text-gray-400 text-sm mt-1">Configure PRAW-style polling for comments that indicate shirt-buying intent (e.g. “put it on a shirt”).</p>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+		<h2 class="text-lg font-semibold mb-4">Polling Configuration</h2>
+		<form method="post" action="{{ url_for('admin.reddit_save_settings') }}" class="space-y-4">
+			<div class="rounded border border-gray-700 bg-gray-950 p-3 text-xs text-gray-300">
+				<div class="font-semibold text-gray-100 mb-1">Where to enter your Reddit/PRAW app info</div>
+				<div>Enter credentials below in this admin page, or set environment variables (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT`, optional `REDDIT_USERNAME`, `REDDIT_PASSWORD`). Environment variables are recommended for production secrets.</div>
+				{% if has_env_creds %}
+				<div class="mt-2 text-green-400">Environment credentials detected.</div>
+				{% endif %}
+			</div>
+
+			<div class="grid md:grid-cols-2 gap-3">
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">Reddit Client ID</label>
+					<input type="text" name="reddit_client_id" value="{{ settings.reddit_client_id }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="your app client id">
+				</div>
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">Reddit Client Secret</label>
+					<input type="password" name="reddit_client_secret" value="{{ settings.reddit_client_secret }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="your app client secret">
+				</div>
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">User Agent</label>
+					<input type="text" name="reddit_user_agent" value="{{ settings.reddit_user_agent }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="roastcotton-bot/0.1 by yourusername">
+				</div>
+				<div>
+					<label class="block text-sm text-gray-300 mb-1">Reddit Username (optional)</label>
+					<input type="text" name="reddit_username" value="{{ settings.reddit_username }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="reddit username">
+				</div>
+				<div class="md:col-span-2">
+					<label class="block text-sm text-gray-300 mb-1">Reddit Password (optional)</label>
+					<input type="password" name="reddit_password" value="{{ settings.reddit_password }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm" placeholder="reddit password">
+				</div>
+			</div>
+
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" name="enabled" {% if settings.enabled %}checked{% endif %}>
+				<span>Enable Reddit polling worker</span>
+			</label>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Poll every (seconds)</label>
+				<input type="number" min="30" max="3600" name="poll_seconds" value="{{ settings.poll_seconds }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Backfill lookback (days)</label>
+				<input type="number" min="1" max="365" name="backfill_days" value="{{ settings.backfill_days }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Backfill max posts/subreddit</label>
+				<input type="number" min="10" max="500" name="backfill_limit_per_subreddit" value="{{ settings.backfill_limit_per_subreddit }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Subreddits (comma-separated)</label>
+				<input type="text" name="subreddits" value="{{ settings.subreddits }}" placeholder="funny,memes,me_irl,dankmemes,starterpacks,wholesomememes,Unexpected,blursedimages,funnyvideos,interestingasfuck" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Target phrases (one per line)</label>
+				<textarea name="target_phrases" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.target_phrases }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">These phrases are used to flag comments that could convert into shirt traffic/sales.</p>
+			</div>
+
+			<div class="flex flex-wrap gap-2">
+				<button type="submit" class="bg-white text-black px-4 py-2 rounded text-sm font-medium hover:bg-gray-200">Save Settings</button>
+			</div>
+		</form>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Incoming Watcher Status</h2>
+		<div class="text-sm text-gray-300 space-y-1">
+			<div><span class="text-gray-500">Running:</span> {{ 'Yes' if monitor_state.running else 'No' }}</div>
+			<div><span class="text-gray-500">Thread started:</span> {{ monitor_state.thread_started_at or '—' }}</div>
+			<div><span class="text-gray-500">Last seen comment:</span> {{ monitor_state.last_seen_at or '—' }}</div>
+			<div><span class="text-gray-500">Last error:</span> {{ monitor_state.last_error or 'None' }}</div>
+		</div>
+		{% if monitor_state.matches %}
+		<div class="pt-2">
+			<div class="font-medium text-sm mb-2">Recent incoming matches</div>
+			<div class="space-y-2 max-h-64 overflow-auto">
+				{% for m in monitor_state.matches[-15:]|reverse %}
+				<div class="text-xs border border-gray-800 rounded p-2">
+					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-gray-200 mt-1">{{ m.body }}</div>
+					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+		{% endif %}
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Historical Backfill</h2>
+		<p class="text-sm text-gray-400">Scans backward from now (today) through recent posts and comments for your target phrases.</p>
+		<form method="post" action="{{ url_for('admin.reddit_backfill') }}">
+			<button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700">Run Backfill Now</button>
+		</form>
+		{% if monitor_state.backfill_matches %}
+		<div class="pt-2">
+			<div class="font-medium text-sm mb-2">Backfill matches</div>
+			<div class="space-y-2 max-h-72 overflow-auto">
+				{% for m in monitor_state.backfill_matches[:50] %}
+				<div class="text-xs border border-gray-800 rounded p-2">
+					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-gray-200 mt-1">{{ m.body }}</div>
+					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+		{% endif %}
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Manual Poll Test</h2>
+		<p class="text-sm text-gray-400">Runs a local phrase-match test now. This is a safe placeholder until PRAW credentials and live polling are wired in.</p>
+		<form method="post" action="{{ url_for('admin.reddit_poll_now') }}">
+			<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Run Poll Test</button>
+		</form>
+		{% if settings.last_poll_at %}
+			<div class="text-sm text-gray-300">
+				<div><span class="text-gray-500">Last run:</span> {{ settings.last_poll_at }}</div>
+				<div><span class="text-gray-500">Result:</span> {{ settings.last_poll_result }}</div>
+			</div>
+		{% endif %}
+	</div>
+
+	{% if monitor_state.events %}
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-2">
+		<h2 class="text-lg font-semibold">Watcher Event Log</h2>
+		<div class="text-xs text-gray-300 max-h-56 overflow-auto space-y-1">
+			{% for event in monitor_state.events[-30:]|reverse %}
+			<div class="border border-gray-800 rounded px-2 py-1">{{ event }}</div>
+			{% endfor %}
+		</div>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}

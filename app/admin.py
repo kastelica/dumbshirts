@@ -23,6 +23,8 @@ from urllib.parse import urlparse
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 _AD_CENTER_JOBS_LOCK = threading.Lock()
 _IMAGE_GEN_JOBS_LOCK = threading.Lock()
+_REDDIT_SETTINGS_LOCK = threading.Lock()
+_REDDIT_MONITOR_LOCK = threading.Lock()
 
 
 # --------------
@@ -92,6 +94,232 @@ def _ad_job_set(job_id: str, payload: dict) -> None:
 def _ad_job_get(job_id: str) -> dict | None:
 	with _AD_CENTER_JOBS_LOCK:
 		return _ad_jobs_load().get(job_id)
+
+
+def _reddit_settings_path() -> str:
+	custom = (current_app.config.get("REDDIT_SETTINGS_PATH") or "").strip()
+	if custom:
+		return custom
+	return "/tmp/reddit_settings.json"
+
+
+def _default_reddit_settings() -> dict:
+	return {
+		"enabled": False,
+		"poll_seconds": 180,
+		"subreddits": "funny,memes,me_irl,dankmemes,starterpacks,wholesomememes,Unexpected,blursedimages,funnyvideos,interestingasfuck",
+		"backfill_days": 1,
+		"backfill_limit_per_subreddit": 50,
+		"reddit_client_id": "",
+		"reddit_client_secret": "",
+		"reddit_user_agent": "roastcotton-bot/0.1 by admin",
+		"reddit_username": "",
+		"reddit_password": "",
+		"target_phrases": "\n".join([
+			"put it on a shirt",
+			"i'd buy a shirt with that",
+			"i need this on a t-shirt",
+			"make this into a shirt",
+		]),
+		"last_poll_at": None,
+		"last_poll_result": "",
+	}
+
+
+def _reddit_settings_load() -> dict:
+	path = _reddit_settings_path()
+	defaults = _default_reddit_settings()
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f) or {}
+		if not isinstance(data, dict):
+			return defaults
+		return {**defaults, **data}
+	except Exception:
+		return defaults
+
+
+def _reddit_settings_save(data: dict) -> None:
+	path = _reddit_settings_path()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	tmp = f"{path}.tmp"
+	with open(tmp, "w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False)
+	os.replace(tmp, path)
+
+
+def _reddit_comment_matches(comment_text: str, phrases: list[str]) -> bool:
+	if not comment_text:
+		return False
+	comment_text = comment_text.lower().strip()
+	if not comment_text:
+		return False
+	for phrase in phrases:
+		p = (phrase or "").strip().lower()
+		if p and p in comment_text:
+			return True
+	return False
+
+
+def _reddit_credentials_from_env() -> dict:
+	return {
+		"reddit_client_id": (current_app.config.get("REDDIT_CLIENT_ID") or os.getenv("REDDIT_CLIENT_ID") or "").strip(),
+		"reddit_client_secret": (current_app.config.get("REDDIT_CLIENT_SECRET") or os.getenv("REDDIT_CLIENT_SECRET") or "").strip(),
+		"reddit_user_agent": (current_app.config.get("REDDIT_USER_AGENT") or os.getenv("REDDIT_USER_AGENT") or "").strip(),
+		"reddit_username": (current_app.config.get("REDDIT_USERNAME") or os.getenv("REDDIT_USERNAME") or "").strip(),
+		"reddit_password": (current_app.config.get("REDDIT_PASSWORD") or os.getenv("REDDIT_PASSWORD") or "").strip(),
+	}
+
+
+def _merged_reddit_credentials(settings: dict) -> dict:
+	env_creds = _reddit_credentials_from_env()
+	return {
+		"reddit_client_id": env_creds["reddit_client_id"] or (settings.get("reddit_client_id") or "").strip(),
+		"reddit_client_secret": env_creds["reddit_client_secret"] or (settings.get("reddit_client_secret") or "").strip(),
+		"reddit_user_agent": env_creds["reddit_user_agent"] or (settings.get("reddit_user_agent") or "").strip(),
+		"reddit_username": env_creds["reddit_username"] or (settings.get("reddit_username") or "").strip(),
+		"reddit_password": env_creds["reddit_password"] or (settings.get("reddit_password") or "").strip(),
+	}
+
+
+def _get_reddit_monitor_state() -> dict:
+	state = current_app.config.setdefault("REDDIT_MONITOR_STATE", {
+		"running": False,
+		"should_run": False,
+		"thread_started_at": None,
+		"last_seen_at": None,
+		"last_error": "",
+		"events": [],
+		"matches": [],
+		"backfill_matches": [],
+	})
+	return state
+
+
+def _reddit_state_add_event(state: dict, message: str) -> None:
+	stamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+	state["events"].append(f"[{stamp}] {message}")
+	if len(state["events"]) > 100:
+		del state["events"][:-100]
+
+
+def _reddit_state_add_match(state: dict, payload: dict) -> None:
+	state["matches"].append(payload)
+	if len(state["matches"]) > 150:
+		del state["matches"][:-150]
+
+
+def _reddit_comment_payload(comment, subreddit_name: str) -> dict:
+	permalink = f"https://reddit.com{getattr(comment, 'permalink', '')}"
+	author = getattr(getattr(comment, "author", None), "name", "[deleted]")
+	body = (getattr(comment, "body", "") or "").strip()
+	return {
+		"created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+		"subreddit": subreddit_name,
+		"author": author,
+		"body": body[:320],
+		"url": permalink,
+	}
+
+
+def _build_reddit_client(creds: dict):
+	try:
+		import praw
+	except ImportError as e:
+		raise RuntimeError("praw is not installed. Add `praw` to requirements and redeploy.") from e
+	username = (creds.get("reddit_username") or "").strip()
+	password = (creds.get("reddit_password") or "").strip()
+	if username and password:
+		return praw.Reddit(
+			client_id=creds["reddit_client_id"],
+			client_secret=creds["reddit_client_secret"],
+			user_agent=creds["reddit_user_agent"],
+			username=username,
+			password=password,
+		)
+	return praw.Reddit(
+		client_id=creds["reddit_client_id"],
+		client_secret=creds["reddit_client_secret"],
+		user_agent=creds["reddit_user_agent"],
+	)
+
+
+def _ensure_reddit_monitor_thread():
+	with _REDDIT_MONITOR_LOCK:
+		state = _get_reddit_monitor_state()
+		thread = current_app.config.get("REDDIT_MONITOR_THREAD")
+		if state.get("running") and thread and thread.is_alive():
+			return
+		if not state.get("should_run"):
+			return
+		app_obj = current_app._get_current_object()
+
+		def _runner(flask_app):
+			with flask_app.app_context():
+				with _REDDIT_MONITOR_LOCK:
+					s = _get_reddit_monitor_state()
+					s["running"] = True
+					s["thread_started_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+					s["last_error"] = ""
+					_reddit_state_add_event(s, "Incoming comment monitor started.")
+
+				try:
+					while True:
+						with _REDDIT_MONITOR_LOCK:
+							s = _get_reddit_monitor_state()
+							if not s.get("should_run"):
+								break
+						settings = _reddit_settings_load()
+						creds = _merged_reddit_credentials(settings)
+						if not (creds["reddit_client_id"] and creds["reddit_client_secret"] and creds["reddit_user_agent"]):
+							with _REDDIT_MONITOR_LOCK:
+								s = _get_reddit_monitor_state()
+								s["last_error"] = "Missing Reddit credentials."
+							time.sleep(5)
+							continue
+
+						subreddits = [x.strip() for x in (settings.get("subreddits") or "").split(",") if x.strip()]
+						phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
+						poll_seconds = max(30, min(int(settings.get("poll_seconds") or 180), 3600))
+						if not subreddits or not phrases:
+							time.sleep(5)
+							continue
+
+						reddit = _build_reddit_client(creds)
+						stream = reddit.subreddit("+".join(subreddits)).stream.comments(skip_existing=True, pause_after=1)
+						start = time.time()
+						for comment in stream:
+							with _REDDIT_MONITOR_LOCK:
+								s = _get_reddit_monitor_state()
+								s["last_seen_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+							if comment is None:
+								if (time.time() - start) >= poll_seconds:
+									break
+								time.sleep(1)
+								continue
+							body = getattr(comment, "body", "") or ""
+							if _reddit_comment_matches(body, phrases):
+								sub_name = getattr(getattr(comment, "subreddit", None), "display_name", "")
+								match_payload = _reddit_comment_payload(comment, sub_name)
+								with _REDDIT_MONITOR_LOCK:
+									s = _get_reddit_monitor_state()
+									_reddit_state_add_match(s, match_payload)
+									_reddit_state_add_event(s, f"Match found in r/{sub_name}: {match_payload['url']}")
+						time.sleep(1)
+				except Exception as e:
+					with _REDDIT_MONITOR_LOCK:
+						s = _get_reddit_monitor_state()
+						s["last_error"] = str(e)
+						_reddit_state_add_event(s, f"Monitor error: {e}")
+				finally:
+					with _REDDIT_MONITOR_LOCK:
+						s = _get_reddit_monitor_state()
+						s["running"] = False
+						_reddit_state_add_event(s, "Incoming comment monitor stopped.")
+
+		thread = threading.Thread(target=_runner, args=(app_obj,), daemon=True)
+		current_app.config["REDDIT_MONITOR_THREAD"] = thread
+		thread.start()
 
 
 def _ad_image_id_belongs_to_product(image_id: str, product_id: int) -> bool:
@@ -396,6 +624,173 @@ def dashboard():
 def ad_center_page():
 	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(300).all()
 	return render_template("admin_ad_center.html", products=products)
+
+
+@admin_bp.get("/reddit")
+@login_required
+def reddit_page():
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+	env_creds = _reddit_credentials_from_env()
+	has_env_creds = bool(env_creds["reddit_client_id"] and env_creds["reddit_client_secret"] and env_creds["reddit_user_agent"])
+	with _REDDIT_MONITOR_LOCK:
+		monitor_state = dict(_get_reddit_monitor_state())
+		monitor_state["events"] = list(monitor_state.get("events", []))
+		monitor_state["matches"] = list(monitor_state.get("matches", []))
+		monitor_state["backfill_matches"] = list(monitor_state.get("backfill_matches", []))
+	if settings.get("enabled"):
+		with _REDDIT_MONITOR_LOCK:
+			state = _get_reddit_monitor_state()
+			state["should_run"] = True
+		_ensure_reddit_monitor_thread()
+	return render_template("admin_reddit.html", settings=settings, has_env_creds=has_env_creds, monitor_state=monitor_state)
+
+
+@admin_bp.post("/reddit/settings")
+@login_required
+def reddit_save_settings():
+	enabled = request.form.get("enabled") == "on"
+	try:
+		poll_seconds = int(request.form.get("poll_seconds", "180") or "180")
+	except Exception:
+		poll_seconds = 180
+	poll_seconds = max(30, min(poll_seconds, 3600))
+	try:
+		backfill_days = int(request.form.get("backfill_days", "1") or "1")
+	except Exception:
+		backfill_days = 1
+	backfill_days = max(1, min(backfill_days, 365))
+	try:
+		backfill_limit = int(request.form.get("backfill_limit_per_subreddit", "50") or "50")
+	except Exception:
+		backfill_limit = 50
+	backfill_limit = max(10, min(backfill_limit, 500))
+	subreddits = (request.form.get("subreddits") or "").strip()
+	reddit_client_id = (request.form.get("reddit_client_id") or "").strip()
+	reddit_client_secret = (request.form.get("reddit_client_secret") or "").strip()
+	reddit_user_agent = (request.form.get("reddit_user_agent") or "").strip()
+	reddit_username = (request.form.get("reddit_username") or "").strip()
+	reddit_password = (request.form.get("reddit_password") or "").strip()
+	target_phrases = (request.form.get("target_phrases") or "").strip()
+	if not target_phrases:
+		target_phrases = _default_reddit_settings()["target_phrases"]
+
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+		existing_secret = settings.get("reddit_client_secret") or ""
+		existing_password = settings.get("reddit_password") or ""
+		settings.update({
+			"enabled": enabled,
+			"poll_seconds": poll_seconds,
+			"backfill_days": backfill_days,
+			"backfill_limit_per_subreddit": backfill_limit,
+			"subreddits": subreddits,
+			"reddit_client_id": reddit_client_id,
+			"reddit_client_secret": reddit_client_secret or existing_secret,
+			"reddit_user_agent": reddit_user_agent,
+			"reddit_username": reddit_username,
+			"reddit_password": reddit_password or existing_password,
+			"target_phrases": target_phrases,
+		})
+		_reddit_settings_save(settings)
+	with _REDDIT_MONITOR_LOCK:
+		state = _get_reddit_monitor_state()
+		state["should_run"] = enabled
+		if not enabled:
+			_reddit_state_add_event(state, "Incoming monitor disabled from settings.")
+	if enabled:
+		_ensure_reddit_monitor_thread()
+
+	flash("Reddit polling settings saved.", "success")
+	return redirect(url_for("admin.reddit_page"))
+
+
+@admin_bp.post("/reddit/poll-now")
+@login_required
+def reddit_poll_now():
+	sample_comments = [
+		"Put it on a shirt and I'd buy it instantly.",
+		"This is hilarious.",
+		"I need this on a t-shirt right now.",
+		"Not really my thing.",
+	]
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+		phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
+		matches = [c for c in sample_comments if _reddit_comment_matches(c, phrases)]
+		settings["last_poll_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+		settings["last_poll_result"] = f"Matched {len(matches)} / {len(sample_comments)} sample comments. Next step: replace sample polling with PRAW stream."
+		_reddit_settings_save(settings)
+
+	flash(settings["last_poll_result"], "success")
+	return redirect(url_for("admin.reddit_page"))
+
+
+@admin_bp.post("/reddit/backfill")
+@login_required
+def reddit_backfill():
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+	creds = _merged_reddit_credentials(settings)
+	if not (creds["reddit_client_id"] and creds["reddit_client_secret"] and creds["reddit_user_agent"]):
+		flash("Missing Reddit credentials. Add them in Admin → Reddit first.", "error")
+		return redirect(url_for("admin.reddit_page"))
+
+	try:
+		reddit = _build_reddit_client(creds)
+		days = max(1, min(int(settings.get("backfill_days") or 1), 365))
+		limit = max(10, min(int(settings.get("backfill_limit_per_subreddit") or 50), 500))
+		since_utc = datetime.utcnow() - timedelta(days=days)
+		phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
+		subreddits = [x.strip() for x in (settings.get("subreddits") or "").split(",") if x.strip()]
+		results = []
+		for sub_name in subreddits:
+			sub = reddit.subreddit(sub_name)
+			for submission in sub.new(limit=limit):
+				try:
+					created = datetime.utcfromtimestamp(float(getattr(submission, "created_utc", 0)))
+					if created < since_utc:
+						continue
+					title = (getattr(submission, "title", "") or "").strip()
+					selftext = (getattr(submission, "selftext", "") or "").strip()
+					if _reddit_comment_matches(title, phrases) or _reddit_comment_matches(selftext, phrases):
+						results.append({
+							"created_at": created.strftime("%Y-%m-%d %H:%M:%S UTC"),
+							"subreddit": sub_name,
+							"author": getattr(getattr(submission, "author", None), "name", "[deleted]"),
+							"body": f"POST: {title[:260]}",
+							"url": f"https://reddit.com{submission.permalink}",
+						})
+					submission.comments.replace_more(limit=0)
+					for comment in submission.comments.list():
+						c_created = datetime.utcfromtimestamp(float(getattr(comment, "created_utc", 0)))
+						if c_created < since_utc:
+							continue
+						body = (getattr(comment, "body", "") or "").strip()
+						if _reddit_comment_matches(body, phrases):
+							results.append({
+								"created_at": c_created.strftime("%Y-%m-%d %H:%M:%S UTC"),
+								"subreddit": sub_name,
+								"author": getattr(getattr(comment, "author", None), "name", "[deleted]"),
+								"body": body[:320],
+								"url": f"https://reddit.com{comment.permalink}",
+							})
+				except Exception:
+					continue
+		results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+		with _REDDIT_MONITOR_LOCK:
+			state = _get_reddit_monitor_state()
+			state["backfill_matches"] = results[:300]
+			_reddit_state_add_event(state, f"Backfill completed: {len(results)} match(es) in last {days} day(s).")
+		flash(f"Backfill complete. Found {len(results)} matching posts/comments.", "success")
+	except Exception as e:
+		with _REDDIT_MONITOR_LOCK:
+			state = _get_reddit_monitor_state()
+			state["last_error"] = str(e)
+			_reddit_state_add_event(state, f"Backfill error: {e}")
+		flash(f"Backfill failed: {e}", "error")
+
+	return redirect(url_for("admin.reddit_page"))
 
 
 @admin_bp.post("/ad-center/generate-lifestyle")
