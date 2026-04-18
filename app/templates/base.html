@@ -222,6 +222,19 @@
 			</div>
 		</div>
 	</header>
+	{% if request.path.startswith('/admin') and current_user.is_authenticated %}
+	<div class="border-b border-gray-800 bg-gray-900/60">
+		<div class="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center gap-2 text-sm">
+			<a href="{{ url_for('admin.dashboard') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path == '/admin/' else 'text-gray-300' }}">Dashboard</a>
+			<a href="{{ url_for('admin.products_list') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/products') else 'text-gray-300' }}">Products</a>
+			<a href="{{ url_for('admin.trends_page') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/trends') else 'text-gray-300' }}">Trends</a>
+			<a href="{{ url_for('admin.gelato_status') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/gelato') else 'text-gray-300' }}">Gelato</a>
+			<a href="{{ url_for('admin.manage_promotions') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/feeds/promotions') else 'text-gray-300' }}">Promotions</a>
+			<a href="{{ url_for('admin.manage_reviews') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/feeds/reviews') else 'text-gray-300' }}">Reviews</a>
+			<a href="{{ url_for('admin.ad_center_page') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/ad-center') else 'text-gray-300' }}">Ad Center</a>
+		</div>
+	</div>
+	{% endif %}
 	<main class="max-w-6xl mx-auto px-4 py-6">
 		{% block content %}{% endblock %}
 	</main>
