@@ -35,7 +35,7 @@
 			s.parentNode.insertBefore(t, s)
 		}(window, document, 'script',
 			'https://connect.facebook.net/en_US/fbevents.js');
-		fbq('init', '840828468472110');
+		fbq('init', '1314833783839898');
 		fbq('track', 'PageView');
 	</script>
 	<!-- End Meta Pixel Code -->
@@ -53,6 +53,7 @@
 
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="facebook-domain-verification" content="7k3rex944txfu0jje8vkc55pj8ygr2" />
 	<meta name="google-site-verification" content="7Y-yw2HGcqKDkyEjAib1dqLKQTaIcNedK4c1RKqudDs" />
 	<link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
 	<meta name="robots" content="index,follow,max-image-preview:large" />
@@ -67,7 +68,7 @@
 <body class="min-h-screen bg-gray-950 text-gray-100">
 	<!-- Meta Pixel Code (noscript) -->
 	<noscript><img height="1" width="1" style="display:none"
-			src="https://www.facebook.com/tr?id=840828468472110&ev=PageView&noscript=1" /></noscript>
+			src="https://www.facebook.com/tr?id=1314833783839898&ev=PageView&noscript=1" /></noscript>
 	<!-- End Meta Pixel Code -->
 	<div id="promo-bar" class="bg-gray-900 border-b border-gray-800 sticky top-0 z-[1100]">
 		<div class="max-w-6xl mx-auto px-4 py-2 text-center text-sm">
@@ -226,12 +227,14 @@
 	</main>
 	{# 5% Off Floating Button and Modal - Only on index, shop, search, category, and product detail pages #}
 	{% set current_path = request.path %}
+	{% set is_admin_path = current_path.startswith('/admin') %}
 	{% set show_promo = current_path == '/' or current_path.startswith('/shop') or current_path.startswith('/search') or
 	current_path.startswith('/product/') or current_path.startswith('/funny-tshirts') or
 	current_path.startswith('/meme-tshirts') or current_path.startswith('/sarcastic-tshirts') or
 	current_path.startswith('/witty-shirts') or current_path.startswith('/funny-saying-tshirts') or
 	current_path.startswith('/pun-shirts') or current_path.startswith('/dad-joke-shirts') or
 	current_path.startswith('/black-friday') %}
+	{% set show_promo = show_promo and not is_admin_path %}
 
 	{% if show_promo %}
 	<style>
@@ -299,7 +302,7 @@
 	<div id="promo-5off" class="fixed left-4 bottom-4 z-40">
 		<button id="promo-5off-btn"
 			class="promo-btn-shimmer bg-white text-black rounded-full px-5 py-3 font-semibold shadow-xl hover:scale-105 transition-transform duration-200 relative z-10">Spring
-			Savings Event</button>
+			Sale</button>
 	</div>
 	<div id="promo-5off-modal" class="fixed inset-0 z-50 hidden">
 		<div class="absolute inset-0 bg-black/70" data-close></div>
@@ -353,6 +356,8 @@
 			<div>
 				<div class="font-semibold text-gray-100">Roast Cotton</div>
 				<p class="mt-2 text-gray-400">Wear the roast. Keep it cotton. New drops every day.</p>
+				<p class="mt-2 text-gray-400">(866) 526-8030</p>
+				<p class="text-gray-400">300 Carlsbad Village Dr, Carlsbad, CA 92008</p>
 			</div>
 			<div>
 				<div class="font-semibold text-gray-100">Menu</div>
@@ -401,9 +406,10 @@
 			</div>
 		</div>
 		<div class="border-t border-gray-800">
-			<div class="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500">&copy; {{ 2025 }} Roast Cotton</div>
+			<div class="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500">&copy; {{ 2026 }} Roast Cotton</div>
 		</div>
 	</footer>
+	{% if not is_admin_path %}
 	{# Exit Intent - Free Shirt Offer Modal #}
 	<div id="exit-intent-modal" class="fixed inset-0 z-[100] hidden">
 		<div class="absolute inset-0 bg-black/80 z-[100]" data-exit-close></div>
@@ -433,6 +439,7 @@
 			</div>
 		</div>
 	</div>
+	{% endif %}
 
 	<script>
 		(function () {
@@ -595,6 +602,7 @@
 		})();
 	</script>
 
+	{% if not is_admin_path %}
 	{# Exit Intent Detection Script #}
 	<script>
 		(function () {
@@ -793,12 +801,9 @@
 				});
 			}
 
-			// Prevent showing on admin pages
-			if (window.location.pathname.startsWith('/admin')) {
-				lsSet('exit_intent_shown', '1');
-			}
 		})();
 	</script>
+	{% endif %}
 
 	{# 5% Off Floating Button Script - Only on allowed pages #}
 	{% if show_promo %}
