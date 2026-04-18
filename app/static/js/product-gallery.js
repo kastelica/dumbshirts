@@ -212,8 +212,14 @@
       render();
     };
     
-    if (prevBtn) prevBtn.addEventListener('click', handlePrev);
-    if (nextBtn) nextBtn.addEventListener('click', handleNext);
+    if (prevBtn) {
+      prevBtn.addEventListener('click', handlePrev);
+      prevBtn.addEventListener('touchstart', handlePrev, { passive: false });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', handleNext);
+      nextBtn.addEventListener('touchstart', handleNext, { passive: false });
+    }
     
     // Lightbox: open on click/tap of the gallery area (excluding nav buttons)
     try {
@@ -843,4 +849,3 @@
   };
 
 })();
-
