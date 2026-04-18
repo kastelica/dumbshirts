@@ -36,6 +36,7 @@
 					<button type="submit" class="w-full bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100">+ New Product</button>
 				</form>
 				<a href="{{ url_for('admin.products_list') }}" class="block w-full bg-gray-800 text-white px-4 py-2 rounded text-center hover:bg-gray-700">Manage Products</a>
+				<a href="{{ url_for('admin.product_content_manager_page') }}" class="block w-full bg-indigo-600 text-white px-4 py-2 rounded text-center hover:bg-indigo-700">Bulk Copy Manager</a>
 			</div>
 			
 			<!-- Bulk Actions -->
@@ -1088,5 +1089,4 @@
 })();
 </script>
 {% endblock %}
-
 

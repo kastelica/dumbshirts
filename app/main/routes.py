@@ -1435,6 +1435,7 @@ def order_confirm(order_id: int):
 		# Continue with empty list
 	
 	try:
+		merchant_id = current_app.config.get("GOOGLE_MERCHANT_ID", 5766825042)
 		return render_template(
 			"order_confirmation.html",
 			order=order,
@@ -1444,7 +1445,7 @@ def order_confirm(order_id: int):
 			est_delivery=est_date,
 			products=products,
 			gelato_debug=gelato_debug,
-			merchant_id=114634997,
+			merchant_id=merchant_id,
 		)
 	except Exception as e:
 		current_app.logger.exception(f"[order-confirm] Failed to render template for order {order_id}: {e}")
