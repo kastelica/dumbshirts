@@ -97,7 +97,7 @@
 				// TikTok Pixel
 				!function (w, d, t) {
 					w.TiktokAnalyticsObject = t;
-					var ttq = w[t] = w[t] || [];
+					var ttq = w[t] = [];
 					ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie", "holdConsent", "revokeConsent", "grantConsent"];
 					ttq.setAndDefer = function (t, e) { t[e] = function () { t.push([e].concat(Array.prototype.slice.call(arguments, 0))); }; };
 					for (var i = 0; i < ttq.methods.length; i++) ttq.setAndDefer(ttq, ttq.methods[i]);
@@ -151,18 +151,23 @@
 	{% if not request.path.startswith('/admin') %}
 	<script id="merchantWidgetScript" src="https://www.gstatic.com/shopping/merchant/merchantwidget.js" defer></script>
 	<script type="text/javascript">
-		merchantWidgetScript.addEventListener('load', function () {
-			try {
-				merchantwidget.start({
-					merchant_id: 5766825042,
-					position: 'RIGHT_BOTTOM',
-					sideMargin: 20,
-					bottomMargin: 20,
-					mobileSideMargin: 12,
-					mobileBottomMargin: 72
-				});
-			} catch (_e) { }
-		});
+		(function () {
+			const scriptEl = document.getElementById('merchantWidgetScript');
+			if (!scriptEl) return;
+			scriptEl.addEventListener('load', function () {
+				try {
+					if (!window.merchantwidget || typeof window.merchantwidget.start !== 'function') return;
+					window.merchantwidget.start({
+						merchant_id: 5766825042,
+						position: 'RIGHT_BOTTOM',
+						sideMargin: 20,
+						bottomMargin: 20,
+						mobileSideMargin: 12,
+						mobileBottomMargin: 72
+					});
+				} catch (_e) { }
+			});
+		})();
 	</script>
 	{% endif %}
 	{% block head %}{% endblock %}
