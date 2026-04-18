@@ -5,7 +5,7 @@
 <div class="space-y-6">
 	<div>
 		<h1 class="text-2xl font-bold">Reddit</h1>
-		<p class="text-gray-400 text-sm mt-1">Configure PRAW-style polling for comments that indicate shirt-buying intent (e.g. “put it on a shirt”).</p>
+		<p class="text-gray-400 text-sm mt-1">Configure a context + intent lead engine (shirt context plus optional buyer intent), with live comment/post watching and email alerts.</p>
 	</div>
 
 	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
@@ -59,16 +59,31 @@
 				<label class="block text-sm text-gray-300 mb-1">Backfill max posts/subreddit</label>
 				<input type="number" min="10" max="500" name="backfill_limit_per_subreddit" value="{{ settings.backfill_limit_per_subreddit }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
 			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Live post scan limit/subreddit/cycle</label>
+				<input type="number" min="5" max="100" name="live_post_scan_limit_per_subreddit" value="{{ settings.live_post_scan_limit_per_subreddit }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
 
 			<div>
 				<label class="block text-sm text-gray-300 mb-1">Subreddits (comma-separated)</label>
 				<input type="text" name="subreddits" value="{{ settings.subreddits }}" placeholder="funny,memes,me_irl,dankmemes,starterpacks,wholesomememes,Unexpected,blursedimages,funnyvideos,interestingasfuck" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
 			</div>
 
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" name="require_intent" {% if settings.require_intent %}checked{% endif %}>
+				<span>Require intent phrase (if off: context-only matching)</span>
+			</label>
+
 			<div>
-				<label class="block text-sm text-gray-300 mb-1">Target phrases (one per line)</label>
-				<textarea name="target_phrases" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.target_phrases }}</textarea>
-				<p class="text-xs text-gray-500 mt-1">These phrases are used to flag comments that could convert into shirt traffic/sales.</p>
+				<label class="block text-sm text-gray-300 mb-1">Context keywords (one per line)</label>
+				<textarea name="context_keywords" rows="6" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.context_keywords }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">Step 1 filter: detect shirt/apparel context.</p>
+			</div>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Intent keywords (one per line)</label>
+				<textarea name="intent_keywords" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.intent_keywords }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">Step 2 filter: buying intent phrases. Used only if “Require intent phrase” is enabled.</p>
 			</div>
 
 			<div class="flex flex-wrap gap-2">
@@ -91,7 +106,8 @@
 			<div class="space-y-2 max-h-64 overflow-auto">
 				{% for m in monitor_state.matches[-15:]|reverse %}
 				<div class="text-xs border border-gray-800 rounded p-2">
-					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-gray-400">{{ m.created_at }} · {{ m.item_type|default('comment')|upper }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-green-300 mt-1">Matched: {{ m.matched_phrase or 'context_match' }}</div>
 					<div class="text-gray-200 mt-1">{{ m.body }}</div>
 					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
 				</div>
@@ -113,7 +129,8 @@
 			<div class="space-y-2 max-h-72 overflow-auto">
 				{% for m in monitor_state.backfill_matches[:50] %}
 				<div class="text-xs border border-gray-800 rounded p-2">
-					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-gray-400">{{ m.created_at }} · {{ m.item_type|default('comment')|upper }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-green-300 mt-1">Matched: {{ m.matched_phrase or 'context_match' }}</div>
 					<div class="text-gray-200 mt-1">{{ m.body }}</div>
 					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
 				</div>
