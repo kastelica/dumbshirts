@@ -13,7 +13,9 @@
 			window.dataLayer = window.dataLayer || [];
 			window.gtag = window.gtag || noOp;
 			window.fbq = window.fbq || noOp;
-			window.clarity = window.clarity || noOp;
+			window.clarity = window.clarity || function () {
+				(window.clarity.q = window.clarity.q || []).push(arguments);
+			};
 			window.uetq = window.uetq || [];
 			window.ttq = window.ttq || {
 				track: noOp,
