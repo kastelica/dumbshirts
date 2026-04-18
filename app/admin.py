@@ -13,12 +13,16 @@ import os
 from werkzeug.utils import secure_filename
 import threading
 import json
+import time
 from datetime import datetime, timedelta
 import re
 import unicodedata
 import difflib
+from urllib.parse import urlparse
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+_AD_CENTER_JOBS_LOCK = threading.Lock()
+_IMAGE_GEN_JOBS_LOCK = threading.Lock()
 
 
 # --------------
@@ -44,6 +48,95 @@ def _progress_add(msg: str) -> None:
 				del msgs[:-100]
 	except Exception:
 		pass
+
+
+def _ad_jobs_path() -> str:
+	"""Path for cross-worker ad job state persistence."""
+	custom = (current_app.config.get("AD_CENTER_JOBS_PATH") or "").strip()
+	if custom:
+		return custom
+	return "/tmp/ad_center_jobs.json"
+
+
+def _ad_jobs_load() -> dict:
+	path = _ad_jobs_path()
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f) or {}
+			return data if isinstance(data, dict) else {}
+	except Exception:
+		return {}
+
+
+def _ad_jobs_save(data: dict) -> None:
+	path = _ad_jobs_path()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	tmp = f"{path}.tmp"
+	with open(tmp, "w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False)
+	os.replace(tmp, path)
+
+
+def _ad_job_set(job_id: str, payload: dict) -> None:
+	with _AD_CENTER_JOBS_LOCK:
+		jobs = _ad_jobs_load()
+		jobs[job_id] = payload
+		# Keep file bounded to latest 200 jobs
+		if len(jobs) > 200:
+			keys = list(jobs.keys())
+			for k in keys[:-200]:
+				jobs.pop(k, None)
+		_ad_jobs_save(jobs)
+
+
+def _ad_job_get(job_id: str) -> dict | None:
+	with _AD_CENTER_JOBS_LOCK:
+		return _ad_jobs_load().get(job_id)
+
+
+def _ad_image_id_belongs_to_product(image_id: str, product_id: int) -> bool:
+	"""Return True only if image_id was previously produced by Ad Center for this product."""
+	if not image_id:
+		return False
+	with _AD_CENTER_JOBS_LOCK:
+		for _jid, payload in (_ad_jobs_load() or {}).items():
+			try:
+				if str((payload or {}).get("image_id") or "").strip() == str(image_id).strip() and int((payload or {}).get("product_id") or 0) == int(product_id):
+					return True
+			except Exception:
+				continue
+	return False
+
+
+def _image_gen_job_set(product_id: int, payload: dict) -> None:
+	with _IMAGE_GEN_JOBS_LOCK:
+		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
+		jobs[str(product_id)] = payload
+
+
+def _image_gen_job_get(product_id: int) -> dict | None:
+	with _IMAGE_GEN_JOBS_LOCK:
+		jobs = current_app.config.setdefault("IMAGE_GEN_JOBS", {})
+		return jobs.get(str(product_id))
+
+
+def _resp_val(obj, key, default=None):
+	"""Read a property from an SDK object or plain dict."""
+	if isinstance(obj, dict):
+		return obj.get(key, default)
+	return getattr(obj, key, default)
+
+
+def _extract_response_image_data(resp) -> tuple[str | None, str | None]:
+	"""Extract (base64_result, image_id) from Responses output."""
+	for out in (_resp_val(resp, "output", []) or []):
+		if _resp_val(out, "type") != "image_generation_call":
+			continue
+		result = _resp_val(out, "result")
+		image_id = _resp_val(out, "image_id")
+		if result or image_id:
+			return result, image_id
+	return None, None
 
 
 def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
@@ -133,6 +226,34 @@ def _compose_design_on_blank_tee(design_png_bytes: bytes) -> bytes | None:
 		return None
 
 
+def _remove_white_bg_simple(image_bytes: bytes) -> bytes | None:
+	"""Fallback remover: make near-white pixels transparent."""
+	try:
+		from PIL import Image
+		from io import BytesIO
+		im = Image.open(BytesIO(image_bytes)).convert("RGBA")
+		pixels = im.getdata()
+		new_pixels = []
+		transparent_count = 0
+		for r, g, b, a in pixels:
+			# Remove white/near-white background aggressively
+			if r >= 245 and g >= 245 and b >= 245:
+				new_pixels.append((r, g, b, 0))
+				transparent_count += 1
+			else:
+				new_pixels.append((r, g, b, a))
+		if transparent_count == 0:
+			return None
+		im.putdata(new_pixels)
+		out = BytesIO()
+		im.save(out, format="PNG")
+		current_app.logger.info(f"[bg-remove] Simple white-bg fallback removed ~{transparent_count} pixels")
+		return out.getvalue()
+	except Exception as e:
+		current_app.logger.warning(f"[bg-remove] Simple white-bg fallback failed: {e}")
+		return None
+
+
 def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 	"""Attempt to remove background via Hugging Face Pipeline (briaai/RMBG-1.4).
 
@@ -141,13 +262,40 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 	
 	Note: Requires 'transformers' package. If not available, returns None gracefully.
 	"""
+	def _remove_white_bg_simple(image_bytes: bytes) -> bytes | None:
+		"""Fallback remover: make near-white pixels transparent."""
+		try:
+			from PIL import Image
+			from io import BytesIO
+			im = Image.open(BytesIO(image_bytes)).convert("RGBA")
+			pixels = im.getdata()
+			new_pixels = []
+			transparent_count = 0
+			for r, g, b, a in pixels:
+				# Remove white/near-white background aggressively
+				if r >= 245 and g >= 245 and b >= 245:
+					new_pixels.append((r, g, b, 0))
+					transparent_count += 1
+				else:
+					new_pixels.append((r, g, b, a))
+			if transparent_count == 0:
+				return None
+			im.putdata(new_pixels)
+			out = BytesIO()
+			im.save(out, format="PNG")
+			current_app.logger.info(f"[bg-remove] Simple white-bg fallback removed ~{transparent_count} pixels")
+			return out.getvalue()
+		except Exception as e:
+			current_app.logger.warning(f"[bg-remove] Simple white-bg fallback failed: {e}")
+			return None
+
 	try:
 		# Check if transformers is available
 		try:
 			from transformers import pipeline
 		except ImportError:
 			current_app.logger.debug("[bg-remove] transformers module not available, skipping background removal")
-			return None
+			return _remove_white_bg_simple(png_bytes)
 		
 		from PIL import Image
 		from io import BytesIO
@@ -173,18 +321,30 @@ def _remove_bg_hf(png_bytes: bytes) -> bytes | None:
 		pillow_image.save(output, format='PNG')
 		result_bytes = output.getvalue()
 		
+		# Validate that output actually contains transparency; otherwise fallback to simple white remover.
+		try:
+			check = Image.open(BytesIO(result_bytes)).convert("RGBA")
+			alpha = check.getchannel("A")
+			alpha_min, _ = alpha.getextrema()
+			if alpha_min == 255:
+				current_app.logger.warning("[bg-remove] HF result has no transparency; applying white-bg fallback")
+				fallback = _remove_white_bg_simple(png_bytes)
+				return fallback or result_bytes
+		except Exception:
+			pass
+
 		current_app.logger.info(f"[bg-remove] Successfully removed background via HF pipeline, output size: {len(result_bytes)} bytes")
 		return result_bytes
 		
 	except ImportError as import_err:
 		# Specifically handle missing transformers module gracefully
 		current_app.logger.debug(f"[bg-remove] transformers module not installed: {import_err}")
-		return None
+		return _remove_white_bg_simple(png_bytes)
 	except Exception as _e:
 		current_app.logger.warning(f"[bg-remove] HF pipeline failed: {_e}")
 		import traceback
 		current_app.logger.warning(f"[bg-remove] Full traceback: {traceback.format_exc()}")
-		return None
+		return _remove_white_bg_simple(png_bytes)
 
 
 @admin_bp.get("/login")
@@ -229,6 +389,342 @@ def dashboard():
 	}
 	
 	return render_template("admin_dashboard_new.html", stats=stats, recent_products=recent_products)
+
+
+@admin_bp.get("/ad-center")
+@login_required
+def ad_center_page():
+	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(300).all()
+	return render_template("admin_ad_center.html", products=products)
+
+
+@admin_bp.post("/ad-center/generate-lifestyle")
+@login_required
+def ad_center_generate_lifestyle():
+	"""Generate lifestyle ad creative for a catalog product using OpenAI image API."""
+	data = request.get_json(silent=True) or {}
+	product_id = data.get("product_id")
+	headline = (data.get("headline") or "").strip()
+	cta_text = (data.get("cta_text") or "").strip() or "Shop Now"
+	scene = (data.get("scene") or "").strip() or "urban streetwear photoshoot"
+	audience = (data.get("audience") or "").strip() or "young adults"
+	include_overlay = bool(data.get("include_overlay", True))
+	# Force each generation to start fresh to prevent cross-run contamination.
+	previous_image_id = ""
+	client_source_image = (data.get("source_design_url") or "").strip()
+	client_mockup_image = (data.get("source_mockup_url") or "").strip()
+	shirt_colors = data.get("shirt_colors") or ["black", "white", "heather gray"]
+	if not isinstance(shirt_colors, list):
+		shirt_colors = ["black", "white", "heather gray"]
+	shirt_colors = [str(c).strip().lower() for c in shirt_colors if str(c).strip()]
+	if not shirt_colors:
+		shirt_colors = ["black", "white", "heather gray"]
+	# Output options
+	size = (data.get("size") or "").strip().lower()
+	aspect = (data.get("aspect") or "").strip().lower()  # backwards compatibility
+	if not size:
+		size = "1536x1024" if aspect == "landscape" else ("1024x1536" if aspect == "portrait" else "1024x1024")
+	if size not in {"1024x1024", "1536x1024", "1024x1536", "auto"}:
+		size = "1536x1024"
+	quality = (data.get("quality") or "auto").strip().lower()
+	if quality not in {"auto", "low", "medium", "high"}:
+		quality = "auto"
+	background = (data.get("background") or "auto").strip().lower()
+	if background not in {"auto", "transparent", "opaque"}:
+		background = "auto"
+
+	try:
+		product_id = int(product_id)
+	except Exception:
+		return jsonify({"error": "Invalid product_id"}), 400
+
+	product = Product.query.get(product_id)
+	if not product or product.status != "active":
+		return jsonify({"error": "Product not found or inactive"}), 404
+	if previous_image_id and not _ad_image_id_belongs_to_product(previous_image_id, product.id):
+		current_app.logger.warning(f"[ad-center] ignoring cross-product previous_image_id for product {product.id}")
+		previous_image_id = ""
+
+	api_key = current_app.config.get("OPENAI_API_KEY", "")
+	if not api_key:
+		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+
+	source_image = ""
+	mockup_image = ""
+	if getattr(product, "design", None):
+		source_image = (product.design.image_url or product.design.preview_url or "").strip()
+		candidate_mockup = (product.design.preview_url or "").strip()
+
+		def _core_name(u: str) -> str:
+			try:
+				name = os.path.basename(urlparse(u).path).lower()
+			except Exception:
+				name = (u or "").lower()
+			for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+				if name.endswith(ext):
+					name = name[: -len(ext)]
+			for suffix in ["_design", "-design", "_mockup", "-mockup", "_preview", "-preview"]:
+				if name.endswith(suffix):
+					name = name[: -len(suffix)]
+			return name
+
+		# Only use preview as secondary mockup reference if it appears to match the same source design.
+		if candidate_mockup and _core_name(candidate_mockup) == _core_name(source_image):
+			mockup_image = candidate_mockup
+		else:
+			# Fallback to the same exact design image to avoid cross-product mockup contamination.
+			mockup_image = source_image
+	if not source_image:
+		return jsonify({"error": "Product has no design image to base creative on"}), 400
+
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	if source_image.startswith("/"):
+		source_image = f"{base}{source_image}"
+	if mockup_image.startswith("/"):
+		mockup_image = f"{base}{mockup_image}"
+	# Optional client/server consistency guard: reject generation if selected product source changed.
+	if client_source_image and client_source_image != source_image:
+		return jsonify({"error": "Selected product design source changed. Re-select product and try again."}), 409
+	if client_mockup_image and client_mockup_image != mockup_image:
+		return jsonify({"error": "Selected product mockup source changed. Re-select product and try again."}), 409
+
+	import uuid
+	job_id = str(uuid.uuid4())
+	_ad_job_set(job_id, {"status": "running", "url": "", "error": "", "prompt": "", "product_id": product.id, "image_id": previous_image_id})
+
+	def _worker(app_ctx, jid: str, p: Product, src: str, mockup_src: str, h: str, cta: str, sc: str, aud: str, colors: list[str], include_text: bool, out_size: str, out_quality: str, out_bg: str, prev_img_id: str):
+		with app_ctx:
+			try:
+				import os as _os
+				import time as _time
+				from openai import OpenAI
+				from base64 import b64decode
+				from io import BytesIO as _BytesIO
+				import requests as _req
+				_os.environ["OPENAI_API_KEY"] = api_key
+				client = OpenAI().with_options(timeout=120.0)
+
+				overlay_headline = h or p.title
+				color_text = ", ".join(colors)
+				audience_text = f"Target audience: {aud}. " if aud else ""
+				scene_text = f"Scene/style: {sc}. " if sc else ""
+				if include_text:
+					overlay_text = (
+						f"Include visible ad text overlay. Headline must be exactly '{overlay_headline}'. "
+						f"CTA button text must be exactly '{cta}'. "
+					)
+				else:
+						overlay_text = (
+							"Do NOT include any text overlay, captions, CTA buttons, stickers, labels, or typography anywhere in the image. "
+							"This is a hard requirement."
+						)
+				prompt = (
+					f"Create a realistic e-commerce lifestyle photo with human models wearing this exact t-shirt mockup design. "
+					f"Use the shirt artwork/logo exactly as shown in the provided product mockup image. "
+					f"Reference image URL (must preserve logo/art exactly): {mockup_src or src}. "
+					f"Do not redraw, reinterpret, paraphrase, replace, or invent logo text. "
+					f"{audience_text}{scene_text}"
+					f"Show this same design on regular shirt colors: {color_text}. "
+					f"{overlay_text}"
+					f"Keep composition clean and ad-ready with realistic lighting. "
+					f"Brand style: edgy, meme-culture streetwear vibe. "
+					f"Do not include any other logos or trademarks."
+				)
+
+				job_state = _ad_job_get(jid) or {"status": "running", "url": "", "error": "", "product_id": p.id}
+				job_state["prompt"] = prompt
+				_ad_job_set(jid, job_state)
+
+				# Use Responses image edit with a single image input (product mockup URL).
+				img_bytes = None
+				final_image_id = prev_img_id or ""
+				try:
+					content_parts = [
+						{"type": "input_text", "text": prompt},
+						{"type": "input_image", "image_url": mockup_src or src},
+					]
+
+					tool_payload = {
+						"type": "image_generation",
+						"action": "edit",
+						"size": out_size,
+						"quality": out_quality,
+						"background": out_bg,
+					}
+					if prev_img_id:
+						tool_payload["image"] = prev_img_id
+
+					resp = client.responses.create(
+						model="gpt-5",
+						input=[{"role": "user", "content": content_parts}],
+						tools=[tool_payload],
+					)
+
+					b64, image_id = _extract_response_image_data(resp)
+					if b64:
+						img_bytes = b64decode(b64)
+					if image_id:
+						final_image_id = image_id
+				except Exception as e:
+					current_app.logger.warning(f"[ad-center] responses image edit failed, falling back to images.generate: {e}")
+
+				# Fallback: regular image generation
+				if not img_bytes:
+					res = client.images.generate(
+						model="gpt-image-1",
+						prompt=prompt,
+						size=out_size,
+						quality=out_quality,
+						background=out_bg,
+					)
+					b64 = res.data[0].b64_json
+					img_bytes = b64decode(b64)
+
+				final_url = ""
+				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+				if cloud_url:
+					import cloudinary.uploader as cu
+					public_id = f"ad_center_{p.id}_{int(_time.time())}"
+					res_up = cu.upload(img_bytes, folder="ads", public_id=public_id, overwrite=True, resource_type="image")
+					final_url = res_up.get("secure_url") or res_up.get("url")
+				else:
+					fname = f"ad_center_{p.id}_{int(_time.time())}.png"
+					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+					os.makedirs(upload_dir, exist_ok=True)
+					path = os.path.join(upload_dir, fname)
+					with open(path, "wb") as f:
+						f.write(img_bytes)
+					final_url = f"/static/uploads/{fname}"
+				if not final_url:
+					raise RuntimeError("ad-center: generated image upload did not return a URL")
+
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "done", "url": final_url, "error": "", "image_id": final_image_id})
+				_ad_job_set(jid, job_state)
+			except Exception as e:
+				current_app.logger.exception(f"[ad-center] generation failed for job {jid}: {e}")
+				job_state = _ad_job_get(jid) or {"product_id": p.id}
+				job_state.update({"status": "error", "error": str(e)})
+				_ad_job_set(jid, job_state)
+
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), job_id, product, source_image, mockup_image, headline, cta_text, scene, audience, shirt_colors, include_overlay, size, quality, background, previous_image_id),
+		daemon=True
+	)
+	thr.start()
+	return jsonify({"ok": True, "job_id": job_id})
+
+
+@admin_bp.get("/ad-center/product-source/<int:product_id>")
+@login_required
+def ad_center_product_source(product_id: int):
+	"""Return the exact source/mockup URLs ad-center generation will use for a product."""
+	product = Product.query.get_or_404(product_id)
+	if product.status != "active":
+		return jsonify({"error": "Product is not active"}), 400
+	if not getattr(product, "design", None):
+		return jsonify({"error": "Product has no design"}), 400
+
+	source_image = (product.design.image_url or product.design.preview_url or "").strip()
+	candidate_mockup = (product.design.preview_url or "").strip()
+	if not source_image:
+		return jsonify({"error": "Product has no design image"}), 400
+
+	def _core_name(u: str) -> str:
+		try:
+			name = os.path.basename(urlparse(u).path).lower()
+		except Exception:
+			name = (u or "").lower()
+		for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+			if name.endswith(ext):
+				name = name[: -len(ext)]
+		for suffix in ["_design", "-design", "_mockup", "-mockup", "_preview", "-preview"]:
+			if name.endswith(suffix):
+				name = name[: -len(suffix)]
+		return name
+
+	mockup_image = candidate_mockup if (candidate_mockup and _core_name(candidate_mockup) == _core_name(source_image)) else source_image
+	base = current_app.config.get("BASE_URL", request.url_root).rstrip("/")
+	if source_image.startswith("/"):
+		source_image = f"{base}{source_image}"
+	if mockup_image.startswith("/"):
+		mockup_image = f"{base}{mockup_image}"
+
+	return jsonify({
+		"ok": True,
+		"product_id": product.id,
+		"title": product.title,
+		"design_id": product.design.id if product.design else None,
+		"source_design_url": source_image,
+		"source_mockup_url": mockup_image,
+	})
+
+
+@admin_bp.get("/ad-center/generate-status/<string:job_id>")
+@login_required
+def ad_center_generate_status(job_id: str):
+	job = _ad_job_get(job_id)
+	if not job:
+		return jsonify({"error": "job not found"}), 404
+	return jsonify(job)
+
+
+@admin_bp.post("/ad-center/save-additional-image")
+@login_required
+def ad_center_save_additional_image():
+	"""Save a generated ad-center image URL into product design extra image slots."""
+	data = request.get_json(silent=True) or {}
+	job_id = str(data.get("job_id") or "").strip()
+	slot = str(data.get("slot") or "next").strip().lower()  # next|extra1|extra2
+	if slot not in {"next", "extra1", "extra2"}:
+		slot = "next"
+	if not job_id:
+		return jsonify({"error": "Missing job_id"}), 400
+
+	job = _ad_job_get(job_id) or {}
+	if (job.get("status") or "") != "done":
+		return jsonify({"error": "Job is not complete yet"}), 400
+	image_url = (job.get("url") or "").strip()
+	product_id = int(job.get("product_id") or 0)
+	if not image_url or not product_id:
+		return jsonify({"error": "Job does not contain a valid product image result"}), 400
+
+	p = Product.query.get(product_id)
+	if not p:
+		return jsonify({"error": "Product not found"}), 404
+	if not p.design:
+		d = Design(type="image", text=p.title, approved=True)
+		db.session.add(d)
+		db.session.flush()
+		p.design = d
+
+	if slot == "extra1":
+		p.design.extra_image1_url = image_url
+		saved_slot = "extra1"
+	elif slot == "extra2":
+		p.design.extra_image2_url = image_url
+		saved_slot = "extra2"
+	else:
+		# Fill first empty slot; overwrite extra2 if both already occupied.
+		if not (p.design.extra_image1_url or "").strip():
+			p.design.extra_image1_url = image_url
+			saved_slot = "extra1"
+		elif not (p.design.extra_image2_url or "").strip():
+			p.design.extra_image2_url = image_url
+			saved_slot = "extra2"
+		else:
+			p.design.extra_image2_url = image_url
+			saved_slot = "extra2"
+
+	db.session.commit()
+	return jsonify({
+		"ok": True,
+		"slot": saved_slot,
+		"url": image_url,
+		"product_id": p.id,
+		"edit_url": url_for("admin.edit_product_page", product_id=p.id),
+	})
 
 
 @admin_bp.get("/trends")
@@ -1351,9 +1847,11 @@ def edit_product_submit(product_id: int):
 	p = Product.query.get_or_404(product_id)
 	title = request.form.get("title", "").strip()
 	description = request.form.get("description", "").strip()
+	status_active = request.form.get("status_active") == "1"
 	cat_slug = request.form.get("category", "").strip()
 	generate_ai = request.form.get("generate_ai") == "1"
 	use_formula = request.form.get("use_formula") == "1"
+	reprocess_image = request.form.get("reprocess_image") == "1"
 	base_cost_in = (request.form.get("base_cost") or "").strip()
 	price_in = (request.form.get("price") or "").strip()
 	image_file = request.files.get("image")
@@ -1373,6 +1871,7 @@ def edit_product_submit(product_id: int):
 				idx += 1
 			p.slug = slug
 	p.description = description
+	p.status = "active" if status_active else "draft"
 
 	# Update category (tshirt/hoodie/mug)
 	if cat_slug:
@@ -1402,69 +1901,96 @@ def edit_product_submit(product_id: int):
 		pass
 
 	uploaded = False
-	# Handle image upload
-	if image_file and image_file.filename:
-		# Read bytes once to compose mockup and upload
-		file_bytes = image_file.read()
-		# Try removing background for uploaded images
+	def _apply_processed_design(file_bytes: bytes, source_name: str = "upload") -> bool:
+		"""Process design bytes (bg removal + mockup) and persist URLs on current product design."""
+		if not file_bytes:
+			current_app.logger.warning(f"[admin-upload] Empty bytes for {source_name} on product {p.id}")
+			return False
+		processed_bytes = file_bytes
+		# Try removing background for source image
 		try:
-			clean = _remove_bg_hf(file_bytes)
+			clean = _remove_bg_hf(processed_bytes)
 			if clean:
-				file_bytes = clean
-				current_app.logger.info("[bg-remove] Applied on admin upload")
-		except Exception:
-			pass
-		try:
-			image_file.stream.seek(0)
-		except Exception:
-			pass
-		mock_bytes = _compose_design_on_blank_tee(file_bytes) if file_bytes else None
+				processed_bytes = clean
+				current_app.logger.info(f"[bg-remove] Applied on admin {source_name}")
+		except Exception as e:
+			current_app.logger.warning(f"[bg-remove] Failed on admin {source_name}: {e}")
+
+		mock_bytes = _compose_design_on_blank_tee(processed_bytes) if processed_bytes else None
 		if mock_bytes:
-			current_app.logger.info(f"[admin-upload] Mockup created successfully, size: {len(mock_bytes)} bytes")
+			current_app.logger.info(f"[admin-upload] Mockup created successfully from {source_name}, size: {len(mock_bytes)} bytes")
 		else:
-			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None for product {p.id}")
-		
+			current_app.logger.warning(f"[admin-upload] Mockup creation failed or returned None from {source_name} for product {p.id}")
+
 		# Upload to Cloudinary if configured; fallback to local
 		cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
+		title_slug = slugify(p.title or "design") or "design"
+		design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+		run_id = str(int(time.time()))
+		public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_{source_name}_{run_id}"
 		if cloud_url:
 			import cloudinary.uploader as cu
-			public_id = slugify(p.title or "design") or "design"
 			# Upload raw design
-			res_design = cu.upload(file_bytes, folder="products", public_id=public_id + "_design", overwrite=True, resource_type="image")
+			res_design = cu.upload(processed_bytes, folder="products", public_id=public_id + "_design", overwrite=False, resource_type="image")
 			design_url = res_design.get("secure_url") or res_design.get("url")
-			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary: {design_url}")
+			current_app.logger.info(f"[admin-upload] Design uploaded to Cloudinary from {source_name}: {design_url}")
 			# Upload mockup if composed; otherwise reuse design
 			if mock_bytes:
-				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=True, resource_type="image")
+				res_mock = cu.upload(mock_bytes, folder="products", public_id=public_id + "_mockup", overwrite=False, resource_type="image")
 				mock_url = res_mock.get("secure_url") or res_mock.get("url")
-				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary: {mock_url}")
+				current_app.logger.info(f"[admin-upload] Mockup uploaded to Cloudinary from {source_name}: {mock_url}")
 			else:
-				current_app.logger.warning(f"[admin-upload] No mockup bytes, using design URL as fallback")
+				current_app.logger.warning(f"[admin-upload] No mockup bytes from {source_name}, using design URL as fallback")
 				mock_url = design_url
 			p.design.image_url = design_url
 			p.design.preview_url = mock_url
-			# extra_image1_url is only for manually uploaded extra images, not the design
+			return True
+
+		fname_base = secure_filename(f"{public_id}_{source_name}") or f"product_{p.id}_design_{design_id_part}"
+		fname = f"{fname_base}.png"
+		upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+		os.makedirs(upload_dir, exist_ok=True)
+		path_design = os.path.join(upload_dir, fname)
+		with open(path_design, "wb") as f:
+			f.write(processed_bytes)
+		design_url = f"/static/uploads/{fname}"
+		if mock_bytes:
+			fname2 = f"{fname_base}_mockup.png"
+			path_mock = os.path.join(upload_dir, fname2)
+			with open(path_mock, "wb") as f2:
+				f2.write(mock_bytes)
+			mock_url = f"/static/uploads/{fname2}"
 		else:
-			fname = secure_filename(image_file.filename)
-			upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-			os.makedirs(upload_dir, exist_ok=True)
-			path_design = os.path.join(upload_dir, fname)
-			with open(path_design, "wb") as f:
-				f.write(file_bytes)
-			design_url = f"/static/uploads/{fname}"
-			# Save mockup if composed
-			if mock_bytes:
-				fname2 = f"mockup_{secure_filename(os.path.splitext(fname)[0])}.png"
-				path_mock = os.path.join(upload_dir, fname2)
-				with open(path_mock, "wb") as f2:
-					f2.write(mock_bytes)
-				mock_url = f"/static/uploads/{fname2}"
+			mock_url = design_url
+		p.design.image_url = design_url
+		p.design.preview_url = mock_url
+		return True
+
+	# Handle image upload
+	if image_file and image_file.filename:
+		file_bytes = image_file.read()
+		uploaded = _apply_processed_design(file_bytes, source_name="upload")
+		if not uploaded:
+			flash("Uploaded image could not be processed.", "error")
+
+	# Reprocess current design (or newly uploaded design) on demand.
+	if reprocess_image and not uploaded:
+		try:
+			import requests as _requests
+			current_design_url = (p.design.image_url or "").strip() if p.design else ""
+			if current_design_url:
+				if current_design_url.startswith("/"):
+					current_design_url = request.host_url.rstrip("/") + current_design_url
+				resp = _requests.get(current_design_url, timeout=20)
+				resp.raise_for_status()
+				uploaded = _apply_processed_design(resp.content, source_name="reprocess")
+				if not uploaded:
+					flash("Reprocess did not produce a new image.", "error")
 			else:
-				mock_url = design_url
-			p.design.image_url = design_url
-			p.design.preview_url = mock_url
-			# extra_image1_url is only for manually uploaded extra images, not the design
-		uploaded = True
+				flash("No existing design file to reprocess. Upload a design file first.", "error")
+		except Exception as e:
+			current_app.logger.warning(f"[admin-upload] Reprocess failed for product {p.id}: {e}")
+			flash("Failed to reprocess current design file", "error")
 
 	# Handle extra images upload
 	if (extra1 and extra1.filename) or (extra2 and extra2.filename):
@@ -1480,7 +2006,9 @@ def edit_product_submit(product_id: int):
 				return None
 			if cloud_url:
 				import cloudinary.uploader as cu
-				public_id = slugify(p.title or "design") + "_extra"
+				title_slug = slugify(p.title or "design") or "design"
+				design_id_part = str(p.design.id) if (p.design and p.design.id) else "x"
+				public_id = f"product_{p.id}_design_{design_id_part}_{title_slug}_extra"
 				res = cu.upload(file_obj, folder="products", public_id=public_id + '_' + (file_obj.filename or 'x'), overwrite=True, resource_type="image")
 				return res.get("secure_url") or res.get("url")
 			else:
@@ -1513,29 +2041,83 @@ def edit_product_submit(product_id: int):
 @admin_bp.post("/products/<int:product_id>/generate-image")
 @login_required
 def generate_openai_image(product_id: int):
-	from base64 import b64decode
+	from base64 import b64decode, b64encode
 	import time
-	prompt = (request.json or {}).get("prompt", "").strip()
+	if request.is_json:
+		payload = request.get_json(silent=True) or {}
+		prompt = (payload.get("prompt") or "").strip()
+		reference_image_bytes = None
+		reference_image_content_type = ""
+	else:
+		prompt = (request.form.get("prompt") or "").strip()
+		reference_file = request.files.get("reference_image")
+		reference_image_bytes = reference_file.read() if (reference_file and reference_file.filename) else None
+		reference_image_content_type = (getattr(reference_file, "mimetype", "") or "image/png").strip().lower() if reference_file else ""
 	if not prompt:
 		return jsonify({"error": "Missing prompt"}), 400
 	api_key = current_app.config.get("OPENAI_API_KEY", "")
 	if not api_key:
 		return jsonify({"error": "OPENAI_API_KEY not set"}), 400
+	_image_gen_job_set(product_id, {"status": "running", "url": "", "error": ""})
 	# Run in background to avoid 30s Heroku router timeout
-	def _worker(app_ctx, pid: int, prm: str):
+	def _worker(app_ctx, pid: int, prm: str, ref_bytes: bytes | None, ref_content_type: str):
 		with app_ctx:
 			try:
 				import os as _os
 				_os.environ["OPENAI_API_KEY"] = api_key
 				from openai import OpenAI
-				client = OpenAI().with_options(timeout=60.0)
+				client = OpenAI().with_options(timeout=180.0)
 				import time as _time
-				last_err = None
-				# Single attempt only; no retries, no Pillow fallback
-				res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
-				b64 = res.data[0].b64_json
-				img = b64decode(b64)
-				current_app.logger.info(f"[generate-image] OpenAI image generated, size: {len(img)} bytes")
+				img = None
+				# If a reference image is provided, perform reference-based edit generation first.
+				if ref_bytes:
+					last_ref_err = None
+					try:
+						ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
+						data_uri = f"data:{ctype};base64,{b64encode(ref_bytes).decode('utf-8')}"
+						resp = client.responses.create(
+							model="gpt-5",
+							input=[{
+								"role": "user",
+								"content": [
+									{"type": "input_text", "text": prm},
+									{"type": "input_image", "image_url": data_uri},
+								],
+							}],
+							tools=[{"type": "image_generation", "action": "edit", "size": "1024x1024"}],
+						)
+						b64_resp, _image_id = _extract_response_image_data(resp)
+						if b64_resp:
+							img = b64decode(b64_resp)
+						else:
+							last_ref_err = RuntimeError("Responses edit returned no image result")
+					except Exception as e_ref:
+						last_ref_err = e_ref
+						current_app.logger.warning(f"[generate-image] reference edit via Responses failed: {e_ref}")
+					# Secondary reference-based fallback: images.edit with uploaded image bytes.
+					if not img:
+						try:
+							ctype = ref_content_type if ref_content_type.startswith("image/") else "image/png"
+							res_edit = client.images.edit(
+								model="gpt-image-1.5",
+								image=[("reference.png", ref_bytes, ctype)],
+								prompt=prm,
+								size="1024x1024",
+							)
+							b64_edit = res_edit.data[0].b64_json
+							img = b64decode(b64_edit)
+						except Exception as e_edit:
+							last_ref_err = e_edit
+							current_app.logger.warning(f"[generate-image] reference edit via images.edit failed: {e_edit}")
+						if not img:
+							raise RuntimeError(f"Reference-based generation failed: {last_ref_err}")
+
+					# Text-only generation fallback (when no reference image or reference flow failed).
+					if not img:
+						res = client.images.generate(model="gpt-image-1-mini", prompt=prm, size="1024x1024")
+						b64 = res.data[0].b64_json
+						img = b64decode(b64)
+					current_app.logger.info(f"[generate-image] OpenAI image generated, size: {len(img)} bytes")
 				
 				# Try background removal
 				img_for_mockup = img  # Keep original for mockup if bg removal fails
@@ -1548,6 +2130,15 @@ def generate_openai_image(product_id: int):
 						current_app.logger.info(f"[bg-remove] Successfully applied background removal, new size: {len(img)} bytes")
 					else:
 						current_app.logger.warning("[bg-remove] Background removal returned None or empty, using original image")
+						# For reference-based generations, force white-bg fallback as a second pass.
+						if ref_bytes:
+							white_clean = _remove_white_bg_simple(img)
+							if white_clean and len(white_clean) > 0:
+								img = white_clean
+								img_for_mockup = white_clean
+								current_app.logger.info(f"[bg-remove] Applied white-bg fallback for reference output, new size: {len(img)} bytes")
+							else:
+								current_app.logger.warning("[bg-remove] White-bg fallback did not change reference output")
 						# Try to convert to RGBA for better mockup composition even without bg removal
 						try:
 							from PIL import Image
@@ -1563,30 +2154,38 @@ def generate_openai_image(product_id: int):
 					current_app.logger.warning(f"[bg-remove] Background removal failed for on-demand image: {e}")
 					import traceback
 					current_app.logger.warning(f"[bg-remove] Traceback: {traceback.format_exc()}")
-				
+
 				p2 = Product.query.get(pid)
-				slug_base = slugify((p2.title if p2 else prm) or "design") or "design"
+				if p2 and not p2.design:
+					d = Design(type="image", text=p2.title, approved=True)
+					db.session.add(d)
+					db.session.flush()
+					p2.design = d
+				title_slug = slugify((p2.title if p2 else prm) or "design") or "design"
+				design_id_part = str(p2.design.id) if (p2 and p2.design and p2.design.id) else "x"
+				run_id = int(_time.time())
+				asset_base = f"product_{pid}_design_{design_id_part}_{title_slug}_gen_{run_id}"
 				# Upload to Cloudinary if configured; otherwise save locally
 				cloud_url = current_app.config.get("CLOUDINARY_URL", "").strip()
 				if cloud_url:
 					import cloudinary.uploader as cu
 					# Upload bytes directly (design - should be transparent if bg removal worked)
-					res_up_design = cu.upload(img, folder="products", public_id=slug_base + "_design", overwrite=True, resource_type="image")
+					res_up_design = cu.upload(img, folder="products", public_id=asset_base + "_design", overwrite=False, resource_type="image")
 					design_url = res_up_design.get("secure_url") or res_up_design.get("url")
 					current_app.logger.info(f"[generate-image] Design uploaded to Cloudinary: {design_url}")
-					
+
 					# Compose mockup using image (with transparency if bg removal worked)
 					current_app.logger.info("[generate-image] Starting mockup composition...")
 					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
 					if mock_bytes and len(mock_bytes) > 0:
-						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=slug_base + "_mockup", overwrite=True, resource_type="image")
+						res_up_mock = cu.upload(mock_bytes, folder="products", public_id=asset_base + "_mockup", overwrite=False, resource_type="image")
 						final_url = res_up_mock.get("secure_url") or res_up_mock.get("url")
 						current_app.logger.info(f"[generate-image] Mockup uploaded to Cloudinary: {final_url}")
 					else:
 						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
 						final_url = design_url
 				else:
-					fname = f"{slug_base}_{int(_time.time())}.png"
+					fname = f"{asset_base}_design.png"
 					upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
 					os.makedirs(upload_dir, exist_ok=True)
 					path_design = os.path.join(upload_dir, fname)
@@ -1594,12 +2193,12 @@ def generate_openai_image(product_id: int):
 						f.write(img)
 					design_url = f"/static/uploads/{fname}"
 					current_app.logger.info(f"[generate-image] Design saved locally: {design_url}")
-					
+
 					# Compose mockup using image (with transparency if bg removal worked)
 					current_app.logger.info("[generate-image] Starting mockup composition...")
 					mock_bytes = _compose_design_on_blank_tee(img_for_mockup)
 					if mock_bytes and len(mock_bytes) > 0:
-						fname_m = f"{slug_base}_mockup_{int(_time.time())}.png"
+						fname_m = f"{asset_base}_mockup.png"
 						path_m = os.path.join(upload_dir, fname_m)
 						with open(path_m, "wb") as fm:
 							fm.write(mock_bytes)
@@ -1608,21 +2207,23 @@ def generate_openai_image(product_id: int):
 					else:
 						current_app.logger.warning("[generate-image] Mockup composition returned None or empty, using design URL")
 						final_url = design_url
+
 				if p2:
-					if not p2.design:
-						d = Design(type="image", text=p2.title, approved=True)
-						db.session.add(d)
-						db.session.flush()
-						p2.design = d
 					p2.design.preview_url = final_url
 					p2.design.image_url = design_url
-					# extra_image1_url is only for manually uploaded extra images, not the design
-					db.session.commit()
+				# extra_image1_url is only for manually uploaded extra images, not the design
+				db.session.commit()
+				_image_gen_job_set(pid, {"status": "done", "url": final_url, "error": ""})
 				current_app.logger.info("generate-image completed")
 			except Exception as e_all:
 				current_app.logger.warning(f"generate-image failed: {e_all}")
+				_image_gen_job_set(pid, {"status": "error", "url": "", "error": str(e_all)})
 
-	thr = threading.Thread(target=_worker, args=(current_app.app_context(), product_id, prompt), daemon=True)
+	thr = threading.Thread(
+		target=_worker,
+		args=(current_app.app_context(), product_id, prompt, reference_image_bytes, reference_image_content_type),
+		daemon=True,
+	)
 	thr.start()
 	return jsonify({"ok": True, "started": True})
 
@@ -1631,8 +2232,19 @@ def generate_openai_image(product_id: int):
 @login_required
 def generate_status(product_id: int):
 	p = Product.query.get_or_404(product_id)
+	job = _image_gen_job_get(product_id)
+	if job and job.get("status") == "running":
+		# Safety: if model output already persisted on the product, treat as done.
+		url_live = (p.design.preview_url if p.design else "") or ""
+		if url_live:
+			return jsonify({"ready": True, "status": "done", "url": url_live, "error": ""})
+		return jsonify({"ready": False, "status": "running", "url": "", "error": ""})
+	if job and job.get("status") == "error":
+		return jsonify({"ready": False, "status": "error", "url": "", "error": job.get("error") or "generation failed"})
+	if job and job.get("status") == "done":
+		return jsonify({"ready": True, "status": "done", "url": job.get("url") or "", "error": ""})
 	url = p.design.preview_url if p.design else ""
-	return jsonify({"ready": bool(url), "url": url or ""})
+	return jsonify({"ready": bool(url), "status": "done" if url else "idle", "url": url or "", "error": ""})
 
 
 @admin_bp.get("/gelato")
