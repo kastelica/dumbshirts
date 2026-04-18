@@ -205,13 +205,21 @@
 						<img id="mockup-base" alt="Tee base" class="w-full h-full object-contain" />
 						<img id="mockup-design" alt="Design overlay" class="absolute object-contain" style="width:35%; left:32%; top: 26%;" />
 					</div>
-					{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
-					{% set imgs = [] %}
-					{% set design_only = product.design.image_url if product.design and product.design.image_url else '' %}
-					{% if design_only %}
-						{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}
-					{% endif %}
-					{% set valid_imgs = imgs | selectattr('src') | list %}
+						{# Build gallery: 1) mockup (shown by default), 2) design-only square PNG #}
+						{% set imgs = [] %}
+						{% set design_only = product.design.image_url if product.design and product.design.image_url else '' %}
+						{% set extra1 = product.design.extra_image1_url if product.design and product.design.extra_image1_url else '' %}
+						{% set extra2 = product.design.extra_image2_url if product.design and product.design.extra_image2_url else '' %}
+						{% if design_only %}
+							{% set _ = imgs.append({'src': design_only, 'alt': product.title}) %}
+						{% endif %}
+						{% if extra1 and extra1 != design_only %}
+							{% set _ = imgs.append({'src': extra1, 'alt': (product.title ~ ' additional image 1')}) %}
+						{% endif %}
+						{% if extra2 and extra2 != design_only and extra2 != extra1 %}
+							{% set _ = imgs.append({'src': extra2, 'alt': (product.title ~ ' additional image 2')}) %}
+						{% endif %}
+						{% set valid_imgs = imgs | selectattr('src') | list %}
 					{% if valid_imgs %}
 						{% for img in valid_imgs %}
 							<img src="{{ img.src }}" alt="{{ img.alt or product.title }}" loading="lazy" class="w-full h-full object-cover hidden" data-frame="{{ loop.index0 }}">
