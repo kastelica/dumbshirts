@@ -103,6 +103,13 @@ def _reddit_settings_path() -> str:
 	return "/tmp/reddit_settings.json"
 
 
+def _reddit_backfill_results_path() -> str:
+	custom = (current_app.config.get("REDDIT_BACKFILL_RESULTS_PATH") or "").strip()
+	if custom:
+		return custom
+	return "/tmp/reddit_backfill_results.json"
+
+
 def _default_reddit_settings() -> dict:
 	return {
 		"enabled": False,
@@ -176,6 +183,37 @@ def _reddit_settings_save(data: dict) -> None:
 	with open(tmp, "w", encoding="utf-8") as f:
 		json.dump(data, f, ensure_ascii=False)
 	os.replace(tmp, path)
+
+
+def _reddit_backfill_results_load() -> dict:
+	path = _reddit_backfill_results_path()
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f) or {}
+		return data if isinstance(data, dict) else {}
+	except Exception:
+		return {}
+
+
+def _reddit_backfill_results_save(payload: dict) -> None:
+	path = _reddit_backfill_results_path()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	tmp = f"{path}.tmp"
+	with open(tmp, "w", encoding="utf-8") as f:
+		json.dump(payload, f, ensure_ascii=False)
+	os.replace(tmp, path)
+
+
+def _hydrate_reddit_backfill_state(state: dict) -> None:
+	saved = _reddit_backfill_results_load()
+	if not saved:
+		return
+	if not state.get("backfill_matches"):
+		state["backfill_matches"] = saved.get("backfill_matches") or []
+	if not state.get("backfill_completed_at"):
+		state["backfill_completed_at"] = saved.get("backfill_completed_at")
+	if not state.get("backfill_last_run_summary"):
+		state["backfill_last_run_summary"] = saved.get("backfill_last_run_summary")
 
 
 def _reddit_comment_matches(comment_text: str, phrases: list[str]) -> bool:
@@ -823,7 +861,9 @@ def reddit_page():
 	env_creds = _reddit_credentials_from_env()
 	has_env_creds = bool(env_creds["reddit_client_id"] and env_creds["reddit_client_secret"] and env_creds["reddit_user_agent"])
 	with _REDDIT_MONITOR_LOCK:
-		monitor_state = dict(_get_reddit_monitor_state())
+		monitor_state_obj = _get_reddit_monitor_state()
+		_hydrate_reddit_backfill_state(monitor_state_obj)
+		monitor_state = dict(monitor_state_obj)
 		monitor_state["events"] = list(monitor_state.get("events", []))
 		monitor_state["matches"] = list(monitor_state.get("matches", []))
 		monitor_state["backfill_matches"] = list(monitor_state.get("backfill_matches", []))
@@ -839,7 +879,9 @@ def reddit_page():
 @login_required
 def reddit_state():
 	with _REDDIT_MONITOR_LOCK:
-		state = dict(_get_reddit_monitor_state())
+		state_obj = _get_reddit_monitor_state()
+		_hydrate_reddit_backfill_state(state_obj)
+		state = dict(state_obj)
 		state["events"] = list(state.get("events", []))
 		state["matches"] = list(state.get("matches", []))
 		state["backfill_matches"] = list(state.get("backfill_matches", []))
@@ -1053,6 +1095,11 @@ def _run_reddit_backfill_job(flask_app, settings: dict) -> None:
 				state["backfill_completed_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 				state["backfill_matches"] = results[:300]
 				state["backfill_last_run_summary"] = f"Found {len(results)} match(es) in last {days} day(s)."
+				_reddit_backfill_results_save({
+					"backfill_matches": state["backfill_matches"],
+					"backfill_completed_at": state["backfill_completed_at"],
+					"backfill_last_run_summary": state["backfill_last_run_summary"],
+				})
 				_reddit_state_add_event(state, f"Backfill completed: {len(results)} match(es) in last {days} day(s).")
 			if results:
 				ok, msg = _send_reddit_backfill_summary_alert(results, days)
@@ -1069,6 +1116,11 @@ def _run_reddit_backfill_job(flask_app, settings: dict) -> None:
 				state["backfill_completed_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 				state["last_error"] = str(e)
 				state["backfill_last_run_summary"] = f"Backfill failed: {e}"
+				_reddit_backfill_results_save({
+					"backfill_matches": state.get("backfill_matches") or [],
+					"backfill_completed_at": state["backfill_completed_at"],
+					"backfill_last_run_summary": state["backfill_last_run_summary"],
+				})
 				_reddit_state_add_event(state, f"Backfill error: {e}")
 
 
