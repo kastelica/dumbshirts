@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -148,6 +148,23 @@
 	<link rel="shortcut icon" type="image/png" href="/static/uploads/favicon.png">
 	<title>{% block title %}Roast Cotton{% endblock %}</title>
 	<link rel="stylesheet" href="/static/css/tailwind.css">
+	{% if not request.path.startswith('/admin') %}
+	<script id="merchantWidgetScript" src="https://www.gstatic.com/shopping/merchant/merchantwidget.js" defer></script>
+	<script type="text/javascript">
+		merchantWidgetScript.addEventListener('load', function () {
+			try {
+				merchantwidget.start({
+					merchant_id: 5766825042,
+					position: 'RIGHT_BOTTOM',
+					sideMargin: 20,
+					bottomMargin: 20,
+					mobileSideMargin: 12,
+					mobileBottomMargin: 72
+				});
+			} catch (_e) { }
+		});
+	</script>
+	{% endif %}
 	{% block head %}{% endblock %}
 </head>
 
@@ -323,31 +340,6 @@
 	<main class="max-w-6xl mx-auto px-4 py-6">
 		{% block content %}{% endblock %}
 	</main>
-	{% if not request.path.startswith('/admin') %}
-	<script id="merchantWidgetScript" src="https://www.gstatic.com/shopping/merchant/merchantwidget.js" defer></script>
-	<script>
-		(function () {
-			function startMerchantBadge() {
-				if (window.__merchantWidgetStarted) return;
-				if (!window.merchantwidget || typeof window.merchantwidget.start !== 'function') return;
-				window.__merchantWidgetStarted = true;
-				try {
-					window.merchantwidget.start({
-						merchant_id: 5766825042,
-						position: 'BOTTOM_LEFT',
-						region: 'US',
-					});
-					document.body.classList.add('has-merchant-badge');
-				} catch (_e) { }
-			}
-			const merchantScript = document.getElementById('merchantWidgetScript');
-			if (merchantScript) {
-				merchantScript.addEventListener('load', startMerchantBadge);
-			}
-			startMerchantBadge();
-		})();
-	</script>
-	{% endif %}
 	{% if not request.path.startswith('/admin') %}
 	<div id="cookie-consent-banner" class="pointer-events-none" style="position:fixed;left:12px;right:12px;bottom:12px;z-index:1400;display:none;">
 		<div class="pointer-events-auto bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl max-w-[460px] ml-auto">
@@ -1040,12 +1032,6 @@
 		})();
 	</script>
 	<style>
-		body.has-merchant-badge #promo-5off {
-			bottom: 6.25rem !important;
-		}
-		body.has-merchant-badge.cookie-consent-visible #promo-5off {
-			bottom: 13rem !important;
-		}
 		body.cookie-consent-visible #promo-5off {
 			bottom: 9rem !important;
 		}
