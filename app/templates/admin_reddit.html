@@ -73,6 +73,10 @@
 				<input type="checkbox" name="require_intent" {% if settings.require_intent %}checked{% endif %}>
 				<span>Require intent phrase (if off: context-only matching)</span>
 			</label>
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" name="require_sentiment" {% if settings.require_sentiment %}checked{% endif %}>
+				<span>Require positive sentiment phrase</span>
+			</label>
 
 			<div>
 				<label class="block text-sm text-gray-300 mb-1">Context keywords (one per line)</label>
@@ -84,6 +88,11 @@
 				<label class="block text-sm text-gray-300 mb-1">Intent keywords (one per line)</label>
 				<textarea name="intent_keywords" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.intent_keywords }}</textarea>
 				<p class="text-xs text-gray-500 mt-1">Step 2 filter: buying intent phrases. Used only if “Require intent phrase” is enabled.</p>
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Sentiment keywords (one per line)</label>
+				<textarea name="sentiment_keywords" rows="5" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.sentiment_keywords }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">Step 3 filter: positive/excited tone phrases. Used only if sentiment is required.</p>
 			</div>
 
 			<div class="flex flex-wrap gap-2">
@@ -165,10 +174,16 @@
 	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
 		<h2 class="text-lg font-semibold">Historical Discovery Insights</h2>
 		<p class="text-sm text-gray-400">Results from the latest historical sweep to help identify where the best lead signals are coming from.</p>
-		<div class="text-sm text-gray-300">
-			Latest saved sweep matches: <span id="backfill-count" class="font-semibold">{{ monitor_state.backfill_matches|length }}</span>
-		</div>
-		<div id="backfill-feed" class="space-y-2 max-h-72 overflow-auto">
+			<div class="text-sm text-gray-300">
+				Latest saved sweep matches: <span id="backfill-count" class="font-semibold">{{ monitor_state.backfill_matches|length }}</span>
+			</div>
+			<div class="text-xs text-gray-400">
+				<div>Sweep running: <span id="backfill-running">{{ 'Yes' if monitor_state.backfill_running else 'No' }}</span></div>
+				<div>Started: <span id="backfill-started">{{ monitor_state.backfill_started_at or '—' }}</span></div>
+				<div>Completed: <span id="backfill-completed">{{ monitor_state.backfill_completed_at or '—' }}</span></div>
+				<div>Summary: <span id="backfill-summary">{{ monitor_state.backfill_last_run_summary or '—' }}</span></div>
+			</div>
+			<div id="backfill-feed" class="space-y-2 max-h-72 overflow-auto">
 			{% for m in monitor_state.backfill_matches[:50] %}
 			<div class="text-xs border border-gray-800 rounded p-2">
 				<div class="text-gray-400">{{ m.created_at }} · {{ m.item_type|default('comment')|upper }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
@@ -197,12 +212,14 @@
 		const sub = escapeHtml(m.subreddit || "");
 		const author = escapeHtml(m.author || "");
 		const phrase = escapeHtml(m.matched_phrase || "context_match");
+		const sentiment = escapeHtml(m.matched_sentiment || "");
 		const body = escapeHtml(m.body || "");
 		const url = escapeHtml(m.url || "#");
 		return `
 			<div class="text-xs border border-gray-800 rounded p-2">
 				<div class="text-gray-400">${created} · ${type} · r/${sub} · u/${author}</div>
 				<div class="text-green-300 mt-1">Matched: ${phrase}</div>
+				<div class="text-cyan-300 mt-1">${sentiment ? `Sentiment: ${sentiment}` : ""}</div>
 				<div class="text-gray-200 mt-1">${body}</div>
 				<a class="text-blue-400 hover:underline" href="${url}" target="_blank" rel="noopener">Open link</a>
 			</div>
@@ -219,6 +236,10 @@
 			document.getElementById("status-seen").textContent = state.last_seen_at || "—";
 			document.getElementById("status-error").textContent = state.last_error || "None";
 			document.getElementById("backfill-count").textContent = (state.backfill_matches || []).length;
+			document.getElementById("backfill-running").textContent = state.backfill_running ? "Yes" : "No";
+			document.getElementById("backfill-started").textContent = state.backfill_started_at || "—";
+			document.getElementById("backfill-completed").textContent = state.backfill_completed_at || "—";
+			document.getElementById("backfill-summary").textContent = state.backfill_last_run_summary || "—";
 
 			const matchFeed = document.getElementById("live-match-feed");
 			const matches = (state.matches || []).slice(-20).reverse();
