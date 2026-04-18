@@ -108,6 +108,8 @@ def _default_reddit_settings() -> dict:
 		"enabled": False,
 		"poll_seconds": 180,
 		"subreddits": "funny,memes,me_irl,dankmemes,starterpacks,wholesomememes,Unexpected,blursedimages,funnyvideos,interestingasfuck",
+		"require_intent": True,
+		"live_post_scan_limit_per_subreddit": 25,
 		"backfill_days": 1,
 		"backfill_limit_per_subreddit": 50,
 		"reddit_client_id": "",
@@ -115,11 +117,25 @@ def _default_reddit_settings() -> dict:
 		"reddit_user_agent": "roastcotton-bot/0.1 by admin",
 		"reddit_username": "",
 		"reddit_password": "",
-		"target_phrases": "\n".join([
+		"context_keywords": "\n".join([
+			"t-shirt",
+			"shirt",
+			"tshirt",
+			"sweatshirt",
+			"hoodie",
+		]),
+		"intent_keywords": "\n".join([
 			"put it on a shirt",
 			"i'd buy a shirt with that",
 			"i need this on a t-shirt",
 			"make this into a shirt",
+			"need this",
+			"want this",
+			"buy this",
+			"take my money",
+			"where can i buy",
+			"i need",
+			"i want",
 		]),
 		"last_poll_at": None,
 		"last_poll_result": "",
@@ -134,6 +150,10 @@ def _reddit_settings_load() -> dict:
 			data = json.load(f) or {}
 		if not isinstance(data, dict):
 			return defaults
+		if "target_phrases" in data:
+			if not data.get("intent_keywords"):
+				data["intent_keywords"] = data.get("target_phrases") or defaults.get("intent_keywords")
+			data.pop("target_phrases", None)
 		return {**defaults, **data}
 	except Exception:
 		return defaults
@@ -159,6 +179,22 @@ def _reddit_comment_matches(comment_text: str, phrases: list[str]) -> bool:
 		if p and p in comment_text:
 			return True
 	return False
+
+
+def _reddit_match_phrase(text: str, context_keywords: list[str], intent_keywords: list[str], require_intent: bool) -> str | None:
+	body = (text or "").lower().strip()
+	if not body:
+		return None
+	has_context = any((k or "").strip().lower() in body for k in context_keywords if (k or "").strip())
+	if not has_context:
+		return None
+	if not require_intent:
+		return "context_match"
+	for phrase in intent_keywords:
+		p = (phrase or "").strip().lower()
+		if p and p in body:
+			return phrase.strip()
+	return None
 
 
 def _reddit_credentials_from_env() -> dict:
@@ -192,6 +228,8 @@ def _get_reddit_monitor_state() -> dict:
 		"events": [],
 		"matches": [],
 		"backfill_matches": [],
+		"seen_submission_ids": [],
+		"seen_comment_ids": [],
 	})
 	return state
 
@@ -217,9 +255,49 @@ def _reddit_comment_payload(comment, subreddit_name: str) -> dict:
 		"created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
 		"subreddit": subreddit_name,
 		"author": author,
+		"item_type": "comment",
+		"matched_phrase": "",
 		"body": body[:320],
 		"url": permalink,
 	}
+
+
+def _reddit_submission_payload(submission, subreddit_name: str) -> dict:
+	permalink = f"https://reddit.com{getattr(submission, 'permalink', '')}"
+	author = getattr(getattr(submission, "author", None), "name", "[deleted]")
+	title = (getattr(submission, "title", "") or "").strip()
+	return {
+		"created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+		"subreddit": subreddit_name,
+		"author": author,
+		"item_type": "post",
+		"matched_phrase": "",
+		"body": f"POST: {title[:260]}",
+		"url": permalink,
+	}
+
+
+def _send_reddit_match_alert(payload: dict) -> tuple[bool, str]:
+	to_email = (current_app.config.get("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip()
+	if not to_email:
+		return False, "ADMIN_EMAIL not configured."
+	url = (payload.get("url") or "").strip()
+	subreddit = (payload.get("subreddit") or "").strip()
+	author = (payload.get("author") or "").strip()
+	body = (payload.get("body") or "").strip()
+	item_type = (payload.get("item_type") or "item").strip()
+	matched_phrase = (payload.get("matched_phrase") or "").strip()
+	subject = f"Reddit watcher {item_type} match in r/{subreddit}" if subreddit else f"Reddit watcher {item_type} match"
+	html = render_simple_email(
+		"Reddit Incoming Watcher Match",
+		[
+			f"Matched {item_type} detected in r/{subreddit or 'unknown'} by u/{author or '[deleted]'}.",
+			f"Matched phrase: {matched_phrase}" if matched_phrase else "Matched phrase: (not captured)",
+			f"Comment preview: {body}" if body else "Comment preview unavailable.",
+			f"Open match: <a href=\"{url}\">{url}</a>" if url else "No match link available.",
+		]
+	)
+	return send_email_via_sendgrid(to_email, subject, html)
 
 
 def _build_reddit_client(creds: dict):
@@ -279,9 +357,12 @@ def _ensure_reddit_monitor_thread():
 							continue
 
 						subreddits = [x.strip() for x in (settings.get("subreddits") or "").split(",") if x.strip()]
-						phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
+						context_keywords = [p.strip() for p in (settings.get("context_keywords") or "").splitlines() if p.strip()]
+						intent_keywords = [p.strip() for p in (settings.get("intent_keywords") or "").splitlines() if p.strip()]
+						require_intent = bool(settings.get("require_intent", True))
+						post_scan_limit = max(5, min(int(settings.get("live_post_scan_limit_per_subreddit") or 25), 100))
 						poll_seconds = max(30, min(int(settings.get("poll_seconds") or 180), 3600))
-						if not subreddits or not phrases:
+						if not subreddits or not context_keywords:
 							time.sleep(5)
 							continue
 
@@ -297,14 +378,64 @@ def _ensure_reddit_monitor_thread():
 									break
 								time.sleep(1)
 								continue
+							comment_id = str(getattr(comment, "id", "") or "").strip()
+							with _REDDIT_MONITOR_LOCK:
+								s = _get_reddit_monitor_state()
+								seen_comment_ids = s.setdefault("seen_comment_ids", [])
+								if comment_id and comment_id in seen_comment_ids:
+									continue
+								if comment_id:
+									seen_comment_ids.append(comment_id)
+									if len(seen_comment_ids) > 2000:
+										del seen_comment_ids[:-2000]
 							body = getattr(comment, "body", "") or ""
-							if _reddit_comment_matches(body, phrases):
+							matched_phrase = _reddit_match_phrase(body, context_keywords, intent_keywords, require_intent)
+							if matched_phrase:
 								sub_name = getattr(getattr(comment, "subreddit", None), "display_name", "")
 								match_payload = _reddit_comment_payload(comment, sub_name)
+								match_payload["matched_phrase"] = matched_phrase
 								with _REDDIT_MONITOR_LOCK:
 									s = _get_reddit_monitor_state()
 									_reddit_state_add_match(s, match_payload)
-									_reddit_state_add_event(s, f"Match found in r/{sub_name}: {match_payload['url']}")
+									_reddit_state_add_event(s, f"Comment match found in r/{sub_name}: {match_payload['url']}")
+								ok, msg = _send_reddit_match_alert(match_payload)
+								with _REDDIT_MONITOR_LOCK:
+									s = _get_reddit_monitor_state()
+									if ok:
+										_reddit_state_add_event(s, f"Alert email sent to ADMIN_EMAIL for match: {match_payload['url']}")
+									else:
+										_reddit_state_add_event(s, f"Alert email not sent: {msg}")
+						for sub_name in subreddits:
+							sub = reddit.subreddit(sub_name)
+							for submission in sub.new(limit=post_scan_limit):
+								submission_id = str(getattr(submission, "id", "") or "").strip()
+								with _REDDIT_MONITOR_LOCK:
+									s = _get_reddit_monitor_state()
+									seen_submission_ids = s.setdefault("seen_submission_ids", [])
+									if submission_id and submission_id in seen_submission_ids:
+										continue
+									if submission_id:
+										seen_submission_ids.append(submission_id)
+										if len(seen_submission_ids) > 2000:
+											del seen_submission_ids[:-2000]
+								title = (getattr(submission, "title", "") or "").strip()
+								selftext = (getattr(submission, "selftext", "") or "").strip()
+								matched_phrase = _reddit_match_phrase(f"{title}\n{selftext}", context_keywords, intent_keywords, require_intent)
+								if not matched_phrase:
+									continue
+								match_payload = _reddit_submission_payload(submission, sub_name)
+								match_payload["matched_phrase"] = matched_phrase
+								with _REDDIT_MONITOR_LOCK:
+									s = _get_reddit_monitor_state()
+									_reddit_state_add_match(s, match_payload)
+									_reddit_state_add_event(s, f"Post match found in r/{sub_name}: {match_payload['url']}")
+								ok, msg = _send_reddit_match_alert(match_payload)
+								with _REDDIT_MONITOR_LOCK:
+									s = _get_reddit_monitor_state()
+									if ok:
+										_reddit_state_add_event(s, f"Alert email sent to ADMIN_EMAIL for match: {match_payload['url']}")
+									else:
+										_reddit_state_add_event(s, f"Alert email not sent: {msg}")
 						time.sleep(1)
 				except Exception as e:
 					with _REDDIT_MONITOR_LOCK:
@@ -646,6 +777,38 @@ def reddit_page():
 	return render_template("admin_reddit.html", settings=settings, has_env_creds=has_env_creds, monitor_state=monitor_state)
 
 
+@admin_bp.get("/reddit/state")
+@login_required
+def reddit_state():
+	with _REDDIT_MONITOR_LOCK:
+		state = dict(_get_reddit_monitor_state())
+		state["events"] = list(state.get("events", []))
+		state["matches"] = list(state.get("matches", []))
+		state["backfill_matches"] = list(state.get("backfill_matches", []))
+	return jsonify(state)
+
+
+@admin_bp.post("/reddit/monitor-control")
+@login_required
+def reddit_monitor_control():
+	action = (request.form.get("action") or "").strip().lower()
+	enable = action == "start"
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+		settings["enabled"] = enable
+		_reddit_settings_save(settings)
+	with _REDDIT_MONITOR_LOCK:
+		state = _get_reddit_monitor_state()
+		state["should_run"] = enable
+		if enable:
+			_reddit_state_add_event(state, "Incoming monitor enabled from live controls.")
+		else:
+			_reddit_state_add_event(state, "Incoming monitor disabled from live controls.")
+	if enable:
+		_ensure_reddit_monitor_thread()
+	return jsonify({"ok": True, "enabled": enable})
+
+
 @admin_bp.post("/reddit/settings")
 @login_required
 def reddit_save_settings():
@@ -665,15 +828,24 @@ def reddit_save_settings():
 	except Exception:
 		backfill_limit = 50
 	backfill_limit = max(10, min(backfill_limit, 500))
+	try:
+		live_post_scan_limit = int(request.form.get("live_post_scan_limit_per_subreddit", "25") or "25")
+	except Exception:
+		live_post_scan_limit = 25
+	live_post_scan_limit = max(5, min(live_post_scan_limit, 100))
 	subreddits = (request.form.get("subreddits") or "").strip()
 	reddit_client_id = (request.form.get("reddit_client_id") or "").strip()
 	reddit_client_secret = (request.form.get("reddit_client_secret") or "").strip()
 	reddit_user_agent = (request.form.get("reddit_user_agent") or "").strip()
 	reddit_username = (request.form.get("reddit_username") or "").strip()
 	reddit_password = (request.form.get("reddit_password") or "").strip()
-	target_phrases = (request.form.get("target_phrases") or "").strip()
-	if not target_phrases:
-		target_phrases = _default_reddit_settings()["target_phrases"]
+	require_intent = request.form.get("require_intent") == "on"
+	context_keywords = (request.form.get("context_keywords") or "").strip()
+	intent_keywords = (request.form.get("intent_keywords") or "").strip()
+	if not context_keywords:
+		context_keywords = _default_reddit_settings()["context_keywords"]
+	if not intent_keywords:
+		intent_keywords = _default_reddit_settings()["intent_keywords"]
 
 	with _REDDIT_SETTINGS_LOCK:
 		settings = _reddit_settings_load()
@@ -684,13 +856,16 @@ def reddit_save_settings():
 			"poll_seconds": poll_seconds,
 			"backfill_days": backfill_days,
 			"backfill_limit_per_subreddit": backfill_limit,
+			"live_post_scan_limit_per_subreddit": live_post_scan_limit,
 			"subreddits": subreddits,
+			"require_intent": require_intent,
 			"reddit_client_id": reddit_client_id,
 			"reddit_client_secret": reddit_client_secret or existing_secret,
 			"reddit_user_agent": reddit_user_agent,
 			"reddit_username": reddit_username,
 			"reddit_password": reddit_password or existing_password,
-			"target_phrases": target_phrases,
+			"context_keywords": context_keywords,
+			"intent_keywords": intent_keywords,
 		})
 		_reddit_settings_save(settings)
 	with _REDDIT_MONITOR_LOCK:
@@ -713,13 +888,17 @@ def reddit_poll_now():
 		"This is hilarious.",
 		"I need this on a t-shirt right now.",
 		"Not really my thing.",
+		"This hoodie is fire, take my money.",
 	]
 	with _REDDIT_SETTINGS_LOCK:
 		settings = _reddit_settings_load()
-		phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
-		matches = [c for c in sample_comments if _reddit_comment_matches(c, phrases)]
+		context_keywords = [p.strip() for p in (settings.get("context_keywords") or "").splitlines() if p.strip()]
+		intent_keywords = [p.strip() for p in (settings.get("intent_keywords") or "").splitlines() if p.strip()]
+		require_intent = bool(settings.get("require_intent", True))
+		matches = [c for c in sample_comments if _reddit_match_phrase(c, context_keywords, intent_keywords, require_intent)]
 		settings["last_poll_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-		settings["last_poll_result"] = f"Matched {len(matches)} / {len(sample_comments)} sample comments. Next step: replace sample polling with PRAW stream."
+		mode = "context + intent" if require_intent else "context only"
+		settings["last_poll_result"] = f"Matched {len(matches)} / {len(sample_comments)} sample comments ({mode})."
 		_reddit_settings_save(settings)
 
 	flash(settings["last_poll_result"], "success")
@@ -741,23 +920,28 @@ def reddit_backfill():
 		days = max(1, min(int(settings.get("backfill_days") or 1), 365))
 		limit = max(10, min(int(settings.get("backfill_limit_per_subreddit") or 50), 500))
 		since_utc = datetime.utcnow() - timedelta(days=days)
-		phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
+		context_keywords = [p.strip() for p in (settings.get("context_keywords") or "").splitlines() if p.strip()]
+		intent_keywords = [p.strip() for p in (settings.get("intent_keywords") or "").splitlines() if p.strip()]
+		require_intent = bool(settings.get("require_intent", True))
 		subreddits = [x.strip() for x in (settings.get("subreddits") or "").split(",") if x.strip()]
 		results = []
 		for sub_name in subreddits:
 			sub = reddit.subreddit(sub_name)
-			for submission in sub.new(limit=limit):
+			for submission in sub.hot(limit=limit):
 				try:
 					created = datetime.utcfromtimestamp(float(getattr(submission, "created_utc", 0)))
 					if created < since_utc:
 						continue
 					title = (getattr(submission, "title", "") or "").strip()
 					selftext = (getattr(submission, "selftext", "") or "").strip()
-					if _reddit_comment_matches(title, phrases) or _reddit_comment_matches(selftext, phrases):
+					post_phrase = _reddit_match_phrase(f"{title}\n{selftext}", context_keywords, intent_keywords, require_intent)
+					if post_phrase:
 						results.append({
 							"created_at": created.strftime("%Y-%m-%d %H:%M:%S UTC"),
 							"subreddit": sub_name,
 							"author": getattr(getattr(submission, "author", None), "name", "[deleted]"),
+							"item_type": "post",
+							"matched_phrase": post_phrase,
 							"body": f"POST: {title[:260]}",
 							"url": f"https://reddit.com{submission.permalink}",
 						})
@@ -767,11 +951,14 @@ def reddit_backfill():
 						if c_created < since_utc:
 							continue
 						body = (getattr(comment, "body", "") or "").strip()
-						if _reddit_comment_matches(body, phrases):
+						comment_phrase = _reddit_match_phrase(body, context_keywords, intent_keywords, require_intent)
+						if comment_phrase:
 							results.append({
 								"created_at": c_created.strftime("%Y-%m-%d %H:%M:%S UTC"),
 								"subreddit": sub_name,
 								"author": getattr(getattr(comment, "author", None), "name", "[deleted]"),
+								"item_type": "comment",
+								"matched_phrase": comment_phrase,
 								"body": body[:320],
 								"url": f"https://reddit.com{comment.permalink}",
 							})

@@ -5,7 +5,7 @@
 <div class="space-y-6">
 	<div>
 		<h1 class="text-2xl font-bold">Reddit</h1>
-		<p class="text-gray-400 text-sm mt-1">Configure PRAW-style polling for comments that indicate shirt-buying intent (e.g. “put it on a shirt”).</p>
+		<p class="text-gray-400 text-sm mt-1">Configure a context + intent lead engine (shirt context plus optional buyer intent), with live comment/post watching and email alerts.</p>
 	</div>
 
 	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
@@ -59,16 +59,31 @@
 				<label class="block text-sm text-gray-300 mb-1">Backfill max posts/subreddit</label>
 				<input type="number" min="10" max="500" name="backfill_limit_per_subreddit" value="{{ settings.backfill_limit_per_subreddit }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
 			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Live post scan limit/subreddit/cycle</label>
+				<input type="number" min="5" max="100" name="live_post_scan_limit_per_subreddit" value="{{ settings.live_post_scan_limit_per_subreddit }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
 
 			<div>
 				<label class="block text-sm text-gray-300 mb-1">Subreddits (comma-separated)</label>
 				<input type="text" name="subreddits" value="{{ settings.subreddits }}" placeholder="funny,memes,me_irl,dankmemes,starterpacks,wholesomememes,Unexpected,blursedimages,funnyvideos,interestingasfuck" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
 			</div>
 
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" name="require_intent" {% if settings.require_intent %}checked{% endif %}>
+				<span>Require intent phrase (if off: context-only matching)</span>
+			</label>
+
 			<div>
-				<label class="block text-sm text-gray-300 mb-1">Target phrases (one per line)</label>
-				<textarea name="target_phrases" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.target_phrases }}</textarea>
-				<p class="text-xs text-gray-500 mt-1">These phrases are used to flag comments that could convert into shirt traffic/sales.</p>
+				<label class="block text-sm text-gray-300 mb-1">Context keywords (one per line)</label>
+				<textarea name="context_keywords" rows="6" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.context_keywords }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">Step 1 filter: detect shirt/apparel context.</p>
+			</div>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Intent keywords (one per line)</label>
+				<textarea name="intent_keywords" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.intent_keywords }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">Step 2 filter: buying intent phrases. Used only if “Require intent phrase” is enabled.</p>
 			</div>
 
 			<div class="flex flex-wrap gap-2">
@@ -77,75 +92,169 @@
 		</form>
 	</div>
 
-	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
-		<h2 class="text-lg font-semibold">Incoming Watcher Status</h2>
-		<div class="text-sm text-gray-300 space-y-1">
-			<div><span class="text-gray-500">Running:</span> {{ 'Yes' if monitor_state.running else 'No' }}</div>
-			<div><span class="text-gray-500">Thread started:</span> {{ monitor_state.thread_started_at or '—' }}</div>
-			<div><span class="text-gray-500">Last seen comment:</span> {{ monitor_state.last_seen_at or '—' }}</div>
-			<div><span class="text-gray-500">Last error:</span> {{ monitor_state.last_error or 'None' }}</div>
-		</div>
-		{% if monitor_state.matches %}
-		<div class="pt-2">
-			<div class="font-medium text-sm mb-2">Recent incoming matches</div>
-			<div class="space-y-2 max-h-64 overflow-auto">
-				{% for m in monitor_state.matches[-15:]|reverse %}
-				<div class="text-xs border border-gray-800 rounded p-2">
-					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
-					<div class="text-gray-200 mt-1">{{ m.body }}</div>
-					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
-				</div>
-				{% endfor %}
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-4">
+		<h2 class="text-lg font-semibold">Live Monitor Control Center</h2>
+		<p class="text-sm text-gray-400">Use this like a live listener panel: start/stop the watcher, run a historical sweep, and watch events in near real-time.</p>
+		<div class="grid md:grid-cols-4 gap-3 text-sm">
+			<div class="border border-gray-800 rounded p-3">
+				<div class="text-gray-500">Watcher status</div>
+				<div id="status-running" class="font-semibold mt-1">{{ 'Running' if monitor_state.running else 'Stopped' }}</div>
+			</div>
+			<div class="border border-gray-800 rounded p-3">
+				<div class="text-gray-500">Thread started</div>
+				<div id="status-thread" class="font-semibold mt-1">{{ monitor_state.thread_started_at or '—' }}</div>
+			</div>
+			<div class="border border-gray-800 rounded p-3">
+				<div class="text-gray-500">Last seen activity</div>
+				<div id="status-seen" class="font-semibold mt-1">{{ monitor_state.last_seen_at or '—' }}</div>
+			</div>
+			<div class="border border-gray-800 rounded p-3">
+				<div class="text-gray-500">Last error</div>
+				<div id="status-error" class="font-semibold mt-1">{{ monitor_state.last_error or 'None' }}</div>
 			</div>
 		</div>
-		{% endif %}
-	</div>
-
-	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
-		<h2 class="text-lg font-semibold">Historical Backfill</h2>
-		<p class="text-sm text-gray-400">Scans backward from now (today) through recent posts and comments for your target phrases.</p>
-		<form method="post" action="{{ url_for('admin.reddit_backfill') }}">
-			<button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700">Run Backfill Now</button>
-		</form>
-		{% if monitor_state.backfill_matches %}
-		<div class="pt-2">
-			<div class="font-medium text-sm mb-2">Backfill matches</div>
-			<div class="space-y-2 max-h-72 overflow-auto">
-				{% for m in monitor_state.backfill_matches[:50] %}
-				<div class="text-xs border border-gray-800 rounded p-2">
-					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
-					<div class="text-gray-200 mt-1">{{ m.body }}</div>
-					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
-				</div>
-				{% endfor %}
-			</div>
+		<div class="flex flex-wrap gap-2">
+			<button type="button" id="start-monitor-btn" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700">Start Live Monitor</button>
+			<button type="button" id="stop-monitor-btn" class="bg-red-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-red-700">Stop Live Monitor</button>
+			<form method="post" action="{{ url_for('admin.reddit_backfill') }}">
+				<button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700">Run Historical Sweep</button>
+			</form>
+			<form method="post" action="{{ url_for('admin.reddit_poll_now') }}">
+				<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Run Engine Self-Test</button>
+			</form>
 		</div>
-		{% endif %}
-	</div>
-
-	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
-		<h2 class="text-lg font-semibold">Manual Poll Test</h2>
-		<p class="text-sm text-gray-400">Runs a local phrase-match test now. This is a safe placeholder until PRAW credentials and live polling are wired in.</p>
-		<form method="post" action="{{ url_for('admin.reddit_poll_now') }}">
-			<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Run Poll Test</button>
-		</form>
 		{% if settings.last_poll_at %}
-			<div class="text-sm text-gray-300">
-				<div><span class="text-gray-500">Last run:</span> {{ settings.last_poll_at }}</div>
-				<div><span class="text-gray-500">Result:</span> {{ settings.last_poll_result }}</div>
-			</div>
+		<div class="text-xs text-gray-400">
+			<div>Self-test last run: {{ settings.last_poll_at }}</div>
+			<div>Self-test result: {{ settings.last_poll_result }}</div>
+		</div>
 		{% endif %}
 	</div>
 
-	{% if monitor_state.events %}
-	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-2">
-		<h2 class="text-lg font-semibold">Watcher Event Log</h2>
-		<div class="text-xs text-gray-300 max-h-56 overflow-auto space-y-1">
-			{% for event in monitor_state.events[-30:]|reverse %}
-			<div class="border border-gray-800 rounded px-2 py-1">{{ event }}</div>
+	<div class="grid lg:grid-cols-2 gap-6">
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+			<h2 class="text-lg font-semibold">Live Match Feed</h2>
+			<p class="text-sm text-gray-400">Newest matches from comments/posts. Auto-refreshes every 10 seconds.</p>
+			<div id="live-match-feed" class="space-y-2 max-h-[28rem] overflow-auto">
+				{% for m in monitor_state.matches[-20:]|reverse %}
+				<div class="text-xs border border-gray-800 rounded p-2">
+					<div class="text-gray-400">{{ m.created_at }} · {{ m.item_type|default('comment')|upper }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-green-300 mt-1">Matched: {{ m.matched_phrase or 'context_match' }}</div>
+					<div class="text-gray-200 mt-1">{{ m.body }}</div>
+					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
+				</div>
+				{% else %}
+				<div class="text-sm text-gray-500">No live matches yet.</div>
+				{% endfor %}
+			</div>
+		</div>
+
+		<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+			<h2 class="text-lg font-semibold">Watcher Log Console</h2>
+			<p class="text-sm text-gray-400">Operational log stream (starts, stops, alerts, failures).</p>
+			<div id="watcher-event-log" class="text-xs text-gray-300 max-h-[28rem] overflow-auto space-y-1">
+				{% for event in monitor_state.events[-50:]|reverse %}
+				<div class="border border-gray-800 rounded px-2 py-1">{{ event }}</div>
+				{% else %}
+				<div class="text-sm text-gray-500">No log events yet.</div>
+				{% endfor %}
+			</div>
+		</div>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Historical Discovery Insights</h2>
+		<p class="text-sm text-gray-400">Results from the latest historical sweep to help identify where the best lead signals are coming from.</p>
+		<div class="text-sm text-gray-300">
+			Latest saved sweep matches: <span id="backfill-count" class="font-semibold">{{ monitor_state.backfill_matches|length }}</span>
+		</div>
+		<div id="backfill-feed" class="space-y-2 max-h-72 overflow-auto">
+			{% for m in monitor_state.backfill_matches[:50] %}
+			<div class="text-xs border border-gray-800 rounded p-2">
+				<div class="text-gray-400">{{ m.created_at }} · {{ m.item_type|default('comment')|upper }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+				<div class="text-green-300 mt-1">Matched: {{ m.matched_phrase or 'context_match' }}</div>
+				<div class="text-gray-200 mt-1">{{ m.body }}</div>
+				<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
+			</div>
+			{% else %}
+			<div class="text-sm text-gray-500">No historical sweep results yet.</div>
 			{% endfor %}
 		</div>
 	</div>
-	{% endif %}
 </div>
+
+<script>
+	function escapeHtml(text) {
+		return String(text || "")
+			.replaceAll("&", "&amp;")
+			.replaceAll("<", "&lt;")
+			.replaceAll(">", "&gt;");
+	}
+
+	function renderMatchCard(m) {
+		const created = escapeHtml(m.created_at || "");
+		const type = escapeHtml((m.item_type || "comment").toUpperCase());
+		const sub = escapeHtml(m.subreddit || "");
+		const author = escapeHtml(m.author || "");
+		const phrase = escapeHtml(m.matched_phrase || "context_match");
+		const body = escapeHtml(m.body || "");
+		const url = escapeHtml(m.url || "#");
+		return `
+			<div class="text-xs border border-gray-800 rounded p-2">
+				<div class="text-gray-400">${created} · ${type} · r/${sub} · u/${author}</div>
+				<div class="text-green-300 mt-1">Matched: ${phrase}</div>
+				<div class="text-gray-200 mt-1">${body}</div>
+				<a class="text-blue-400 hover:underline" href="${url}" target="_blank" rel="noopener">Open link</a>
+			</div>
+		`;
+	}
+
+	async function refreshRedditState() {
+		try {
+			const resp = await fetch("{{ url_for('admin.reddit_state') }}", { credentials: "same-origin" });
+			if (!resp.ok) return;
+			const state = await resp.json();
+			document.getElementById("status-running").textContent = state.running ? "Running" : "Stopped";
+			document.getElementById("status-thread").textContent = state.thread_started_at || "—";
+			document.getElementById("status-seen").textContent = state.last_seen_at || "—";
+			document.getElementById("status-error").textContent = state.last_error || "None";
+			document.getElementById("backfill-count").textContent = (state.backfill_matches || []).length;
+
+			const matchFeed = document.getElementById("live-match-feed");
+			const matches = (state.matches || []).slice(-20).reverse();
+			matchFeed.innerHTML = matches.length ? matches.map(renderMatchCard).join("") : '<div class="text-sm text-gray-500">No live matches yet.</div>';
+
+			const eventLog = document.getElementById("watcher-event-log");
+			const events = (state.events || []).slice(-50).reverse();
+			eventLog.innerHTML = events.length
+				? events.map((e) => `<div class="border border-gray-800 rounded px-2 py-1">${escapeHtml(e)}</div>`).join("")
+				: '<div class="text-sm text-gray-500">No log events yet.</div>';
+
+			const backfillFeed = document.getElementById("backfill-feed");
+			const backfillMatches = (state.backfill_matches || []).slice(0, 50);
+			backfillFeed.innerHTML = backfillMatches.length
+				? backfillMatches.map(renderMatchCard).join("")
+				: '<div class="text-sm text-gray-500">No historical sweep results yet.</div>';
+		} catch (_e) {
+			// best-effort refresh
+		}
+	}
+
+	async function monitorControl(action) {
+		const form = new FormData();
+		form.set("action", action);
+		const resp = await fetch("{{ url_for('admin.reddit_monitor_control') }}", {
+			method: "POST",
+			body: form,
+			credentials: "same-origin",
+		});
+		if (resp.ok) {
+			await refreshRedditState();
+		}
+	}
+
+	document.getElementById("start-monitor-btn")?.addEventListener("click", () => monitorControl("start"));
+	document.getElementById("stop-monitor-btn")?.addEventListener("click", () => monitorControl("stop"));
+	setInterval(refreshRedditState, 10000);
+</script>
 {% endblock %}
