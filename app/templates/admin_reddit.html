@@ -51,6 +51,14 @@
 				<label class="block text-sm text-gray-300 mb-1">Poll every (seconds)</label>
 				<input type="number" min="30" max="3600" name="poll_seconds" value="{{ settings.poll_seconds }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
 			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Backfill lookback (days)</label>
+				<input type="number" min="1" max="365" name="backfill_days" value="{{ settings.backfill_days }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Backfill max posts/subreddit</label>
+				<input type="number" min="10" max="500" name="backfill_limit_per_subreddit" value="{{ settings.backfill_limit_per_subreddit }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
 
 			<div>
 				<label class="block text-sm text-gray-300 mb-1">Subreddits (comma-separated)</label>
@@ -70,6 +78,52 @@
 	</div>
 
 	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Incoming Watcher Status</h2>
+		<div class="text-sm text-gray-300 space-y-1">
+			<div><span class="text-gray-500">Running:</span> {{ 'Yes' if monitor_state.running else 'No' }}</div>
+			<div><span class="text-gray-500">Thread started:</span> {{ monitor_state.thread_started_at or '—' }}</div>
+			<div><span class="text-gray-500">Last seen comment:</span> {{ monitor_state.last_seen_at or '—' }}</div>
+			<div><span class="text-gray-500">Last error:</span> {{ monitor_state.last_error or 'None' }}</div>
+		</div>
+		{% if monitor_state.matches %}
+		<div class="pt-2">
+			<div class="font-medium text-sm mb-2">Recent incoming matches</div>
+			<div class="space-y-2 max-h-64 overflow-auto">
+				{% for m in monitor_state.matches[-15:]|reverse %}
+				<div class="text-xs border border-gray-800 rounded p-2">
+					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-gray-200 mt-1">{{ m.body }}</div>
+					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+		{% endif %}
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Historical Backfill</h2>
+		<p class="text-sm text-gray-400">Scans backward from now (today) through recent posts and comments for your target phrases.</p>
+		<form method="post" action="{{ url_for('admin.reddit_backfill') }}">
+			<button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700">Run Backfill Now</button>
+		</form>
+		{% if monitor_state.backfill_matches %}
+		<div class="pt-2">
+			<div class="font-medium text-sm mb-2">Backfill matches</div>
+			<div class="space-y-2 max-h-72 overflow-auto">
+				{% for m in monitor_state.backfill_matches[:50] %}
+				<div class="text-xs border border-gray-800 rounded p-2">
+					<div class="text-gray-400">{{ m.created_at }} · r/{{ m.subreddit }} · u/{{ m.author }}</div>
+					<div class="text-gray-200 mt-1">{{ m.body }}</div>
+					<a class="text-blue-400 hover:underline" href="{{ m.url }}" target="_blank" rel="noopener">Open link</a>
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+		{% endif %}
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
 		<h2 class="text-lg font-semibold">Manual Poll Test</h2>
 		<p class="text-sm text-gray-400">Runs a local phrase-match test now. This is a safe placeholder until PRAW credentials and live polling are wired in.</p>
 		<form method="post" action="{{ url_for('admin.reddit_poll_now') }}">
@@ -82,5 +136,16 @@
 			</div>
 		{% endif %}
 	</div>
+
+	{% if monitor_state.events %}
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-2">
+		<h2 class="text-lg font-semibold">Watcher Event Log</h2>
+		<div class="text-xs text-gray-300 max-h-56 overflow-auto space-y-1">
+			{% for event in monitor_state.events[-30:]|reverse %}
+			<div class="border border-gray-800 rounded px-2 py-1">{{ event }}</div>
+			{% endfor %}
+		</div>
+	</div>
+	{% endif %}
 </div>
 {% endblock %}
