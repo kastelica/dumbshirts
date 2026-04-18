@@ -107,7 +107,7 @@ def _default_reddit_settings() -> dict:
 	return {
 		"enabled": False,
 		"poll_seconds": 180,
-		"subreddits": "funny,memes,designporn",
+		"subreddits": "funny,memes,me_irl,dankmemes,starterpacks,wholesomememes,Unexpected,blursedimages,funnyvideos,interestingasfuck",
 		"backfill_days": 1,
 		"backfill_limit_per_subreddit": 50,
 		"reddit_client_id": "",
@@ -223,7 +223,10 @@ def _reddit_comment_payload(comment, subreddit_name: str) -> dict:
 
 
 def _build_reddit_client(creds: dict):
-	import praw
+	try:
+		import praw
+	except ImportError as e:
+		raise RuntimeError("praw is not installed. Add `praw` to requirements and redeploy.") from e
 	username = (creds.get("reddit_username") or "").strip()
 	password = (creds.get("reddit_password") or "").strip()
 	if username and password:
