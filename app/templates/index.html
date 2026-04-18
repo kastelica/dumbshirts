@@ -58,6 +58,58 @@
 	</div>
 </section>
 
+{# Hero section - shown on mobile only, above product grid #}
+<section class="md:hidden py-6">
+	<div class="text-center">
+		<h1 class="text-3xl font-extrabold tracking-tight">Roast Cotton</h1>
+		<p class="text-gray-300 mt-3">Wear the roast. Keep it cotton. New products every day.</p>
+		<div class="mt-6 flex items-center justify-center gap-3">
+			<a href="/shop" class="bg-white text-black px-5 py-2 rounded">Shop now</a>
+			<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
+		</div>
+	</div>
+	{% if hero_products and hero_products|length > 0 %}
+	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
+		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
+			style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
+			{% for p in hero_products %}
+			<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
+				class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
+				style="width: {{ 100 / hero_products|length }}%;">
+				{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
+				{% if design_img %}
+				<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
+					loading="lazy" />
+				{% else %}
+				<span class="text-gray-600 text-sm">No image</span>
+				{% endif %}
+			</a>
+			{% endfor %}
+		</div>
+		{% if hero_products|length > 1 %}
+		<button id="hero-slide-prev-mobile"
+			class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
+			aria-label="Previous slide">‹</button>
+		<button id="hero-slide-next-mobile"
+			class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
+			aria-label="Next slide">›</button>
+		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+			{% for p in hero_products %}
+			<button
+				class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
+				data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
+			{% endfor %}
+		</div>
+		{% endif %}
+	</div>
+	{% else %}
+	<div
+		class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
+		<span class="text-gray-600 text-sm">No products available</span>
+	</div>
+	{% endif %}
+</section>
+
 <section class="mt-4 flex items-center justify-between">
 	<h2 class="text-xl font-semibold">T-Shirts</h2>
 	<a href="/shop" class="text-sm underline text-gray-300">View all</a>
@@ -183,57 +235,6 @@
 </div>
 {% endif %}
 
-{# Hero section - shown on mobile only, below product grid #}
-<section class="md:hidden py-8 mt-8">
-	<div class="text-center">
-		<h1 class="text-3xl font-extrabold tracking-tight">Roast Cotton</h1>
-		<p class="text-gray-300 mt-3">Wear the roast. Keep it cotton. New products every day.</p>
-		<div class="mt-6 flex items-center justify-center gap-3">
-			<a href="/shop" class="bg-white text-black px-5 py-2 rounded">Shop now</a>
-			<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
-		</div>
-	</div>
-	{% if hero_products and hero_products|length > 0 %}
-	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
-		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
-			style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
-			{% for p in hero_products %}
-			<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
-				class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
-				style="width: {{ 100 / hero_products|length }}%;">
-				{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
-				{% if design_img %}
-				<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
-					loading="lazy" />
-				{% else %}
-				<span class="text-gray-600 text-sm">No image</span>
-				{% endif %}
-			</a>
-			{% endfor %}
-		</div>
-		{% if hero_products|length > 1 %}
-		<button id="hero-slide-prev-mobile"
-			class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
-			aria-label="Previous slide">‹</button>
-		<button id="hero-slide-next-mobile"
-			class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
-			aria-label="Next slide">›</button>
-		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-			{% for p in hero_products %}
-			<button
-				class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
-				data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
-			{% endfor %}
-		</div>
-		{% endif %}
-	</div>
-	{% else %}
-	<div
-		class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
-		<span class="text-gray-600 text-sm">No products available</span>
-	</div>
-	{% endif %}
-</section>
 {% endblock %}
 
 {% block head %}
