@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% block title %}Ad Center | Roast Cotton Admin{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+	<div class="mb-6">
+		<h1 class="text-3xl font-bold">Ad Center</h1>
+		<p class="text-gray-400 mt-2">Generate lifestyle ad creatives from catalog products. Next step: platform integrations (Meta/Google).</p>
+	</div>
+
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<div class="bg-gray-900 border border-gray-800 rounded p-5 space-y-4">
+			<h2 class="text-xl font-semibold">Creative Generator (OpenAI)</h2>
+				<div>
+					<label class="block text-sm mb-1">Catalog Product</label>
+					<select id="ad-product" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="">Select a product…</option>
+					{% for p in products %}
+						<option value="{{ p.id }}">#{{ p.id }} — {{ p.title }}</option>
+						{% endfor %}
+					</select>
+					<div id="ad-source-info" class="mt-2 text-xs text-gray-400 hidden">
+						<div>Using design for generation: <span id="ad-source-text" class="text-gray-300"></span></div>
+						<div class="mt-2 w-24 h-24 bg-gray-950 border border-gray-700 rounded overflow-hidden">
+							<img id="ad-source-preview" src="" alt="Selected product design source" class="w-full h-full object-cover hidden" />
+							<div id="ad-source-empty" class="w-full h-full flex items-center justify-center text-[10px] text-gray-500">No source</div>
+						</div>
+					</div>
+				</div>
+			<div>
+				<label class="block text-sm mb-1">Headline Overlay</label>
+				<input id="ad-headline" type="text" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Limited Drop: Internet Classics" />
+			</div>
+			<div>
+				<label class="block text-sm mb-1">CTA Overlay</label>
+				<input id="ad-cta" type="text" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" value="Shop Now" />
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Audience Preset</label>
+				<select id="ad-audience-preset" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="Gen Z and millennial meme culture shoppers" selected>Gen Z / Millennial Meme Shoppers</option>
+					<option value="college students and festival-goers">College + Festival Crowd</option>
+					<option value="streetwear and sneaker culture buyers">Streetwear / Sneaker Culture</option>
+					<option value="gift shoppers looking for funny t-shirts">Gift Buyers (Funny Tees)</option>
+					<option value="pop-culture and internet trend fans">Pop Culture / Internet Trend Fans</option>
+					<option value="__custom__">Custom Audience…</option>
+					<option value="__none__">No Specific Audience</option>
+				</select>
+				<input id="ad-audience-custom" type="text" class="hidden mt-2 w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Describe custom audience" />
+			</div>
+				<div>
+					<label class="block text-sm mb-1">Scene Preset</label>
+					<select id="ad-scene-preset" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="Streetwear lifestyle scene, modern city background, energetic mood, premium ad composition." selected>Urban Streetwear (City)</option>
+					<option value="Golden hour boardwalk shoot, candid motion blur, upbeat summer vibe.">Boardwalk / Summer</option>
+					<option value="Music festival crowd scene, colorful lighting, energetic editorial style.">Festival Crowd</option>
+					<option value="Studio lifestyle lookbook, clean backdrop, crisp product-forward lighting.">Studio Lookbook</option>
+					<option value="Coffee shop casual scene, natural daylight, everyday wearable styling.">Casual Everyday</option>
+					<option value="__custom__">Custom Scene…</option>
+						<option value="__none__">No Specific Scene</option>
+					</select>
+					<input id="ad-scene-custom" type="text" class="hidden mt-2 w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Describe custom scene" />
+				</div>
+			<div>
+				<label class="block text-sm mb-1">Extra Scene Direction (optional)</label>
+				<textarea id="ad-scene-extra" rows="2" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2" placeholder="Any extra shot direction…"></textarea>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Shirt Colors to Include</label>
+				<div class="grid grid-cols-2 gap-2 text-sm">
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="black" checked> Black</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="white" checked> White</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="heather gray" checked> Heather Gray</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="navy"> Navy</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="red"> Red</label>
+					<label class="inline-flex items-center gap-2"><input type="checkbox" class="ad-color" value="blue"> Blue</label>
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<input id="ad-include-overlay" type="checkbox" checked class="h-4 w-4">
+				<label for="ad-include-overlay" class="text-sm">Include headline + CTA text overlay</label>
+			</div>
+			<div>
+				<label class="block text-sm mb-1">Output Size</label>
+				<select id="ad-size" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+					<option value="1536x1024" selected>Landscape (1536x1024)</option>
+					<option value="1024x1536">Portrait (1024x1536)</option>
+					<option value="1024x1024">Square (1024x1024)</option>
+					<option value="auto">Auto</option>
+				</select>
+			</div>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+				<div>
+					<label class="block text-sm mb-1">Quality</label>
+					<select id="ad-quality" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+						<option value="auto" selected>Auto</option>
+						<option value="low">Low</option>
+						<option value="medium">Medium</option>
+						<option value="high">High</option>
+					</select>
+				</div>
+					<div>
+						<label class="block text-sm mb-1">Background</label>
+						<select id="ad-background" class="w-full bg-gray-950 border border-gray-700 rounded px-3 py-2">
+							<option value="auto" selected>Auto</option>
+							<option value="transparent">Transparent</option>
+							<option value="opaque">Opaque</option>
+						</select>
+					</div>
+				</div>
+				<div class="flex items-center gap-3">
+					<button id="ad-generate-btn" class="bg-white text-black px-4 py-2 rounded font-semibold hover:bg-gray-100">Generate Creative</button>
+					<span id="ad-status" class="text-sm text-gray-400"></span>
+				</div>
+				<div class="flex flex-wrap items-center gap-3 text-sm">
+					<label class="inline-flex items-center gap-2">
+						<input id="ad-save-to-product" type="checkbox" checked class="h-4 w-4">
+						<span>Save output to product as additional image</span>
+					</label>
+					<select id="ad-save-slot" class="bg-gray-950 border border-gray-700 rounded px-2 py-1">
+						<option value="next" selected>Auto slot (extra1 then extra2)</option>
+						<option value="extra1">Force extra image 1</option>
+						<option value="extra2">Force extra image 2</option>
+					</select>
+				</div>
+			</div>
+
+		<div class="bg-gray-900 border border-gray-800 rounded p-5">
+			<h2 class="text-xl font-semibold mb-3">Output</h2>
+			<div id="ad-preview-wrap" class="bg-gray-950 border border-gray-700 rounded min-h-[360px] flex items-center justify-center p-3">
+				<div id="ad-empty" class="text-gray-500 text-sm">Generated creative will appear here.</div>
+				<img id="ad-preview" src="" alt="Generated ad creative" class="hidden max-w-full h-auto rounded border border-gray-700" />
+			</div>
+				<div id="ad-links" class="hidden mt-3 space-y-1 text-sm">
+					<a id="ad-open-link" href="#" target="_blank" class="underline text-blue-400">Open image in new tab</a>
+					<button id="ad-save-btn" class="block mt-2 bg-gray-100 text-black px-3 py-1 rounded text-sm">Save as Additional Image</button>
+					<a id="ad-edit-product-link" href="#" class="hidden underline text-blue-400">Open product edit page</a>
+				</div>
+			<details class="mt-4">
+				<summary class="cursor-pointer text-sm text-gray-300">Show generated prompt</summary>
+				<pre id="ad-prompt" class="mt-2 text-xs text-gray-400 whitespace-pre-wrap bg-gray-950 border border-gray-800 rounded p-3"></pre>
+			</details>
+		</div>
+	</div>
+</div>
+
+<script>
+(function(){
+	const productEl = document.getElementById('ad-product');
+	const sourceInfoEl = document.getElementById('ad-source-info');
+	const sourceTextEl = document.getElementById('ad-source-text');
+	const sourcePreviewEl = document.getElementById('ad-source-preview');
+	const sourceEmptyEl = document.getElementById('ad-source-empty');
+	const headlineEl = document.getElementById('ad-headline');
+	const ctaEl = document.getElementById('ad-cta');
+	const audiencePresetEl = document.getElementById('ad-audience-preset');
+	const audienceCustomEl = document.getElementById('ad-audience-custom');
+	const scenePresetEl = document.getElementById('ad-scene-preset');
+	const sceneCustomEl = document.getElementById('ad-scene-custom');
+	const sceneExtraEl = document.getElementById('ad-scene-extra');
+	const sizeEl = document.getElementById('ad-size');
+	const qualityEl = document.getElementById('ad-quality');
+	const backgroundEl = document.getElementById('ad-background');
+	const includeOverlayEl = document.getElementById('ad-include-overlay');
+	const btn = document.getElementById('ad-generate-btn');
+	const statusEl = document.getElementById('ad-status');
+	const preview = document.getElementById('ad-preview');
+	const empty = document.getElementById('ad-empty');
+	const links = document.getElementById('ad-links');
+	const openLink = document.getElementById('ad-open-link');
+	const saveBtn = document.getElementById('ad-save-btn');
+	const editProductLink = document.getElementById('ad-edit-product-link');
+	const saveToProductEl = document.getElementById('ad-save-to-product');
+	const saveSlotEl = document.getElementById('ad-save-slot');
+	const promptPre = document.getElementById('ad-prompt');
+
+	let pollTimer = null;
+	let pollAttempts = 0;
+	const maxPollAttempts = 120; // ~4 minutes at 2s interval
+	let currentJobId = '';
+	let currentProductId = '';
+	let selectedSourceDesignUrl = '';
+	let selectedSourceMockupUrl = '';
+	let selectedDesignId = '';
+
+	function resolvePresetValue(selectEl, customEl){
+		const v = (selectEl?.value || '').trim();
+		if (v === '__none__') return '';
+		if (v === '__custom__') return (customEl?.value || '').trim();
+		return v;
+	}
+
+	function toggleCustomInputs(){
+		if (audienceCustomEl) {
+			audienceCustomEl.classList.toggle('hidden', (audiencePresetEl?.value || '') !== '__custom__');
+		}
+		if (sceneCustomEl) {
+			sceneCustomEl.classList.toggle('hidden', (scenePresetEl?.value || '') !== '__custom__');
+		}
+	}
+	audiencePresetEl?.addEventListener('change', toggleCustomInputs);
+	scenePresetEl?.addEventListener('change', toggleCustomInputs);
+	toggleCustomInputs();
+
+	function setStatus(msg, err){
+		if (!statusEl) return;
+		statusEl.textContent = msg || '';
+		statusEl.className = 'text-sm ' + (err ? 'text-red-400' : 'text-gray-400');
+	}
+
+	async function refreshSelectedProductSource(){
+		const productId = (productEl?.value || '').trim();
+		selectedSourceDesignUrl = '';
+		selectedSourceMockupUrl = '';
+		selectedDesignId = '';
+		if (!productId){
+			sourceInfoEl?.classList.add('hidden');
+			return;
+		}
+		try{
+			const r = await fetch(`/admin/ad-center/product-source/${encodeURIComponent(productId)}`);
+			const data = await r.json();
+			if (!r.ok || !data.ok){
+				sourceInfoEl?.classList.add('hidden');
+				setStatus(data.error || 'Failed to load selected product source image', true);
+				return;
+			}
+			selectedSourceDesignUrl = data.source_design_url || '';
+			selectedSourceMockupUrl = data.source_mockup_url || '';
+			selectedDesignId = String(data.design_id || '');
+			if (sourceTextEl){
+				sourceTextEl.textContent = `Product #${data.product_id} · Design #${selectedDesignId || 'N/A'}`;
+			}
+			if (sourcePreviewEl){
+				sourcePreviewEl.src = selectedSourceDesignUrl || selectedSourceMockupUrl || '';
+				sourcePreviewEl.classList.toggle('hidden', !sourcePreviewEl.src);
+			}
+			if (sourceEmptyEl){
+				sourceEmptyEl.classList.toggle('hidden', !!(sourcePreviewEl && sourcePreviewEl.src));
+			}
+			sourceInfoEl?.classList.remove('hidden');
+		}catch(_e){
+			sourceInfoEl?.classList.add('hidden');
+			setStatus('Failed to verify selected product source image', true);
+		}
+	}
+
+	async function saveGeneratedToAdditional(autoTriggered){
+		if (!currentJobId){
+			setStatus('No generated creative to save yet.', true);
+			return;
+		}
+		const slot = (saveSlotEl?.value || 'next').trim();
+		if (saveBtn) saveBtn.disabled = true;
+		setStatus(autoTriggered ? 'Saving to product additional image…' : 'Saving…');
+		try{
+			const r = await fetch('/admin/ad-center/save-additional-image', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ job_id: currentJobId, slot })
+			});
+			const data = await r.json();
+			if (!r.ok || !data.ok){
+				setStatus(data.error || 'Failed to save additional image', true);
+				return;
+			}
+			setStatus(`Saved to ${data.slot}.`);
+			if (editProductLink){
+				editProductLink.href = data.edit_url || `/admin/products/${data.product_id}/edit`;
+				editProductLink.classList.remove('hidden');
+			}
+		}catch(e){
+			setStatus('Network error while saving additional image', true);
+		} finally {
+			if (saveBtn) saveBtn.disabled = false;
+		}
+	}
+
+	function startPoll(jobId, productId){
+		if (pollTimer) clearInterval(pollTimer);
+		currentJobId = jobId;
+		currentProductId = String(productId || '');
+		pollAttempts = 0;
+		pollTimer = setInterval(async function(){
+			pollAttempts += 1;
+			if (pollAttempts > maxPollAttempts){
+				setStatus('Timed out waiting for generation. Please try again.', true);
+				clearInterval(pollTimer);
+				btn.disabled = false;
+				return;
+			}
+			try{
+				const r = await fetch(`/admin/ad-center/generate-status/${encodeURIComponent(jobId)}`);
+				const data = await r.json();
+				if (!r.ok){
+					setStatus(data.error || 'Status check failed', true);
+					clearInterval(pollTimer);
+					return;
+				}
+				promptPre.textContent = data.prompt || '';
+					if (data.status === 'done' && data.url){
+						preview.src = data.url;
+					preview.classList.remove('hidden');
+					empty.classList.add('hidden');
+					openLink.href = data.url;
+						links.classList.remove('hidden');
+						setStatus('Done');
+						clearInterval(pollTimer);
+						btn.disabled = false;
+						if (saveBtn) saveBtn.disabled = false;
+						if (saveToProductEl?.checked){
+							await saveGeneratedToAdditional(true);
+						}
+					} else if (data.status === 'error'){
+					setStatus(data.error || 'Generation failed', true);
+					clearInterval(pollTimer);
+					btn.disabled = false;
+				} else if (data.status !== 'running'){
+					setStatus(`Unexpected job status: ${data.status || 'unknown'}`, true);
+					clearInterval(pollTimer);
+					btn.disabled = false;
+				} else {
+					setStatus('Generating…');
+				}
+			}catch(e){
+				setStatus('Network error while polling status', true);
+				clearInterval(pollTimer);
+				btn.disabled = false;
+			}
+		}, 2000);
+	}
+
+		btn?.addEventListener('click', async function(){
+		const productId = (productEl?.value || '').trim();
+		if (!productId){
+			setStatus('Please choose a product first.', true);
+			return;
+		}
+		btn.disabled = true;
+		setStatus('Starting generation…');
+			preview.classList.add('hidden');
+			empty.classList.remove('hidden');
+			links.classList.add('hidden');
+			editProductLink?.classList.add('hidden');
+			promptPre.textContent = '';
+			currentJobId = '';
+			currentProductId = String(productId || '');
+			await refreshSelectedProductSource();
+			if (!selectedSourceDesignUrl){
+				setStatus('No valid source image found for selected product.', true);
+				btn.disabled = false;
+				return;
+			}
+
+				try{
+				const selectedColors = Array.from(document.querySelectorAll('.ad-color:checked')).map(function(el){ return el.value; });
+				const baseScene = resolvePresetValue(scenePresetEl, sceneCustomEl);
+				const sceneCombined = [baseScene, (sceneExtraEl?.value || '').trim()].filter(Boolean).join(' ');
+				const audienceValue = resolvePresetValue(audiencePresetEl, audienceCustomEl);
+				const res = await fetch('/admin/ad-center/generate-lifestyle', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						product_id: parseInt(productId, 10),
+						headline: (headlineEl?.value || '').trim(),
+						cta_text: (ctaEl?.value || '').trim(),
+						audience: audienceValue,
+						scene: sceneCombined,
+						shirt_colors: selectedColors,
+						include_overlay: !!includeOverlayEl?.checked,
+							size: (sizeEl?.value || '1536x1024').trim(),
+							quality: (qualityEl?.value || 'auto').trim(),
+							background: (backgroundEl?.value || 'auto').trim(),
+							previous_image_id: '',
+							source_design_url: selectedSourceDesignUrl,
+							source_mockup_url: selectedSourceMockupUrl
+						})
+					});
+				const data = await res.json();
+				if (!res.ok || !data.job_id){
+					setStatus(data.error || 'Failed to start generation', true);
+					btn.disabled = false;
+					return;
+				}
+				startPoll(data.job_id, productId);
+			}catch(e){
+				setStatus('Network error starting generation', true);
+				btn.disabled = false;
+			}
+		});
+
+		saveBtn?.addEventListener('click', async function(e){
+			e.preventDefault();
+			await saveGeneratedToAdditional(false);
+		});
+
+		productEl?.addEventListener('change', async function(){
+			currentJobId = '';
+			preview.src = '';
+			preview.classList.add('hidden');
+			empty.classList.remove('hidden');
+			links.classList.add('hidden');
+			editProductLink?.classList.add('hidden');
+			promptPre.textContent = '';
+			setStatus('');
+			await refreshSelectedProductSource();
+		});
+
+		// Initial source preview on load if a product is preselected.
+		refreshSelectedProductSource();
+	})();
+</script>
+{% endblock %}
