@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 _AD_CENTER_JOBS_LOCK = threading.Lock()
 _IMAGE_GEN_JOBS_LOCK = threading.Lock()
+_REDDIT_SETTINGS_LOCK = threading.Lock()
 
 
 # --------------
@@ -92,6 +93,64 @@ def _ad_job_set(job_id: str, payload: dict) -> None:
 def _ad_job_get(job_id: str) -> dict | None:
 	with _AD_CENTER_JOBS_LOCK:
 		return _ad_jobs_load().get(job_id)
+
+
+def _reddit_settings_path() -> str:
+	custom = (current_app.config.get("REDDIT_SETTINGS_PATH") or "").strip()
+	if custom:
+		return custom
+	return "/tmp/reddit_settings.json"
+
+
+def _default_reddit_settings() -> dict:
+	return {
+		"enabled": False,
+		"poll_seconds": 180,
+		"subreddits": "funny,memes,designporn",
+		"target_phrases": "\n".join([
+			"put it on a shirt",
+			"i'd buy a shirt with that",
+			"i need this on a t-shirt",
+			"make this into a shirt",
+		]),
+		"last_poll_at": None,
+		"last_poll_result": "",
+	}
+
+
+def _reddit_settings_load() -> dict:
+	path = _reddit_settings_path()
+	defaults = _default_reddit_settings()
+	try:
+		with open(path, "r", encoding="utf-8") as f:
+			data = json.load(f) or {}
+		if not isinstance(data, dict):
+			return defaults
+		return {**defaults, **data}
+	except Exception:
+		return defaults
+
+
+def _reddit_settings_save(data: dict) -> None:
+	path = _reddit_settings_path()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	tmp = f"{path}.tmp"
+	with open(tmp, "w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False)
+	os.replace(tmp, path)
+
+
+def _reddit_comment_matches(comment_text: str, phrases: list[str]) -> bool:
+	if not comment_text:
+		return False
+	comment_text = comment_text.lower().strip()
+	if not comment_text:
+		return False
+	for phrase in phrases:
+		p = (phrase or "").strip().lower()
+		if p and p in comment_text:
+			return True
+	return False
 
 
 def _ad_image_id_belongs_to_product(image_id: str, product_id: int) -> bool:
@@ -396,6 +455,63 @@ def dashboard():
 def ad_center_page():
 	products = Product.query.filter_by(status="active").order_by(Product.created_at.desc()).limit(300).all()
 	return render_template("admin_ad_center.html", products=products)
+
+
+@admin_bp.get("/reddit")
+@login_required
+def reddit_page():
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+	return render_template("admin_reddit.html", settings=settings)
+
+
+@admin_bp.post("/reddit/settings")
+@login_required
+def reddit_save_settings():
+	enabled = request.form.get("enabled") == "on"
+	try:
+		poll_seconds = int(request.form.get("poll_seconds", "180") or "180")
+	except Exception:
+		poll_seconds = 180
+	poll_seconds = max(30, min(poll_seconds, 3600))
+	subreddits = (request.form.get("subreddits") or "").strip()
+	target_phrases = (request.form.get("target_phrases") or "").strip()
+	if not target_phrases:
+		target_phrases = _default_reddit_settings()["target_phrases"]
+
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+		settings.update({
+			"enabled": enabled,
+			"poll_seconds": poll_seconds,
+			"subreddits": subreddits,
+			"target_phrases": target_phrases,
+		})
+		_reddit_settings_save(settings)
+
+	flash("Reddit polling settings saved.", "success")
+	return redirect(url_for("admin.reddit_page"))
+
+
+@admin_bp.post("/reddit/poll-now")
+@login_required
+def reddit_poll_now():
+	sample_comments = [
+		"Put it on a shirt and I'd buy it instantly.",
+		"This is hilarious.",
+		"I need this on a t-shirt right now.",
+		"Not really my thing.",
+	]
+	with _REDDIT_SETTINGS_LOCK:
+		settings = _reddit_settings_load()
+		phrases = [p.strip() for p in (settings.get("target_phrases") or "").splitlines() if p.strip()]
+		matches = [c for c in sample_comments if _reddit_comment_matches(c, phrases)]
+		settings["last_poll_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+		settings["last_poll_result"] = f"Matched {len(matches)} / {len(sample_comments)} sample comments. Next step: replace sample polling with PRAW stream."
+		_reddit_settings_save(settings)
+
+	flash(settings["last_poll_result"], "success")
+	return redirect(url_for("admin.reddit_page"))
 
 
 @admin_bp.post("/ad-center/generate-lifestyle")

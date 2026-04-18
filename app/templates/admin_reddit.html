@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Admin Reddit - Roast Cotton{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+	<div>
+		<h1 class="text-2xl font-bold">Reddit</h1>
+		<p class="text-gray-400 text-sm mt-1">Configure PRAW-style polling for comments that indicate shirt-buying intent (e.g. “put it on a shirt”).</p>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+		<h2 class="text-lg font-semibold mb-4">Polling Configuration</h2>
+		<form method="post" action="{{ url_for('admin.reddit_save_settings') }}" class="space-y-4">
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" name="enabled" {% if settings.enabled %}checked{% endif %}>
+				<span>Enable Reddit polling worker</span>
+			</label>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Poll every (seconds)</label>
+				<input type="number" min="30" max="3600" name="poll_seconds" value="{{ settings.poll_seconds }}" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Subreddits (comma-separated)</label>
+				<input type="text" name="subreddits" value="{{ settings.subreddits }}" placeholder="funny,memes,starterpacks" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">
+			</div>
+
+			<div>
+				<label class="block text-sm text-gray-300 mb-1">Target phrases (one per line)</label>
+				<textarea name="target_phrases" rows="8" class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-sm">{{ settings.target_phrases }}</textarea>
+				<p class="text-xs text-gray-500 mt-1">These phrases are used to flag comments that could convert into shirt traffic/sales.</p>
+			</div>
+
+			<div class="flex flex-wrap gap-2">
+				<button type="submit" class="bg-white text-black px-4 py-2 rounded text-sm font-medium hover:bg-gray-200">Save Settings</button>
+			</div>
+		</form>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-3">
+		<h2 class="text-lg font-semibold">Manual Poll Test</h2>
+		<p class="text-sm text-gray-400">Runs a local phrase-match test now. This is a safe placeholder until PRAW credentials and live polling are wired in.</p>
+		<form method="post" action="{{ url_for('admin.reddit_poll_now') }}">
+			<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Run Poll Test</button>
+		</form>
+		{% if settings.last_poll_at %}
+			<div class="text-sm text-gray-300">
+				<div><span class="text-gray-500">Last run:</span> {{ settings.last_poll_at }}</div>
+				<div><span class="text-gray-500">Result:</span> {{ settings.last_poll_result }}</div>
+			</div>
+		{% endif %}
+	</div>
+</div>
+{% endblock %}

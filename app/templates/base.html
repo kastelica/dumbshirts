@@ -183,6 +183,8 @@
 					class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Trends</a>
 				<a href="/admin/gelato"
 					class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Gelato</a>
+				<a href="/admin/reddit"
+					class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Reddit</a>
 				<a href="/admin/logout"
 					class="block w-full px-4 py-3.5 text-gray-200 hover:bg-gray-800 hover:text-white transition-colors">Logout</a>
 				{% endif %}
@@ -232,6 +234,7 @@
 			<a href="{{ url_for('admin.manage_promotions') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/feeds/promotions') else 'text-gray-300' }}">Promotions</a>
 			<a href="{{ url_for('admin.manage_reviews') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/feeds/reviews') else 'text-gray-300' }}">Reviews</a>
 			<a href="{{ url_for('admin.ad_center_page') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/ad-center') else 'text-gray-300' }}">Ad Center</a>
+			<a href="{{ url_for('admin.reddit_page') }}" class="px-3 py-1 rounded border border-gray-700 hover:bg-gray-800 {{ 'bg-gray-800 text-white' if request.path.startswith('/admin/reddit') else 'text-gray-300' }}">Reddit</a>
 		</div>
 	</div>
 	{% endif %}
