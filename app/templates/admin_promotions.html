@@ -4,6 +4,13 @@
 
 <p class="text-gray-300 mb-4">XML feed URL: <a class="underline" href="{{ url_for('feeds.promotions_feed') }}" target="_blank">{{ url_for('feeds.promotions_feed', _external=True) }}</a></p>
 
+<div class="border border-gray-800 rounded p-4 bg-gray-900 mb-4">
+	<h2 class="text-lg font-semibold mb-2">Google Merchant Center checkout URL template</h2>
+	{% set checkout_template = url_for('main.checkout', _external=True) ~ '?item_id={id}&quantity=1' %}
+	<p class="text-sm text-gray-300">Use this in GMC → Checkout settings → “Cart or checkout page URL”. It matches this app's checkout parser and uses the product feed ID placeholder.</p>
+	<p class="mt-2 text-sm"><code class="block bg-black border border-gray-700 rounded px-3 py-2 break-all text-green-300">{{ checkout_template }}</code></p>
+</div>
+
 <div class="border border-gray-800 rounded p-4 bg-gray-900">
 	<h2 class="text-xl font-semibold mb-3">Add / Update Promotion</h2>
 	<form method="post" action="{{ url_for('admin.add_promotion') }}" class="space-y-3">

@@ -565,56 +565,61 @@
 				if (form && result) { form.classList.add('hidden'); result.classList.remove('hidden'); }
 			}
 
-			// Auto-popup after 3 seconds of inactivity
-			function resetInactivityTimer() {
-				// Clear existing timer
-				if (inactivityTimer) {
-					clearTimeout(inactivityTimer);
-				}
+			// Auto-popup disabled: modal should only open from explicit user action (promo bar/button).
+			const AUTO_POPUP_ENABLED = false;
 
-				// Don't show if already captured, already auto-shown, or closed this session
-				if (lsGet('promo_5off_captured') === '1' || hasAutoShown || ssGet(SESSION_CLOSED_KEY) === '1' || !modal) {
-					return;
-				}
+			if (AUTO_POPUP_ENABLED) {
+				// Auto-popup after 3 seconds of inactivity
+				function resetInactivityTimer() {
+					// Clear existing timer
+					if (inactivityTimer) {
+						clearTimeout(inactivityTimer);
+					}
 
-				// Don't show if modal is already visible
-				if (modal && !modal.classList.contains('hidden')) {
-					return;
-				}
-
-				// Set new timer
-				inactivityTimer = setTimeout(function () {
-					// Double-check session state before showing
-					if (ssGet(SESSION_CLOSED_KEY) === '1') {
+					// Don't show if already captured, already auto-shown, or closed this session
+					if (lsGet('promo_5off_captured') === '1' || hasAutoShown || ssGet(SESSION_CLOSED_KEY) === '1' || !modal) {
 						return;
 					}
-					if (modal && modal.classList.contains('hidden')) {
-						open();
-						hasAutoShown = true;
 
-						// GA4: Auto-popup shown
-						if (typeof gtag === 'function') {
-							gtag('event', 'promo_5off_auto_shown', {
-								event_category: 'Engagement',
-								event_label: '5% Off Auto Popup',
-								value: 0
-							});
-							console.log('[base] GA4 promo_5off_auto_shown event sent');
-						}
+					// Don't show if modal is already visible
+					if (modal && !modal.classList.contains('hidden')) {
+						return;
 					}
-				}, inactivityDelay);
+
+					// Set new timer
+					inactivityTimer = setTimeout(function () {
+						// Double-check session state before showing
+						if (ssGet(SESSION_CLOSED_KEY) === '1') {
+							return;
+						}
+						if (modal && modal.classList.contains('hidden')) {
+							open();
+							hasAutoShown = true;
+
+							// GA4: Auto-popup shown
+							if (typeof gtag === 'function') {
+								gtag('event', 'promo_5off_auto_shown', {
+									event_category: 'Engagement',
+									event_label: '5% Off Auto Popup',
+									value: 0
+								});
+								console.log('[base] GA4 promo_5off_auto_shown event sent');
+							}
+						}
+					}, inactivityDelay);
+				}
+
+				// Track user activity
+				const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+				activityEvents.forEach(function (eventName) {
+					document.addEventListener(eventName, function () {
+						resetInactivityTimer();
+					}, { passive: true });
+				});
+
+				// Start the timer on page load
+				resetInactivityTimer();
 			}
-
-			// Track user activity
-			const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-			activityEvents.forEach(function (eventName) {
-				document.addEventListener(eventName, function () {
-					resetInactivityTimer();
-				}, { passive: true });
-			});
-
-			// Start the timer on page load
-			resetInactivityTimer();
 		})();
 	</script>
 
