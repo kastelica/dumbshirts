@@ -59,14 +59,15 @@
 
 {# Mobile slider only - shown above product grid #}
 <section class="md:hidden py-4">
-	{% if hero_products and hero_products|length > 0 %}
+	{% set mobile_hero_products = hero_products if (hero_products and hero_products|length > 0) else products[:5] %}
+	{% if mobile_hero_products and mobile_hero_products|length > 0 %}
 	<div class="relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
 		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
-			style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
-			{% for p in hero_products %}
+			style="width: {{ mobile_hero_products|length * 100 }}%; transform: translateX(0%);">
+			{% for p in mobile_hero_products %}
 			<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
 				class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
-				style="width: {{ 100 / hero_products|length }}%;">
+				style="width: {{ 100 / mobile_hero_products|length }}%;">
 				{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
 				{% if design_img %}
 				<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
@@ -77,7 +78,7 @@
 			</a>
 			{% endfor %}
 		</div>
-		{% if hero_products|length > 1 %}
+		{% if mobile_hero_products|length > 1 %}
 		<button id="hero-slide-prev-mobile"
 			class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 			aria-label="Previous slide">‹</button>
@@ -85,7 +86,7 @@
 			class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 			aria-label="Next slide">›</button>
 		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-			{% for p in hero_products %}
+			{% for p in mobile_hero_products %}
 			<button
 				class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
 				data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
