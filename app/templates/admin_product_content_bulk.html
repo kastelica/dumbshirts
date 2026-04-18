@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Bulk Product Copy Manager | Roast Cotton{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-4">
+	<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+		<div>
+			<h1 class="text-2xl font-semibold">Bulk Product Copy Manager</h1>
+			<p class="text-sm text-gray-400">Edit titles/descriptions in bulk, clean template copy, or generate with OpenAI.</p>
+		</div>
+		<div class="flex items-center gap-2">
+			<a href="{{ url_for('admin.products_list') }}" class="bg-gray-800 text-white px-4 py-2 rounded">Back to Products</a>
+		</div>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded p-4 space-y-3">
+		<div class="flex flex-col md:flex-row gap-2">
+			<input id="copy-filter" type="text" class="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-sm" placeholder="Filter by title or description...">
+			<label class="inline-flex items-center gap-2 text-sm text-gray-300">
+				<input type="checkbox" id="only-missing" checked>
+				<span>OpenAI: only missing/low-quality fields</span>
+			</label>
+		</div>
+		<div class="flex flex-wrap gap-2">
+			<button id="select-all" class="bg-gray-800 text-white px-3 py-2 rounded text-sm">Select Visible</button>
+			<button id="select-none" class="bg-gray-800 text-white px-3 py-2 rounded text-sm">Clear Selection</button>
+			<button id="cleanup-btn" class="bg-yellow-600 text-white px-3 py-2 rounded text-sm hover:bg-yellow-700">Clean Template Text</button>
+			<button id="generate-btn" class="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">Generate with OpenAI</button>
+			<button id="save-btn" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700">Save Manual Edits</button>
+		</div>
+		<div id="status" class="text-xs text-gray-400"></div>
+	</div>
+
+	<div class="bg-gray-900 border border-gray-800 rounded overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead class="text-gray-400 border-b border-gray-800">
+				<tr>
+					<th class="py-2 px-2"><input type="checkbox" id="master-check"></th>
+					<th class="py-2 px-2 text-left">ID</th>
+					<th class="py-2 px-2 text-left">Title</th>
+					<th class="py-2 px-2 text-left">Description</th>
+				</tr>
+			</thead>
+			<tbody id="copy-rows">
+				{% for p in products %}
+				<tr class="border-b border-gray-800 align-top copy-row" data-title="{{ (p.title or '')|lower }}" data-description="{{ (p.description or '')|lower }}">
+					<td class="p-2"><input type="checkbox" class="row-check" value="{{ p.id }}"></td>
+					<td class="p-2 text-gray-400">{{ p.id }}</td>
+					<td class="p-2 min-w-[280px]">
+						<input type="text" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1.5 title-input" value="{{ p.title or '' }}">
+					</td>
+					<td class="p-2 min-w-[460px]">
+						<textarea rows="3" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1.5 desc-input">{{ p.description or '' }}</textarea>
+					</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<script>
+(function(){
+	const statusEl = document.getElementById('status');
+	const filterInput = document.getElementById('copy-filter');
+	const rows = Array.from(document.querySelectorAll('.copy-row'));
+	const masterCheck = document.getElementById('master-check');
+	const selectAllBtn = document.getElementById('select-all');
+	const selectNoneBtn = document.getElementById('select-none');
+	const cleanupBtn = document.getElementById('cleanup-btn');
+	const generateBtn = document.getElementById('generate-btn');
+	const saveBtn = document.getElementById('save-btn');
+	const onlyMissing = document.getElementById('only-missing');
+
+	function setStatus(msg, isError){
+		if(!statusEl) return;
+		statusEl.textContent = msg || '';
+		statusEl.className = 'text-xs ' + (isError ? 'text-red-400' : 'text-gray-400');
+	}
+
+	function visibleRows(){
+		return rows.filter(r => r.style.display !== 'none');
+	}
+
+	function selectedIds(){
+		return rows
+			.filter(r => r.querySelector('.row-check')?.checked)
+			.map(r => parseInt(r.querySelector('.row-check').value, 10))
+			.filter(Boolean);
+	}
+
+	function applyFilter(){
+		const q = (filterInput?.value || '').toLowerCase().trim();
+		rows.forEach((row) => {
+			if(!q){
+				row.style.display = '';
+				return;
+			}
+			const t = row.dataset.title || '';
+			const d = row.dataset.description || '';
+			row.style.display = (t.includes(q) || d.includes(q)) ? '' : 'none';
+		});
+	}
+
+	async function postJSON(url, body){
+		const res = await fetch(url, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify(body || {})
+		});
+		const data = await res.json().catch(() => ({}));
+		if(!res.ok){
+			throw new Error(data.error || `Request failed (${res.status})`);
+		}
+		return data;
+	}
+
+	async function runCleanup(){
+		const ids = selectedIds();
+		if(ids.length === 0){
+			return setStatus('Select at least one row first.', true);
+		}
+		setStatus('Cleaning template copy...');
+		try{
+			const out = await postJSON('/admin/products/content-manager/cleanup', {product_ids: ids});
+			setStatus(`Cleanup complete. Updated fields: ${out.updated_fields || 0}.`);
+		}catch(err){
+			setStatus(err.message || 'Cleanup failed.', true);
+		}
+	}
+
+	async function runGenerate(){
+		const ids = selectedIds();
+		if(ids.length === 0){
+			return setStatus('Select at least one row first.', true);
+		}
+		setStatus('Generating copy with OpenAI...');
+		try{
+			const out = await postJSON('/admin/products/content-manager/generate', {
+				product_ids: ids,
+				only_missing: !!onlyMissing?.checked
+			});
+			const errCount = (out.errors || []).length;
+			setStatus(`Generate complete. Updated ${out.updated || 0}, skipped ${out.skipped || 0}, errors ${errCount}. Refresh to view saved changes.`);
+		}catch(err){
+			setStatus(err.message || 'Generation failed.', true);
+		}
+	}
+
+	async function runSave(){
+		const ids = new Set(selectedIds());
+		if(ids.size === 0){
+			return setStatus('Select at least one row first.', true);
+		}
+		const updates = rows
+			.filter(r => ids.has(parseInt(r.querySelector('.row-check').value, 10)))
+			.map(r => ({
+				id: parseInt(r.querySelector('.row-check').value, 10),
+				title: (r.querySelector('.title-input')?.value || '').trim(),
+				description: (r.querySelector('.desc-input')?.value || '').trim()
+			}));
+		setStatus('Saving edits...');
+		try{
+			const out = await postJSON('/admin/products/content-manager/save', {updates});
+			setStatus(`Saved ${out.updated || 0} products.`);
+		}catch(err){
+			setStatus(err.message || 'Save failed.', true);
+		}
+	}
+
+	filterInput?.addEventListener('input', applyFilter);
+	masterCheck?.addEventListener('change', () => {
+		const checked = !!masterCheck.checked;
+		visibleRows().forEach((r) => {
+			const box = r.querySelector('.row-check');
+			if(box) box.checked = checked;
+		});
+	});
+	selectAllBtn?.addEventListener('click', () => {
+		visibleRows().forEach((r) => {
+			const box = r.querySelector('.row-check');
+			if(box) box.checked = true;
+		});
+	});
+	selectNoneBtn?.addEventListener('click', () => {
+		rows.forEach((r) => {
+			const box = r.querySelector('.row-check');
+			if(box) box.checked = false;
+		});
+		if(masterCheck) masterCheck.checked = false;
+	});
+	cleanupBtn?.addEventListener('click', runCleanup);
+	generateBtn?.addEventListener('click', runGenerate);
+	saveBtn?.addEventListener('click', runSave);
+})();
+</script>
+{% endblock %}

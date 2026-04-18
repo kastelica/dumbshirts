@@ -19,7 +19,7 @@ window.renderOptIn = function() {
   window.gapi.load('surveyoptin', function() {
     window.gapi.surveyoptin.render({
       "merchant_id": {{ merchant_id }},
-      "order_id": {{ (order.stripe_payment_intent_id or ('ORDER-' ~ order.id))|tojson }},
+      "order_id": {{ ('ORDER-' ~ order.id)|tojson }},
       "email": {{ (email or '')|tojson }},
       "delivery_country": {{ (country or 'US')|tojson }},
       "estimated_delivery_date": {{ est_delivery|tojson }},
@@ -120,4 +120,3 @@ async function sha256Hash(text) {
 	<a href="{{ url_for('main.index') }}" class="bg-white text-black px-4 py-2 rounded">Continue Shopping</a>
 </div>
 {% endblock %}
-
