@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set source_products = hero_products if (hero_products and hero_products|length > 0) else products %}
+{% set ns = namespace(lifestyle_slides=[]) %}
+{% for p in source_products %}
+	{% set extra1 = p.design.extra_image1_url if p.design and p.design.extra_image1_url else '' %}
+	{% set extra2 = p.design.extra_image2_url if p.design and p.design.extra_image2_url else '' %}
+	{% if extra1 %}
+		{% set ns.lifestyle_slides = ns.lifestyle_slides + [{"slug": p.slug, "title": p.title, "image": extra1}] %}
+	{% endif %}
+	{% if extra2 and extra2 != extra1 %}
+		{% set ns.lifestyle_slides = ns.lifestyle_slides + [{"slug": p.slug, "title": p.title, "image": extra2}] %}
+	{% endif %}
+{% endfor %}
+
 {# Hero section - hidden on mobile, shown on desktop #}
 <section class="hidden md:block py-10 md:py-16">
 	<div class="grid grid-cols-1 md:grid-cols-3 md:items-center md:gap-8">
@@ -14,17 +27,16 @@
 			</div>
 		</div>
 		<div class="mt-6 md:mt-0 md:col-span-2">
-			{% if hero_products and hero_products|length > 0 %}
+			{% if ns.lifestyle_slides and ns.lifestyle_slides|length > 0 %}
 			<div class="relative w-full h-48 md:h-[300px] bg-gray-900 border border-gray-800 rounded overflow-hidden">
 				<div id="hero-slideshow" class="flex h-full transition-transform duration-300 ease-in-out"
-					style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
-					{% for p in hero_products %}
-					<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
+					style="width: {{ ns.lifestyle_slides|length * 100 }}%; transform: translateX(0%);">
+					{% for slide in ns.lifestyle_slides %}
+					<a href="{{ url_for('main.product_detail', slug=slide.slug) }}"
 						class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
-						style="width: {{ 100 / hero_products|length }}%;">
-						{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
-						{% if design_img %}
-						<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
+						style="width: {{ 100 / ns.lifestyle_slides|length }}%;">
+						{% if slide.image %}
+						<img src="{{ slide.image }}" alt="{{ slide.title }}" class="max-w-full max-h-full object-contain"
 							loading="lazy" />
 						{% else %}
 						<span class="text-gray-600 text-sm">No image</span>
@@ -32,7 +44,7 @@
 					</a>
 					{% endfor %}
 				</div>
-				{% if hero_products|length > 1 %}
+				{% if ns.lifestyle_slides|length > 1 %}
 				<button id="hero-slide-prev"
 					class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 					aria-label="Previous slide">‹</button>
@@ -40,7 +52,7 @@
 					class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-xl flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
 					aria-label="Next slide">›</button>
 				<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-					{% for p in hero_products %}
+					{% for slide in ns.lifestyle_slides %}
 					<button
 						class="hero-slide-dot w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
 						data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
@@ -56,6 +68,49 @@
 			{% endif %}
 		</div>
 	</div>
+</section>
+
+{# Mobile slider only - shown above product grid #}
+<section class="md:hidden py-4">
+	{% if ns.lifestyle_slides and ns.lifestyle_slides|length > 0 %}
+	<div class="relative w-full h-56 border border-gray-800 rounded overflow-hidden">
+		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
+			style="width: {{ ns.lifestyle_slides|length * 100 }}%; transform: translateX(0%);">
+			{% for slide in ns.lifestyle_slides %}
+			<a href="{{ url_for('main.product_detail', slug=slide.slug) }}"
+				class="flex-shrink-0 h-full block hover:opacity-95 transition-opacity"
+				style="width: {{ 100 / ns.lifestyle_slides|length }}%;">
+				{% if slide.image %}
+				<img src="{{ slide.image }}" alt="{{ slide.title }}" class="w-full h-full object-cover"
+					loading="lazy" />
+				{% else %}
+					<span class="text-gray-600 text-sm">No image</span>
+				{% endif %}
+			</a>
+			{% endfor %}
+		</div>
+		{% if ns.lifestyle_slides|length > 1 %}
+		<button id="hero-slide-prev-mobile"
+			class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
+			aria-label="Previous slide">‹</button>
+		<button id="hero-slide-next-mobile"
+			class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
+			aria-label="Next slide">›</button>
+		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+			{% for slide in ns.lifestyle_slides %}
+			<button
+				class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
+				data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
+			{% endfor %}
+		</div>
+		{% endif %}
+	</div>
+	{% else %}
+	<div
+		class="w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
+		<span class="text-gray-600 text-sm">No products available</span>
+	</div>
+	{% endif %}
 </section>
 
 <section class="mt-4 flex items-center justify-between">
@@ -183,7 +238,7 @@
 </div>
 {% endif %}
 
-{# Hero section - shown on mobile only, below product grid #}
+{# Mobile header text/CTAs remain below product grid #}
 <section class="md:hidden py-8 mt-8">
 	<div class="text-center">
 		<h1 class="text-3xl font-extrabold tracking-tight">Roast Cotton</h1>
@@ -193,47 +248,8 @@
 			<a href="/search" class="border border-gray-700 text-gray-100 px-5 py-2 rounded">Search trends</a>
 		</div>
 	</div>
-	{% if hero_products and hero_products|length > 0 %}
-	<div class="mt-6 relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
-		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
-			style="width: {{ hero_products|length * 100 }}%; transform: translateX(0%);">
-			{% for p in hero_products %}
-			<a href="{{ url_for('main.product_detail', slug=p.slug) }}"
-				class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
-				style="width: {{ 100 / hero_products|length }}%;">
-				{% set design_img = p.design.image_url if p.design and p.design.image_url else '' %}
-				{% if design_img %}
-				<img src="{{ design_img }}" alt="{{ p.title }}" class="max-w-full max-h-full object-contain"
-					loading="lazy" />
-				{% else %}
-				<span class="text-gray-600 text-sm">No image</span>
-				{% endif %}
-			</a>
-			{% endfor %}
-		</div>
-		{% if hero_products|length > 1 %}
-		<button id="hero-slide-prev-mobile"
-			class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
-			aria-label="Previous slide">‹</button>
-		<button id="hero-slide-next-mobile"
-			class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-900/90 border border-gray-800 text-gray-200 text-lg flex items-center justify-center hover:bg-gray-800 transition-colors z-10"
-			aria-label="Next slide">›</button>
-		<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-			{% for p in hero_products %}
-			<button
-				class="hero-slide-dot-mobile w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-colors {% if loop.index0 == 0 %}bg-white{% endif %}"
-				data-slide="{{ loop.index0 }}" aria-label="Go to slide {{ loop.index }}"></button>
-			{% endfor %}
-		</div>
-		{% endif %}
-	</div>
-	{% else %}
-	<div
-		class="mt-6 w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden flex items-center justify-center p-2">
-		<span class="text-gray-600 text-sm">No products available</span>
-	</div>
-	{% endif %}
 </section>
+
 {% endblock %}
 
 {% block head %}
