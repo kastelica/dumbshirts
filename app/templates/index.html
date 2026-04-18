@@ -73,18 +73,18 @@
 {# Mobile slider only - shown above product grid #}
 <section class="md:hidden py-4">
 	{% if ns.lifestyle_slides and ns.lifestyle_slides|length > 0 %}
-	<div class="relative w-full h-48 bg-gray-900 border border-gray-800 rounded overflow-hidden">
+	<div class="relative w-full h-56 border border-gray-800 rounded overflow-hidden">
 		<div id="hero-slideshow-mobile" class="flex h-full transition-transform duration-300 ease-in-out"
 			style="width: {{ ns.lifestyle_slides|length * 100 }}%; transform: translateX(0%);">
 			{% for slide in ns.lifestyle_slides %}
 			<a href="{{ url_for('main.product_detail', slug=slide.slug) }}"
-				class="flex-shrink-0 h-full flex items-center justify-center p-4 hover:opacity-90 transition-opacity bg-white"
+				class="flex-shrink-0 h-full block hover:opacity-95 transition-opacity"
 				style="width: {{ 100 / ns.lifestyle_slides|length }}%;">
 				{% if slide.image %}
-				<img src="{{ slide.image }}" alt="{{ slide.title }}" class="max-w-full max-h-full object-contain"
+				<img src="{{ slide.image }}" alt="{{ slide.title }}" class="w-full h-full object-cover"
 					loading="lazy" />
 				{% else %}
-				<span class="text-gray-600 text-sm">No image</span>
+					<span class="text-gray-600 text-sm">No image</span>
 				{% endif %}
 			</a>
 			{% endfor %}
